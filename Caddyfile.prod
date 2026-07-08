@@ -1,0 +1,17 @@
+# Production Caddyfile
+# Replace yourdomain.com with your actual domain name
+
+yourdomain.com {
+    # Caddy will automatically provision Let's Encrypt SSL certificates for this domain.
+    
+    # Enable Gzip compression
+    encode gzip
+    
+    handle /api/* {
+        reverse_proxy backend-core:4000
+    }
+    
+    handle {
+        reverse_proxy frontend:3000
+    }
+}

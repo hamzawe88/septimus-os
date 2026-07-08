@@ -1,0 +1,35 @@
+# repowise index & keys (generated locally)
+.repowise/
+
+# Dependencies
+node_modules/
+**/node_modules/
+.venv/
+**/.venv/
+venv/
+**/venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Build outputs
+.next/
+**/.next/
+dist/
+build/
+
+# OS / editor
+.DS_Store
+.vscode/
+*.log
+
+# Databases & dumps
+*.sqlite
+*.dump

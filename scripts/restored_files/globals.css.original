@@ -1,0 +1,54 @@
+:root {
+  --sb-bg: rgba(255, 255, 255, 0.4);
+  --sb-hover: rgba(255, 255, 255, 0.6);
+  --sb-active-bg: rgba(255, 255, 255, 0.9);
+  --sb-text: #475569;
+  --sb-text-active: #0f172a;
+  --sb-text-muted: #64748b;
+  --sb-divider: rgba(0, 0, 0, 0.06);
+  --sb-width: 260px;
+
+  --tb-bg: rgba(255, 255, 255, 0.4);
+  --tb-border: rgba(0, 0, 0, 0.05);
+  --tb-height: 56px;
+
+  --chat-bg: transparent;
+  --chat-text: #1e293b;
+  --chat-hover-bg: rgba(255, 255, 255, 0.5);
+
+  --blue: #3b82f6;
+  --blue-dark: #2563eb;
+  --green: #10b981;
+  --green-light: #d1fae5;
+  --green-dark: #047857;
+  --red: #ef4444;
+  --purple: #8b5cf6;
+  --purple-bg: #f3e8ff;
+  --purple-border: #d8b4fe;
+  --purple-dark: #5b21b6;
+
+  --login-gradient: linear-gradient(135deg, #c4b5fd 0%, #fbcfe8 50%, #93c5fd 100%);
+  --logo-gradient: linear-gradient(135deg, #8b5cf6, #3b82f6);
+  --ai-gradient: linear-gradient(135deg, #8b5cf6, #ec4899);
+
+  --font-sans: var(--font-inter);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --border-color: rgba(0,0,0,0.06);
+  --border-strong: rgba(0,0,0,0.1);
+  --bg-primary: #ffffff;
+  --bg-secondary: rgba(248, 250, 252, 0.5);
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+}
+
+body {
+  background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+}
+
+.topbar, .sidebar {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}

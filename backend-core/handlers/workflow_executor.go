@@ -1,0 +1,379 @@
+package handlers
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/septimus-os/backend-core/database"
+	"github.com/septimus-os/backend-core/events"
+	"github.com/septimus-os/backend-core/models"
+	"gorm.io/datatypes"
+)
+
+// ─── Node & Edge Data Structures ─────────────────────────────────────────────
+
+// WFNodeData holds configuration for each node type
+type WFNodeData struct {
+	Label       string `json:"label"`
+	Description string `json:"description,omitempty"`
+
+	// Trigger node config
+	TriggerEvent    string `json:"triggerEvent,omitempty"`    // "task.done", "document.uploaded", "message.created", "cron"
+	IntervalMinutes int    `json:"intervalMinutes,omitempty"` // for "cron" trigger, interval in minutes
+
+	// Condition node config
+	Field    string `json:"field,omitempty"`    // "status", "priority", "content"
+	Operator string `json:"operator,omitempty"` // "eq", "neq", "gt", "lt", "contains"
+	Value    string `json:"value,omitempty"`    // expected value
+
+	// Action node config
+	ActionType    string            `json:"actionType,omitempty"`    // "http", "nats", "notify"
+	ActionURL     string            `json:"actionUrl,omitempty"`     // for "http" type
+	ActionMethod  string            `json:"actionMethod,omitempty"`  // "POST", "GET", "PUT", "DELETE"
+	ActionHeaders map[string]string `json:"actionHeaders,omitempty"` // custom headers
+	ActionBody    string            `json:"actionBody,omitempty"`    // template body with {{field}} substitution
+	NATSTopic     string            `json:"natsTopic,omitempty"`     // for "nats" type
+}
+
+// WFNode represents a single node in the React Flow visual graph
+type WFNode struct {
+	ID       string                 `json:"id"`
+	Type     string                 `json:"type"` // "trigger" | "condition" | "action"
+	Data     WFNodeData             `json:"data"`
+	Position map[string]interface{} `json:"position"`
+}
+
+// WFEdge represents a connection between two nodes
+type WFEdge struct {
+	ID     string `json:"id"`
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+// ─── Graph Utilities ──────────────────────────────────────────────────────────
+
+// buildAdjacency creates a source→[]target map from workflow edges
+func buildAdjacency(edges []WFEdge) map[string][]string {
+	graph := make(map[string][]string)
+	for _, edge := range edges {
+		graph[edge.Source] = append(graph[edge.Source], edge.Target)
+	}
+	return graph
+}
+
+// findTriggerNodes returns all nodes of type "trigger"
+func findTriggerNodes(nodes []WFNode) []WFNode {
+	var triggers []WFNode
+	for _, n := range nodes {
+		if n.Type == "trigger" {
+			triggers = append(triggers, n)
+		}
+	}
+	return triggers
+}
+
+// nodeByID returns a node by its ID
+func nodeByID(nodes []WFNode, id string) (WFNode, bool) {
+	for _, n := range nodes {
+		if n.ID == id {
+			return n, true
+		}
+	}
+	return WFNode{}, false
+}
+
+// ─── Node Executors ───────────────────────────────────────────────────────────
+
+// evaluateCondition checks if the event context satisfies the condition node
+func evaluateCondition(node WFNode, ctx map[string]interface{}) bool {
+	field := node.Data.Field
+	op := node.Data.Operator
+	expected := node.Data.Value
+
+	actual, ok := ctx[field]
+	if !ok {
+		return false
+	}
+	actualStr := fmt.Sprintf("%v", actual)
+
+	switch op {
+	case "eq":
+		return actualStr == expected
+	case "neq":
+		return actualStr != expected
+	case "contains":
+		return strings.Contains(strings.ToLower(actualStr), strings.ToLower(expected))
+	case "gt":
+		return actualStr > expected
+	case "lt":
+		return actualStr < expected
+	default:
+		log.Printf("[WF] Unknown operator '%s' in condition node '%s'", op, node.Data.Label)
+		return false
+	}
+}
+
+// executeAction dispatches to the appropriate action handler
+func executeAction(node WFNode, ctx map[string]interface{}) error {
+	switch node.Data.ActionType {
+	case "http":
+		return executeHTTPAction(node, ctx)
+	case "nats":
+		return executeNATSAction(node, ctx)
+	case "notify":
+		return executeNotifyAction(node, ctx)
+	default:
+		log.Printf("[WF] Unknown action type '%s' on node '%s' — skipping", node.Data.ActionType, node.Data.Label)
+		return nil
+	}
+}
+
+// executeHTTPAction sends an HTTP request with template substitution and custom headers
+func executeHTTPAction(node WFNode, ctx map[string]interface{}) error {
+	if node.Data.ActionURL == "" {
+		return fmt.Errorf("HTTP action missing actionUrl on node '%s'", node.Data.Label)
+	}
+	body := node.Data.ActionBody
+	// Simple template substitution: {{field}} → value
+	for k, v := range ctx {
+		body = strings.ReplaceAll(body, fmt.Sprintf("{{%s}}", k), fmt.Sprintf("%v", v))
+	}
+	method := strings.ToUpper(node.Data.ActionMethod)
+	if method == "" {
+		method = "POST"
+	}
+	req, err := http.NewRequest(method, node.Data.ActionURL, strings.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("HTTP action request creation failed: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range node.Data.ActionHeaders {
+		req.Header.Set(k, v)
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("HTTP action %s failed: %w", method, err)
+	}
+	defer resp.Body.Close()
+	log.Printf("[WF] HTTP action (%s) → %s → status %d", method, node.Data.ActionURL, resp.StatusCode)
+	return nil
+}
+
+// executeNATSAction publishes a NATS event with the current context
+func executeNATSAction(node WFNode, ctx map[string]interface{}) error {
+	if node.Data.NATSTopic == "" {
+		return fmt.Errorf("NATS action missing natsTopic on node '%s'", node.Data.Label)
+	}
+	payload, _ := json.Marshal(ctx)
+	if err := events.PublishEvent(node.Data.NATSTopic, payload); err != nil {
+		return fmt.Errorf("NATS publish to '%s' failed: %w", node.Data.NATSTopic, err)
+	}
+	log.Printf("[WF] NATS action → topic: %s", node.Data.NATSTopic)
+	return nil
+}
+
+// executeNotifyAction sends an in-app notification to a channel
+func executeNotifyAction(node WFNode, ctx map[string]interface{}) error {
+	channelID, _ := ctx["channel_id"].(string)
+	if channelID == "" {
+		channelID = "00000000-0000-0000-0000-000000000000"
+	}
+	msg := fmt.Sprintf("⚡️ **Workflow: %s**\n%s", node.Data.Label, node.Data.Description)
+	payload, _ := json.Marshal(map[string]interface{}{
+		"channel_id":      channelID,
+		"content":         msg,
+		"is_ai_generated": true,
+		"ai_agent_role":   "Workflow Engine",
+	})
+	resp, err := http.Post("http://localhost:4000/api/v1/system/messages", "application/json", strings.NewReader(string(payload)))
+	if err != nil {
+		return fmt.Errorf("notify action HTTP failed: %w", err)
+	}
+	defer resp.Body.Close()
+	log.Printf("[WF] Notify sent to channel %s", channelID)
+	return nil
+}
+
+// ─── DFS Traversal Engine ─────────────────────────────────────────────────────
+
+// traverseAndExecute performs depth-first traversal from startNodeID,
+// executing each node and respecting condition gates.
+func traverseAndExecute(startID string, nodes []WFNode, adjacency map[string][]string, ctx map[string]interface{}) {
+	visited := make(map[string]bool)
+
+	var dfs func(nodeID string)
+	dfs = func(nodeID string) {
+		if visited[nodeID] {
+			return
+		}
+		visited[nodeID] = true
+
+		node, ok := nodeByID(nodes, nodeID)
+		if !ok {
+			log.Printf("[WF] Node '%s' not found in graph", nodeID)
+			return
+		}
+
+		log.Printf("[WF] Executing node: '%s' (type=%s)", node.Data.Label, node.Type)
+
+		switch node.Type {
+		case "trigger":
+			// Trigger nodes are entry points — just pass through to children
+			for _, nextID := range adjacency[nodeID] {
+				dfs(nextID)
+			}
+
+		case "condition":
+			passed := evaluateCondition(node, ctx)
+			log.Printf("[WF] Condition '%s' → %v", node.Data.Label, passed)
+			if passed {
+				for _, nextID := range adjacency[nodeID] {
+					dfs(nextID)
+				}
+			}
+
+		case "action":
+			if err := executeAction(node, ctx); err != nil {
+				log.Printf("[WF] Action '%s' failed: %v", node.Data.Label, err)
+				// Don't stop traversal on action failure
+			}
+			for _, nextID := range adjacency[nodeID] {
+				dfs(nextID)
+			}
+		}
+	}
+
+	dfs(startID)
+}
+
+// ─── Public Execution API ─────────────────────────────────────────────────────
+
+// ExecuteWorkflowsByTrigger finds all active workflows matching a trigger event
+// and executes them concurrently with the provided context data.
+// Call this from NATS event handlers or HTTP handlers.
+func ExecuteWorkflowsByTrigger(triggerEvent string, ctx map[string]interface{}) {
+	var workflows []models.Workflow
+	if err := database.DB.Where("is_active = ?", true).Find(&workflows).Error; err != nil {
+		log.Printf("[WF] Failed to fetch active workflows: %v", err)
+		return
+	}
+
+	if len(workflows) == 0 {
+		return
+	}
+
+	log.Printf("[WF] Checking %d active workflows for trigger '%s'", len(workflows), triggerEvent)
+
+	for _, wf := range workflows {
+		go runWorkflow(wf, triggerEvent, ctx)
+	}
+}
+
+// runWorkflow parses and executes a single workflow in a goroutine
+func runWorkflow(wf models.Workflow, triggerEvent string, ctx map[string]interface{}) {
+	var nodes []WFNode
+	if err := json.Unmarshal(wf.Nodes, &nodes); err != nil {
+		log.Printf("[WF] Workflow '%s': failed to parse nodes: %v", wf.Name, err)
+		return
+	}
+
+	var edges []WFEdge
+	if err := json.Unmarshal(wf.Edges, &edges); err != nil {
+		log.Printf("[WF] Workflow '%s': failed to parse edges: %v", wf.Name, err)
+		return
+	}
+
+	triggers := findTriggerNodes(nodes)
+	adjacency := buildAdjacency(edges)
+
+	matched := false
+	status := "success"
+
+	for _, trigger := range triggers {
+		triggerEventConfig := trigger.Data.TriggerEvent
+		if triggerEventConfig == "" || triggerEventConfig == triggerEvent {
+			log.Printf("[WF] 🚀 Workflow '%s' triggered by '%s'", wf.Name, triggerEvent)
+			matched = true
+
+			defer func() {
+				if r := recover(); r != nil {
+					status = "failed"
+					log.Printf("[WF] Workflow '%s' panicked: %v", wf.Name, r)
+				}
+			}()
+
+			traverseAndExecute(trigger.ID, nodes, adjacency, ctx)
+		}
+	}
+
+	if matched {
+		StoreWorkflowRun(wf.ID, triggerEvent, status, ctx)
+	}
+}
+
+// ─── Workflow Run Logger ──────────────────────────────────────────────────────
+
+// StoreWorkflowRun persists a workflow execution record to the database
+func StoreWorkflowRun(workflowID uuid.UUID, trigger, status string, ctx map[string]interface{}) {
+	ctxBytes, _ := json.Marshal(ctx)
+	run := models.WorkflowRun{
+		WorkflowID:  workflowID,
+		TriggerName: trigger,
+		Status:      status,
+		Context:     datatypes.JSON(ctxBytes),
+	}
+	if err := database.DB.Create(&run).Error; err != nil {
+		log.Printf("[WF] Failed to store workflow run: %v", err)
+	}
+}
+
+// ─── Cron & Scheduled Workflows Manager ───────────────────────────────────────
+
+// StartCronManager starts a background ticker that checks for scheduled workflows every minute
+func StartCronManager() {
+	log.Println("[WF] Starting Cron/Interval Workflow Manager...")
+	ticker := time.NewTicker(1 * time.Minute)
+	go func() {
+		for range ticker.C {
+			checkAndRunScheduledWorkflows()
+		}
+	}()
+}
+
+func checkAndRunScheduledWorkflows() {
+	var workflows []models.Workflow
+	if err := database.DB.Where("is_active = ?", true).Find(&workflows).Error; err != nil {
+		return
+	}
+
+	now := time.Now()
+	for _, wf := range workflows {
+		var nodes []WFNode
+		if err := json.Unmarshal(wf.Nodes, &nodes); err != nil {
+			continue
+		}
+		triggers := findTriggerNodes(nodes)
+		for _, trigger := range triggers {
+			if trigger.Data.TriggerEvent == "cron" || trigger.Data.TriggerEvent == "interval" {
+				interval := trigger.Data.IntervalMinutes
+				if interval <= 0 {
+					interval = 60 // default 1 hour if unspecified
+				}
+				// Check if current minute is a multiple of interval
+				if now.Minute()%interval == 0 {
+					log.Printf("[WF] ⏰ Scheduled execution for workflow '%s' (interval: %d mins)", wf.Name, interval)
+					go runWorkflow(wf, "cron", map[string]interface{}{
+						"timestamp": now.Format(time.RFC3339),
+						"trigger":   "cron",
+					})
+				}
+			}
+		}
+	}
+}

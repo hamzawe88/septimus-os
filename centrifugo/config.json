@@ -1,0 +1,19 @@
+{
+  "v3_use_offset": true,
+  "token_hmac_secret_key": "supersecretcentrifugokey",
+  "admin_password": "admin",
+  "admin_secret": "adminsecret",
+  "api_key": "supersecretapikey",
+  "allowed_origins": [
+    "*"
+  ],
+  "namespaces": [
+    {
+      "name": "chat",
+      "presence": true,
+      "history_size": 100,
+      "history_ttl": "24h",
+      "join_leave": true
+    }
+  ]
+}

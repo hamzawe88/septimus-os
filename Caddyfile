@@ -1,0 +1,11 @@
+:443 {
+    tls /etc/caddy/local-cert.pem /etc/caddy/local-key.pem
+    
+    handle /api/* {
+        reverse_proxy backend-core:4000
+    }
+    
+    handle {
+        reverse_proxy frontend:3000
+    }
+}

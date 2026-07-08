@@ -1,0 +1,163 @@
+{
+  "nodes": [
+    {
+      "id": "group000000000001",
+      "type": "group",
+      "label": "Frontend Layer (Next.js / Vue 3)",
+      "x": -600,
+      "y": -200,
+      "width": 500,
+      "height": 600,
+      "color": "5"
+    },
+    {
+      "id": "node000000000001",
+      "type": "text",
+      "x": -550,
+      "y": -120,
+      "width": 400,
+      "height": 180,
+      "text": "# Next.js 15 UI\n- Light Theme Core\n- CRM / Finance / HR Plugins\n- Marketplace Settings"
+    },
+    {
+      "id": "node000000000002",
+      "type": "text",
+      "x": -550,
+      "y": 100,
+      "width": 400,
+      "height": 180,
+      "text": "# Real-time & Collaboration\n- Centrifugo WebSocket\n- Yjs Server (CRDT Docs)\n- Live Notifications"
+    },
+    {
+      "id": "group000000000002",
+      "type": "group",
+      "label": "Backend Core (Golang Fiber)",
+      "x": 50,
+      "y": -200,
+      "width": 550,
+      "height": 600,
+      "color": "4"
+    },
+    {
+      "id": "node000000000003",
+      "type": "text",
+      "x": 100,
+      "y": -120,
+      "width": 450,
+      "height": 200,
+      "text": "# API Gateway & Handlers\n- JWT & API Key Auth\n- Marketplace Integration Toggle\n- Inbound Webhooks (Zendesk/WhatsApp)\n- JSONB Entity Pattern"
+    },
+    {
+      "id": "node000000000004",
+      "type": "text",
+      "x": 100,
+      "y": 120,
+      "width": 450,
+      "height": 180,
+      "text": "# Events & Dispatcher\n- NATS Event Publisher\n- HMAC Webhook Dispatcher\n- RAG Semantic Search Handler"
+    },
+    {
+      "id": "group000000000003",
+      "type": "group",
+      "label": "AI Sidecar & Intelligence (Python FastAPI)",
+      "x": 750,
+      "y": -200,
+      "width": 500,
+      "height": 600,
+      "color": "6"
+    },
+    {
+      "id": "node000000000005",
+      "type": "text",
+      "x": 800,
+      "y": -120,
+      "width": 400,
+      "height": 180,
+      "text": "# Multi-Agent Engine\n- Google Gemini 2.5 Flash\n- CrewAI & LangChain\n- Qdrant Vector Store"
+    },
+    {
+      "id": "node000000000006",
+      "type": "text",
+      "x": 800,
+      "y": 100,
+      "width": 400,
+      "height": 180,
+      "text": "# Event Listeners\n- NATS Consumer (`events.entities.created`)\n- Auto-Drafting & Summarization\n- Automated CRM Ingestion"
+    },
+    {
+      "id": "group000000000004",
+      "type": "group",
+      "label": "Data Persistence & Storage",
+      "x": 50,
+      "y": 480,
+      "width": 550,
+      "height": 350,
+      "color": "3"
+    },
+    {
+      "id": "node000000000007",
+      "type": "text",
+      "x": 100,
+      "y": 550,
+      "width": 450,
+      "height": 200,
+      "text": "# PostgreSQL + pgvector\n- `workspace_integrations` (JSONB)\n- `entities` & `tasks`\n- `document_embeddings`\n- Redis & MinIO Object Storage"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge000000000001",
+      "fromNode": "node000000000001",
+      "fromSide": "right",
+      "toNode": "node000000000003",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "REST API / JSONB"
+    },
+    {
+      "id": "edge000000000002",
+      "fromNode": "node000000000002",
+      "fromSide": "right",
+      "toNode": "node000000000004",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "WebSockets / Live Sync"
+    },
+    {
+      "id": "edge000000000003",
+      "fromNode": "node000000000003",
+      "fromSide": "right",
+      "toNode": "node000000000005",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Internal API / RPC"
+    },
+    {
+      "id": "edge000000000004",
+      "fromNode": "node000000000004",
+      "fromSide": "right",
+      "toNode": "node000000000006",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "NATS Pub/Sub Events"
+    },
+    {
+      "id": "edge000000000005",
+      "fromNode": "node000000000003",
+      "fromSide": "bottom",
+      "toNode": "node000000000007",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "GORM / JSONB Queries"
+    },
+    {
+      "id": "edge000000000006",
+      "fromNode": "node000000000006",
+      "fromSide": "bottom",
+      "toNode": "node000000000007",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "Vector Search / Embeddings"
+    }
+  ]
+}

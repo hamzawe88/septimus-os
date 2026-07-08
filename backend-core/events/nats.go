@@ -1,0 +1,77 @@
+package events
+
+import (
+	"log"
+	"os"
+	"time"
+
+	"github.com/nats-io/nats.go"
+)
+
+var NatsConn *nats.Conn
+var JetStream nats.JetStreamContext
+
+func ConnectNATS() {
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		natsURL = "nats://localhost:4222"
+	}
+
+	// Connect to NATS Server
+	nc, err := nats.Connect(natsURL, nats.Timeout(10*time.Second))
+	if err != nil {
+		log.Fatal("Error connecting to NATS: ", err)
+	}
+
+	NatsConn = nc
+	log.Println("Connected to NATS successfully")
+
+	// Initialize JetStream
+	js, err := nc.JetStream()
+	if err != nil {
+		log.Fatal("Error initializing JetStream: ", err)
+	}
+
+	JetStream = js
+
+	// Create streams if they do not exist
+	createStream("COMPANY_OS_EVENTS", "events.*")
+}
+
+func createStream(streamName, subject string) {
+	stream, err := JetStream.StreamInfo(streamName)
+	if err != nil {
+		// Stream doesn't exist, create it
+		_, err = JetStream.AddStream(&nats.StreamConfig{
+			Name:     streamName,
+			Subjects: []string{subject},
+		})
+		if err != nil {
+			log.Printf("Error creating stream %s: %v", streamName, err)
+		} else {
+			log.Printf("Stream %s created successfully", streamName)
+		}
+	} else {
+		log.Printf("Stream %s already exists", stream.Config.Name)
+	}
+}
+
+// PublishEvent publishes a message to NATS JetStream
+func PublishEvent(subject string, data []byte) error {
+	_, err := JetStream.Publish(subject, data)
+	if err != nil {
+		log.Printf("Failed to publish event to %s: %v", subject, err)
+		return err
+	}
+	return nil
+}
+
+// RequestEvent sends a message over core NATS and waits for a reply
+func RequestEvent(subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	msg, err := NatsConn.Request(subject, data, timeout)
+	if err != nil {
+		log.Printf("Failed to request event on %s: %v", subject, err)
+		return nil, err
+	}
+	return msg.Data, nil
+}
