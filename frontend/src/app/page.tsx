@@ -84,13 +84,21 @@ export default function Home() {
     // Setup Centrifugo
     let centrifugeInstance: Centrifuge;
     
+    const fetchConnectionToken = async (): Promise<string> => {
+      const tokenRes = await fetchWithAuth(`${API_BASE_URL}/chat/token`);
+      const { token: cToken } = await tokenRes.json();
+      return cToken;
+    };
+
     const initCentrifuge = async () => {
       try {
-        const tokenRes = await fetchWithAuth(`${API_BASE_URL}/chat/token`);
-        const { token: cToken } = await tokenRes.json();
-        
+        const cToken = await fetchConnectionToken();
+
         centrifugeInstance = new Centrifuge(WS_URL, {
-          token: cToken
+          token: cToken,
+          // Connection tokens expire after 5 minutes; Centrifugo calls this
+          // to transparently refresh the token and keep the socket alive
+          getToken: fetchConnectionToken
         });
         
         centrifugeInstance.on('publication', (ctx) => {

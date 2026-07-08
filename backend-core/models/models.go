@@ -50,7 +50,9 @@ type User struct {
 	DepartmentID *uuid.UUID  `gorm:"type:uuid;index"`
 	Department   *Department `gorm:"foreignKey:DepartmentID;constraint:OnDelete:SET NULL;"`
 	JobTitle     string      `gorm:"type:varchar(100)"`
-	EmployeeID   string      `gorm:"type:varchar(50);uniqueIndex"`
+	// Pointer so absent values insert NULL — the unique index rejects a second
+	// empty string but allows any number of NULLs
+	EmployeeID   *string     `gorm:"type:varchar(50);uniqueIndex"`
 	Avatar       string      `gorm:"type:text"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time

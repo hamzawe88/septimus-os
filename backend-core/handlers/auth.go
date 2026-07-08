@@ -106,16 +106,28 @@ func Register(c *fiber.Ctx) error {
 		database.DB.Create(&workspace)
 	}
 
+	// Never trust the client-supplied role: it would grant the RBAC admin
+	// bypass to anyone. The first registered user becomes Admin (bootstrap);
+	// everyone else starts as Member and must be promoted via the admin panel.
+	assignedRole := "Member"
+	var userCount int64
+	database.DB.Model(&models.User{}).Count(&userCount)
+	if userCount == 0 {
+		assignedRole = "Admin"
+	}
+
 	user := models.User{
 		WorkspaceID:  workspace.ID,
 		Email:        req.Email,
 		PasswordHash: string(hash),
-		Role:         req.Role,
+		Role:         assignedRole,
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not create user"})
 	}
+
+	services.LogEvent(&user.ID, "auth.register", "User", user.ID.String(), map[string]string{"email": user.Email, "role": assignedRole}, c.IP())
 
 	// Trigger workflow
 	go engine.ExecuteEvent(database.DB, user.WorkspaceID, "user.created", map[string]interface{}{

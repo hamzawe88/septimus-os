@@ -71,6 +71,10 @@ func ConnectDB() {
 		log.Fatalf("Failed to auto-migrate: %v", err)
 	}
 
+	// Normalize legacy empty-string employee ids to NULL so the unique index
+	// does not block new registrations that omit employee_id
+	db.Exec(`UPDATE users SET employee_id = NULL WHERE employee_id = '';`)
+
 	// Setup Full Text Search
 	db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS tsv tsvector;`)
 	db.Exec(`UPDATE messages SET tsv = to_tsvector('english', content) WHERE tsv IS NULL;`)

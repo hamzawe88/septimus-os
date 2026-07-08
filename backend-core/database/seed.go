@@ -37,6 +37,12 @@ func SeedDatabase() {
 		{Name: "view_departments", Module: "Departments"},
 		{Name: "manage_departments", Module: "Departments"},
 		{Name: "admin.manage", Module: "Admin"},
+		{Name: "projects.delete", Module: "Agile"},
+		{Name: "channels.manage", Module: "Chat"},
+		{Name: "workflows.manage", Module: "Automations"},
+		{Name: "attendance.manage", Module: "HR"},
+		{Name: "finance.manage", Module: "Finance"},
+		{Name: "apikeys.manage", Module: "Integrations"},
 	}
 
 	for _, perm := range permissions {
@@ -51,6 +57,23 @@ func SeedDatabase() {
 			DB.Where("name = ?", perm.Name).First(&p)
 			rolePerm := models.RolePermission{
 				RoleID: adminRole.ID,
+				PermissionID: p.ID,
+			}
+			DB.Where("role_id = ? AND permission_id = ?", rolePerm.RoleID, rolePerm.PermissionID).FirstOrCreate(&rolePerm)
+		}
+	}
+
+	// Managers get project/chat/automation management but not admin or finance
+	managerPerms := []string{"projects.delete", "channels.manage", "workflows.manage"}
+	var managerRole models.Role
+	if err := DB.Where("name = ?", "Manager").First(&managerRole).Error; err == nil {
+		for _, permName := range managerPerms {
+			var p models.Permission
+			if err := DB.Where("name = ?", permName).First(&p).Error; err != nil {
+				continue
+			}
+			rolePerm := models.RolePermission{
+				RoleID:       managerRole.ID,
 				PermissionID: p.ID,
 			}
 			DB.Where("role_id = ? AND permission_id = ?", rolePerm.RoleID, rolePerm.PermissionID).FirstOrCreate(&rolePerm)

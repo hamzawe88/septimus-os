@@ -8,6 +8,7 @@ import (
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/events"
 	"github.com/septimus-os/backend-core/models"
+	"github.com/septimus-os/backend-core/services"
 	"gorm.io/datatypes"
 )
 
@@ -255,6 +256,11 @@ func DeleteEntity(c *fiber.Ctx) error {
 
 	if err := database.DB.Delete(&entity).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete entity"})
+	}
+
+	if uidStr, ok := c.Locals("user_id").(string); ok && uidStr != "" {
+		uid := database.ParseUUID(uidStr)
+		services.LogEvent(&uid, "entity.delete", "Entity", entity.ID.String(), map[string]string{"type": entity.EntityType}, c.IP())
 	}
 
 	// Publish NATS event

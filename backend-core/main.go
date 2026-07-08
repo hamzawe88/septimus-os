@@ -123,9 +123,9 @@ func main() {
 	protected.Post("/attendance/check-in", handlers.CheckIn)
 	protected.Post("/attendance/check-out", handlers.CheckOut)
 	protected.Get("/attendance/offices", handlers.GetOffices)
-	protected.Post("/attendance/offices", handlers.CreateOffice)
-	protected.Put("/attendance/offices/:id", handlers.UpdateOffice)
-	protected.Delete("/attendance/offices/:id", handlers.DeleteOffice)
+	protected.Post("/attendance/offices", middleware.CheckPermission("attendance.manage"), handlers.CreateOffice)
+	protected.Put("/attendance/offices/:id", middleware.CheckPermission("attendance.manage"), handlers.UpdateOffice)
+	protected.Delete("/attendance/offices/:id", middleware.CheckPermission("attendance.manage"), handlers.DeleteOffice)
 	protected.Get("/attendance/logs", handlers.GetAttendanceLogs)
 
 	// Documents (RAG)
@@ -154,7 +154,7 @@ func main() {
 	protected.Get("/channels/:id/messages", handlers.GetMessages)
 	protected.Post("/channels/:id/messages", handlers.SendMessage)
 	protected.Put("/channels/:id", handlers.UpdateChannel)
-	protected.Delete("/channels/:id", handlers.DeleteChannel)
+	protected.Delete("/channels/:id", handlers.DeleteChannel) // owner/DM-member check enforced inside the handler
 
 	protected.Post("/channels/:id/members/mute", handlers.MuteMember)
 	protected.Put("/channels/:id/members/role", handlers.UpdateMemberRole)

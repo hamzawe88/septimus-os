@@ -10,9 +10,9 @@ This development plan outlines the strategic roadmap for scaling Septimus OS fro
 
 ### 1. Security & RBAC Maturity
 
-- **Strict Middleware Integration**: Activate Golang middleware to check `RolePermissions` before allowing any API access, enforcing Zero-Trust at the backend level.
-- **Audit Logs**: Implement `AuditLogs` table and tracking for every critical action (task creation, invoice deletion, permission changes) and expose them to the Admin Panel.
-- **WebSocket Security**: Integrate temporary, short-lived JWT tokens for `Centrifugo` connections to prevent eavesdropping on WebSockets.
+- **Strict Middleware Integration** (In Progress ✅): `middleware.CheckPermission` is enforced on the `/admin` group, attendance office management (`attendance.manage`), and project deletion (`projects.delete`). Registration no longer trusts a client-supplied role — the first user becomes Admin (bootstrap), everyone else starts as Member. Remaining: extend permission checks to finance/API-key mutations.
+- **Audit Logs** (Implemented ✅): `AuditLogs` table + `services.LogEvent` tracking auth logins/registrations, settings, workflows, integrations, and entity deletions; exposed at `/admin/audit-logs`.
+- **WebSocket Security** (Implemented ✅): Centrifugo connections use short-lived (5-minute) JWTs from `/chat/token`; the frontend passes `getToken` to centrifuge-js so tokens refresh transparently and the socket stays alive.
 
 ### 2. Frontend Implementation (Next.js)
 
