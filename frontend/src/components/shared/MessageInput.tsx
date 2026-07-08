@@ -4,8 +4,9 @@
 import { useRef, useState } from "react";
 import { Bold, Italic, Link2, Paperclip, Smile, AtSign, Sparkles, X } from "lucide-react";
 import EmojiPicker from 'emoji-picker-react';
-import { fetchWithAuth,     API_BASE_URL } from '@/lib/apiClient';
 import { useAppStore } from "@/store/useAppStore";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 interface MessageInputProps {
   channelName: string;
@@ -18,14 +19,11 @@ interface MessageInputProps {
 export default function MessageInput({ channelName, channelId, onSend, variant = "default", isDm = false }: MessageInputProps) {
   const { currentUser } = useAppStore();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const isTypingRef = useRef(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
-  const [attachment, setAttachment] = useState<{ url: string; type: string; name: string } | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-
   const [messageText, setMessageText] = useState("");
+
+  const { fileInputRef, attachment, setAttachment, isUploading, handleFileSelect } = useFileUpload();
+  const { notifyTyping } = useTypingIndicator(channelId, currentUser?.Email || "مستخدم");
 
   // Auto-resize textarea as user types
   const handleInput = () => {
@@ -69,37 +67,6 @@ export default function MessageInput({ channelName, channelId, onSend, variant =
       handleInput(); // Resize if needed
       textareaRef.current?.focus();
     }, 0);
-  };
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-            const res = await fetchWithAuth(`${API_BASE_URL}/upload`, {
-        method: "POST",
-        headers: {
-
-        },
-        body: formData,
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setAttachment({ url: data.url, type: data.type, name: file.name });
-      } else {
-        alert(data.error || "Upload failed");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Failed to upload file");
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
   };
 
   const insertText = (prefix: string, suffix: string = "") => {
@@ -175,33 +142,7 @@ export default function MessageInput({ channelName, channelId, onSend, variant =
           onChange={(e) => {
             setMessageText(e.target.value);
             handleInput();
-            if (channelId && !isTypingRef.current) {
-              isTypingRef.current = true;
-              fetchWithAuth(`${API_BASE_URL}/chat/typing`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  channel_id: channelId,
-                  user_email: currentUser?.Email || "مستخدم",
-                  is_typing: true
-                })
-              }).catch(() => {});
-            }
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-            typingTimeoutRef.current = setTimeout(() => {
-              isTypingRef.current = false;
-              if (channelId) {
-                fetchWithAuth(`${API_BASE_URL}/chat/typing`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    channel_id: channelId,
-                    user_email: currentUser?.Email || "مستخدم",
-                    is_typing: false
-                  })
-                }).catch(() => {});
-              }
-            }, 2500);
+            notifyTyping();
           }}
           rows={1}
           placeholder={isDm ? `Message ${channelName}` : `Message #${channelName}`}

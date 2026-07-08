@@ -1,10 +1,13 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import ar from "../locales/ar.json";
-import en from "../locales/en.json";
-
-type Language = "ar" | "en";
+import {
+  Language,
+  translate,
+  formatCurrencyValue,
+  formatNumberValue,
+  formatDateValue,
+} from "@/lib/i18n";
 
 interface LocalizationContextType {
   language: Language;
@@ -97,63 +100,15 @@ export function LocalizationProvider({ children }: { children: React.ReactNode }
     document.documentElement.lang = language;
   }, [language]);
 
-  // Simple keypath translator (e.g. "sidebar.dashboard")
-  const t = (keyPath: string, fallback?: string): string => {
-    const dictionary = language === "ar" ? ar : en;
-    const keys = keyPath.split(".");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let value: any = dictionary;
-    for (const key of keys) {
-      if (!value || value[key] === undefined) {
-        if (language === "en" && fallback && /[\u0600-\u06FF]/.test(fallback)) {
-          // Constitutional Safeguard: In English mode, NEVER return an Arabic fallback!
-          const lastKey = keys[keys.length - 1];
-          return lastKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-        }
-        return fallback || keyPath;
-      }
-      value = value[key];
-    }
-    if (typeof value !== "string" && typeof value !== "number") {
-      if (language === "en" && fallback && /[\u0600-\u06FF]/.test(fallback)) {
-        const lastKey = keys[keys.length - 1];
-        return lastKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-      }
-      return fallback || keyPath;
-    }
-    return String(value);
-  };
+  // Thin closures binding the pure i18n helpers to the current provider state.
+  const t = (keyPath: string, fallback?: string) => translate(language, keyPath, fallback);
 
-  // Currency formatter
-  const formatCurrency = (amount: number, useSecondary: boolean = false) => {
-    const currency = useSecondary ? secondaryCurrency : baseCurrency;
-    // To enforce Western Arabic digits (1234) even in Arabic, use the 'latn' numbering system or force en-US
-    // We will use en-US to respect the 'comma' format naturally, or switch to de-DE for 'dot'
-    const locale = numberFormat === "comma" ? "en-US" : "de-DE";
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency: currency,
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number, useSecondary: boolean = false) =>
+    formatCurrencyValue(amount, useSecondary ? secondaryCurrency : baseCurrency, numberFormat);
 
-  // Number formatter
-  const formatNumber = (amount: number) => {
-    const locale = numberFormat === "comma" ? "en-US" : "de-DE";
-    return new Intl.NumberFormat(locale).format(amount);
-  };
+  const formatNumber = (amount: number) => formatNumberValue(amount, numberFormat);
 
-  // Date formatter
-  const formatDate = (date: Date | string) => {
-    const d = new Date(date);
-    const day = d.getDate().toString().padStart(2, "0");
-    const month = (d.getMonth() + 1).toString().padStart(2, "0");
-    const year = d.getFullYear();
-    
-    if (dateFormat === "MM/DD/YYYY") {
-      return `${month}/${day}/${year}`;
-    }
-    return `${day}/${month}/${year}`;
-  };
+  const formatDate = (date: Date | string) => formatDateValue(date, dateFormat);
 
   return (
     <LocalizationContext.Provider
