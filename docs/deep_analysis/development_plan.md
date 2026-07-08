@@ -56,7 +56,9 @@ This development plan outlines the strategic roadmap for scaling Septimus OS fro
 
 - The App Store hub previously only stored credentials and tested connectivity — nothing actually *did* anything with a connected integration outside of the existing Google Drive/Calendar/Sheets auto-sync hooks.
 - **WhatsApp send (Implemented ✅)**: `POST /integrations/whatsapp/send` (`backend-core/services/whatsapp_service.go` + `handlers.SendWhatsAppMessage`) sends a real message via the Meta Graph API using the workspace's connected `phone_number_id`/access token. Wired into the CRM `Customer360Modal` as an "Send WhatsApp" quick action next to the AI email-draft button. Verified live: blocked with a clear error when not connected, and correctly rejected by Meta's real API when given an invalid token (502, ~580ms round-trip — proof it is a live network call, not a stub).
-- Remaining outbound actions to wire the same way: Zendesk (create/reply to ticket), Odoo (push settlement), Slack-style notifications.
+- **Zendesk ticket create (Implemented ✅)**: `POST /integrations/zendesk/ticket` (`services/zendesk_service.go`) creates a real ticket via the Zendesk Tickets API (Basic auth `{email}/token:{api_token}`). Wired into the CRM `Customer360Modal` as a "Create Zendesk ticket" action using the lead's name/email as requester. Verified live: reaches Zendesk's real API (404 for an unknown subdomain, ~0.4s round-trip).
+- **Odoo settlement push (Implemented ✅)**: `POST /integrations/odoo/settlement` (`services/odoo_service.go`) authenticates over JSON-RPC and creates a draft `account.move` journal entry carrying the settlement reference. Wired into the Finance `InvoicesTable` per-row as a "Push to Odoo" action. Verified live: reaches the real Odoo JSON-RPC endpoint (~0.4s round-trip).
+- Remaining outbound actions to wire the same way: Slack-style notifications, Google Sheets export button (backend hooks already exist for auto-sync).
 
 ### 2. Enterprise Plugins (Partially Implemented)
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, Mail, Phone, Building, Receipt, MessageSquare, Ticket, Sparkles, Send } from "lucide-react";
+import { X, Mail, Phone, Building, Receipt, MessageSquare, Ticket, Sparkles, Send, LifeBuoy } from "lucide-react";
 import { apiPost, AI_BASE_URL, fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
 
 interface Lead {
@@ -31,6 +31,42 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
   const [whatsAppMessage, setWhatsAppMessage] = useState("");
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [whatsAppResult, setWhatsAppResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const [showTicketComposer, setShowTicketComposer] = useState(false);
+  const [ticketSubject, setTicketSubject] = useState(`Support request — ${lead.name} (${lead.company})`);
+  const [ticketDescription, setTicketDescription] = useState("");
+  const [creatingTicket, setCreatingTicket] = useState(false);
+  const [ticketResult, setTicketResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const createZendeskTicket = async () => {
+    if (!ticketSubject.trim() || !ticketDescription.trim()) return;
+    setCreatingTicket(true);
+    setTicketResult(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/integrations/zendesk/ticket`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: ticketSubject,
+          description: ticketDescription,
+          requester_name: lead.name,
+          requester_email: lead.email,
+          entity_id: lead.id,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setTicketResult({ ok: true, text: `تم إنشاء التذكرة رقم #${data.ticket_id} في Zendesk!` });
+        setTicketDescription("");
+      } else {
+        setTicketResult({ ok: false, text: data.error || "فشل إنشاء التذكرة." });
+      }
+    } catch (err) {
+      setTicketResult({ ok: false, text: err instanceof Error ? err.message : "حدث خطأ غير متوقع." });
+    } finally {
+      setCreatingTicket(false);
+    }
+  };
 
   const sendWhatsAppMessage = async () => {
     if (!whatsAppMessage.trim() || !lead.phone) return;
@@ -243,6 +279,47 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                       {whatsAppResult && (
                         <p className={`text-xs mt-2 ${whatsAppResult.ok ? "text-emerald-600" : "text-red-600"}`}>
                           {whatsAppResult.text}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => { setShowTicketComposer((prev) => !prev); setTicketResult(null); }}
+                    className="w-full mt-2 bg-amber-500 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-amber-600 transition-colors"
+                  >
+                    <LifeBuoy className="w-4 h-4" />
+                    إنشاء تذكرة Zendesk
+                  </button>
+
+                  {showTicketComposer && (
+                    <div className="mt-3 text-end">
+                      <input
+                        aria-label="Ticket Subject"
+                        type="text"
+                        placeholder="عنوان التذكرة"
+                        className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-sm text-slate-700 mb-2 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        value={ticketSubject}
+                        onChange={(e) => setTicketSubject(e.target.value)}
+                      />
+                      <textarea
+                        aria-label="Ticket Description"
+                        placeholder="وصف المشكلة أو الطلب..."
+                        className="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg text-sm text-slate-700 mb-2 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+                        value={ticketDescription}
+                        onChange={(e) => setTicketDescription(e.target.value)}
+                        rows={3}
+                      />
+                      <button
+                        onClick={createZendeskTicket}
+                        disabled={creatingTicket || !ticketSubject.trim() || !ticketDescription.trim()}
+                        className="text-xs font-medium flex items-center gap-1 w-full justify-center bg-amber-50 text-amber-700 py-2 rounded-lg hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Ticket className="w-3 h-3" /> {creatingTicket ? "جارِ الإنشاء..." : "إنشاء التذكرة"}
+                      </button>
+                      {ticketResult && (
+                        <p className={`text-xs mt-2 ${ticketResult.ok ? "text-emerald-600" : "text-red-600"}`}>
+                          {ticketResult.text}
                         </p>
                       )}
                     </div>

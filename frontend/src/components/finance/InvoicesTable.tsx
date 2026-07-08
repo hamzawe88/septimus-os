@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { apiGet } from "@/lib/apiClient";
-import { FileText, Search, Filter, Printer, Plus, Trash2, Building2 } from "lucide-react";
+import { apiGet, fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
+import { FileText, Search, Filter, Printer, Plus, Trash2, Building2, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AddInvoiceModal from "./AddInvoiceModal";
 import InvoicePrintModal, { SMEInvoiceData } from "./InvoicePrintModal";
@@ -23,6 +23,34 @@ export default function InvoicesTable() {
   const [selectedPrintInvoice, setSelectedPrintInvoice] = useState<Entity | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [pushingId, setPushingId] = useState<string | null>(null);
+
+  // Push a settlement (draft journal entry) for this invoice to the connected Odoo ERP
+  const pushToOdoo = async (inv: Entity) => {
+    const reference = String(inv.Data?.invoiceNumber || inv.Data?.invoice_number || `INV-${inv.ID.slice(0, 6)}`);
+    setPushingId(inv.ID);
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/integrations/odoo/settlement`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reference,
+          narration: `Settlement for invoice ${reference}`,
+          entity_id: inv.ID,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        alert(`تم دفع التسوية إلى Odoo بنجاح (قيد رقم #${data.record_id}).`);
+      } else {
+        alert(data.error || "فشل دفع التسوية إلى Odoo.");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "حدث خطأ غير متوقع.");
+    } finally {
+      setPushingId(null);
+    }
+  };
 
   const fetchInvoices = async () => {
     try {
@@ -198,6 +226,15 @@ export default function InvoicesTable() {
                           >
                             <Printer className="w-4 h-4" />
                             <span>{t("finance.printPDF")}</span>
+                          </button>
+                          <button
+                            onClick={() => pushToOdoo(inv)}
+                            disabled={pushingId === inv.ID}
+                            className="p-2 text-slate-500 hover:text-brand hover:bg-brand/10 rounded-lg transition-colors disabled:opacity-50"
+                            title="دفع التسوية إلى Odoo"
+                            aria-label="Push settlement to Odoo"
+                          >
+                            <Landmark className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(inv.ID)}

@@ -110,6 +110,8 @@ func main() {
 	protected.Put("/integrations/:id/config", handlers.SaveIntegrationConfig)
 	protected.Post("/integrations/:id/test", handlers.TestIntegrationConnection)
 	protected.Post("/integrations/whatsapp/send", handlers.SendWhatsAppMessage)
+	protected.Post("/integrations/zendesk/ticket", handlers.CreateZendeskTicket)
+	protected.Post("/integrations/odoo/settlement", handlers.PushOdooSettlement)
 
 	// Webhooks
 	protected.Post("/workspaces/:workspace_id/webhooks", handlers.CreateWebhook)

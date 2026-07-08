@@ -407,3 +407,108 @@ func SendWhatsAppMessage(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"status": "sent"})
 }
+
+// integrationMeta unmarshals the stored Metadata JSON of an active integration.
+func integrationMeta(integration *models.WorkspaceIntegration) map[string]interface{} {
+	meta := map[string]interface{}{}
+	if len(integration.Metadata) > 0 {
+		_ = json.Unmarshal(integration.Metadata, &meta)
+	}
+	return meta
+}
+
+func metaString(meta map[string]interface{}, key string) string {
+	v, _ := meta[key].(string)
+	return v
+}
+
+// CreateZendeskTicket creates a real support ticket in the workspace's
+// connected Zendesk instance — outbound action for the CRM module.
+func CreateZendeskTicket(c *fiber.Ctx) error {
+	workspaceID := getWorkspaceID(c)
+
+	var input struct {
+		Subject        string `json:"subject"`
+		Description    string `json:"description"`
+		RequesterName  string `json:"requester_name"`
+		RequesterEmail string `json:"requester_email"`
+		EntityID       string `json:"entity_id"` // optional: CRM lead this ticket relates to
+	}
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if input.Subject == "" || input.Description == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "\"subject\" and \"description\" are required"})
+	}
+
+	integration, active := GetActiveIntegration(workspaceID, "zendesk")
+	if !active {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Zendesk integration is not connected. Connect it from the App Store hub first."})
+	}
+	meta := integrationMeta(integration)
+
+	ticketID, err := services.CreateZendeskTicket(
+		metaString(meta, "subdomain"),
+		metaString(meta, "admin_email"),
+		integration.AccessToken,
+		input.Subject,
+		input.Description,
+		input.RequesterName,
+		input.RequesterEmail,
+	)
+	if err != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	logIntegrationEvent(c, "integration.zendesk.ticket_created", "zendesk", fiber.Map{
+		"ticket_id": ticketID,
+		"subject":   input.Subject,
+		"entity_id": input.EntityID,
+	})
+
+	return c.JSON(fiber.Map{"status": "created", "ticket_id": ticketID})
+}
+
+// PushOdooSettlement creates a draft journal entry in the workspace's
+// connected Odoo instance — outbound action for the Finance module.
+func PushOdooSettlement(c *fiber.Ctx) error {
+	workspaceID := getWorkspaceID(c)
+
+	var input struct {
+		Reference string `json:"reference"`
+		Narration string `json:"narration"`
+		EntityID  string `json:"entity_id"` // optional: finance invoice this settlement relates to
+	}
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if input.Reference == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "\"reference\" is required"})
+	}
+
+	integration, active := GetActiveIntegration(workspaceID, "odoo")
+	if !active {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Odoo integration is not connected. Connect it from the App Store hub first."})
+	}
+	meta := integrationMeta(integration)
+
+	recordID, err := services.PushOdooSettlement(
+		metaString(meta, "server_url"),
+		metaString(meta, "database"),
+		metaString(meta, "username"),
+		integration.AccessToken,
+		input.Reference,
+		input.Narration,
+	)
+	if err != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	logIntegrationEvent(c, "integration.odoo.settlement_pushed", "odoo", fiber.Map{
+		"record_id": recordID,
+		"reference": input.Reference,
+		"entity_id": input.EntityID,
+	})
+
+	return c.JSON(fiber.Map{"status": "pushed", "record_id": recordID})
+}
