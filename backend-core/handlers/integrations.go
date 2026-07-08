@@ -365,3 +365,45 @@ func logIntegrationEvent(c *fiber.Ctx, action, provider string, details interfac
 	}
 	services.LogEvent(uid, action, "Integration", provider, details, c.IP())
 }
+
+// SendWhatsAppMessage sends a real WhatsApp Business message using the
+// workspace's connected credentials — the first outbound "act now" action
+// wired on top of the integration hub (previously the hub only stored
+// credentials and tested connectivity; nothing actually sent anything).
+func SendWhatsAppMessage(c *fiber.Ctx) error {
+	workspaceID := getWorkspaceID(c)
+
+	var input struct {
+		To       string `json:"to"`
+		Message  string `json:"message"`
+		EntityID string `json:"entity_id"` // optional: CRM lead/ticket this message relates to
+	}
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if input.To == "" || input.Message == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "\"to\" and \"message\" are required"})
+	}
+
+	integration, active := GetActiveIntegration(workspaceID, "whatsapp")
+	if !active {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "WhatsApp integration is not connected. Connect it from the App Store hub first."})
+	}
+
+	var meta map[string]interface{}
+	if len(integration.Metadata) > 0 {
+		_ = json.Unmarshal(integration.Metadata, &meta)
+	}
+	phoneNumberID, _ := meta["phone_number_id"].(string)
+
+	if err := services.SendWhatsAppMessage(integration.AccessToken, phoneNumberID, input.To, input.Message); err != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	logIntegrationEvent(c, "integration.whatsapp.message_sent", "whatsapp", fiber.Map{
+		"to":        input.To,
+		"entity_id": input.EntityID,
+	})
+
+	return c.JSON(fiber.Map{"status": "sent"})
+}

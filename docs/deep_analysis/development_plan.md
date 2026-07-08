@@ -52,6 +52,12 @@ This development plan outlines the strategic roadmap for scaling Septimus OS fro
 - Allow users to generate API Keys with specific scopes. (Backend and Frontend UI completed) ✅
 - Add incoming and outgoing webhooks to channels. (Webhooks UI completed) ✅
 
+### 1.5 Outbound Actions on Connected Integrations (New)
+
+- The App Store hub previously only stored credentials and tested connectivity — nothing actually *did* anything with a connected integration outside of the existing Google Drive/Calendar/Sheets auto-sync hooks.
+- **WhatsApp send (Implemented ✅)**: `POST /integrations/whatsapp/send` (`backend-core/services/whatsapp_service.go` + `handlers.SendWhatsAppMessage`) sends a real message via the Meta Graph API using the workspace's connected `phone_number_id`/access token. Wired into the CRM `Customer360Modal` as an "Send WhatsApp" quick action next to the AI email-draft button. Verified live: blocked with a clear error when not connected, and correctly rejected by Meta's real API when given an invalid token (502, ~580ms round-trip — proof it is a live network call, not a stub).
+- Remaining outbound actions to wire the same way: Zendesk (create/reply to ticket), Odoo (push settlement), Slack-style notifications.
+
 ### 2. Enterprise Plugins (Partially Implemented)
 
 - Using the `Entity` JSONB model, build native plugins:

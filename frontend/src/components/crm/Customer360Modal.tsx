@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, Mail, Phone, Building, Receipt, MessageSquare, Ticket, Sparkles } from "lucide-react";
-import { apiPost, AI_BASE_URL } from "@/lib/apiClient";
+import { X, Mail, Phone, Building, Receipt, MessageSquare, Ticket, Sparkles, Send } from "lucide-react";
+import { apiPost, AI_BASE_URL, fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
 
 interface Lead {
   id: string;
@@ -26,6 +26,35 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
   
   const [drafting, setDrafting] = useState(false);
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
+
+  const [showWhatsAppComposer, setShowWhatsAppComposer] = useState(false);
+  const [whatsAppMessage, setWhatsAppMessage] = useState("");
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const [whatsAppResult, setWhatsAppResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const sendWhatsAppMessage = async () => {
+    if (!whatsAppMessage.trim() || !lead.phone) return;
+    setSendingWhatsApp(true);
+    setWhatsAppResult(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/integrations/whatsapp/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: lead.phone, message: whatsAppMessage, entity_id: lead.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setWhatsAppResult({ ok: true, text: "تم إرسال الرسالة بنجاح عبر واتساب!" });
+        setWhatsAppMessage("");
+      } else {
+        setWhatsAppResult({ ok: false, text: data.error || "فشل إرسال الرسالة." });
+      }
+    } catch (err) {
+      setWhatsAppResult({ ok: false, text: err instanceof Error ? err.message : "حدث خطأ غير متوقع." });
+    } finally {
+      setSendingWhatsApp(false);
+    }
+  };
 
   const generateEmailDraft = async () => {
     setDrafting(true);
@@ -175,12 +204,47 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                         onChange={(e) => setEmailDraft(e.target.value)}
                         rows={6}
                       />
-                      <button 
+                      <button
                         onClick={() => { navigator.clipboard.writeText(emailDraft); alert("Copied to clipboard!"); }}
                         className="text-xs text-brand font-medium hover:underline flex items-center gap-1 w-full justify-center bg-brand/5 py-2 rounded-lg"
                       >
                         <Mail className="w-3 h-3" /> Copy Draft
                       </button>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => { setShowWhatsAppComposer((prev) => !prev); setWhatsAppResult(null); }}
+                    disabled={!lead.phone}
+                    title={!lead.phone ? "لا يوجد رقم هاتف لهذا العميل" : undefined}
+                    className="w-full mt-2 bg-emerald-600 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send className="w-4 h-4" />
+                    إرسال رسالة واتساب
+                  </button>
+
+                  {showWhatsAppComposer && (
+                    <div className="mt-3 text-end">
+                      <textarea
+                        aria-label="WhatsApp Message"
+                        placeholder="اكتب رسالتك هنا..."
+                        className="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg text-sm text-slate-700 mb-2 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
+                        value={whatsAppMessage}
+                        onChange={(e) => setWhatsAppMessage(e.target.value)}
+                        rows={4}
+                      />
+                      <button
+                        onClick={sendWhatsAppMessage}
+                        disabled={sendingWhatsApp || !whatsAppMessage.trim()}
+                        className="text-xs font-medium flex items-center gap-1 w-full justify-center bg-emerald-50 text-emerald-700 py-2 rounded-lg hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Send className="w-3 h-3" /> {sendingWhatsApp ? "جارِ الإرسال..." : "إرسال الآن"}
+                      </button>
+                      {whatsAppResult && (
+                        <p className={`text-xs mt-2 ${whatsAppResult.ok ? "text-emerald-600" : "text-red-600"}`}>
+                          {whatsAppResult.text}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

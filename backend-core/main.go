@@ -109,6 +109,7 @@ func main() {
 	protected.Get("/integrations/:id/config", handlers.GetIntegrationConfig)
 	protected.Put("/integrations/:id/config", handlers.SaveIntegrationConfig)
 	protected.Post("/integrations/:id/test", handlers.TestIntegrationConnection)
+	protected.Post("/integrations/whatsapp/send", handlers.SendWhatsAppMessage)
 
 	// Webhooks
 	protected.Post("/workspaces/:workspace_id/webhooks", handlers.CreateWebhook)
