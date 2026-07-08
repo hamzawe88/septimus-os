@@ -137,10 +137,10 @@ func main() {
 	protected.Put("/entities/:id", handlers.UpdateEntity)
 	protected.Delete("/entities/:id", handlers.DeleteEntity)
 	
-	// API Keys
-	protected.Post("/apikeys", handlers.CreateAPIKey)
+	// API Keys — creating/revoking keys grants external data access, so gate on apikeys.manage
+	protected.Post("/apikeys", middleware.CheckPermission("apikeys.manage"), handlers.CreateAPIKey)
 	protected.Get("/apikeys", handlers.GetAPIKeys)
-	protected.Delete("/apikeys/:id", handlers.RevokeAPIKey)
+	protected.Delete("/apikeys/:id", middleware.CheckPermission("apikeys.manage"), handlers.RevokeAPIKey)
 
 	// AI Agents & Config
 	protected.Put("/agents/config", handlers.ConfigAI)
@@ -200,11 +200,11 @@ func main() {
 	protected.Put("/sprints/:id/start", handlers.StartSprint)
 	protected.Put("/sprints/:id/complete", handlers.CompleteSprint)
 
-	// Workflows
-	protected.Post("/workflows", handlers.SaveWorkflow)
+	// Workflows — mutations/execution gated on workflows.manage (Admin + Manager); reads open to all members
+	protected.Post("/workflows", middleware.CheckPermission("workflows.manage"), handlers.SaveWorkflow)
 	protected.Get("/workflows", handlers.GetWorkflows)
-	protected.Post("/workflows/:id/execute", handlers.TriggerWorkflowManually)
-	protected.Patch("/workflows/:id", handlers.PatchWorkflow)
+	protected.Post("/workflows/:id/execute", middleware.CheckPermission("workflows.manage"), handlers.TriggerWorkflowManually)
+	protected.Patch("/workflows/:id", middleware.CheckPermission("workflows.manage"), handlers.PatchWorkflow)
 	protected.Get("/workflows/:id/runs", handlers.GetWorkflowRuns)
 
 	// Agents

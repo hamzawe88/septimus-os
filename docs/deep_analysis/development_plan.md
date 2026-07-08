@@ -10,7 +10,7 @@ This development plan outlines the strategic roadmap for scaling Septimus OS fro
 
 ### 1. Security & RBAC Maturity
 
-- **Strict Middleware Integration** (In Progress ✅): `middleware.CheckPermission` is enforced on the `/admin` group, attendance office management (`attendance.manage`), and project deletion (`projects.delete`). Registration no longer trusts a client-supplied role — the first user becomes Admin (bootstrap), everyone else starts as Member. Remaining: extend permission checks to finance/API-key mutations.
+- **Strict Middleware Integration** (Implemented ✅): `middleware.CheckPermission` is enforced on the `/admin` group, attendance office management (`attendance.manage`), project deletion (`projects.delete`), API-key create/revoke (`apikeys.manage`), and workflow create/execute/patch (`workflows.manage`). Registration no longer trusts a client-supplied role — the first user becomes Admin (bootstrap), everyone else starts as Member. Note: finance mutations flow through the shared generic `/entities` endpoint (also used by CRM/HR), so they cannot be gated at route level without breaking those modules; they are covered by audit logging on `entity.delete` instead. A future refinement could check permissions by `entity_type` inside the handler.
 - **Audit Logs** (Implemented ✅): `AuditLogs` table + `services.LogEvent` tracking auth logins/registrations, settings, workflows, integrations, and entity deletions; exposed at `/admin/audit-logs`.
 - **WebSocket Security** (Implemented ✅): Centrifugo connections use short-lived (5-minute) JWTs from `/chat/token`; the frontend passes `getToken` to centrifuge-js so tokens refresh transparently and the socket stays alive.
 
