@@ -512,3 +512,71 @@ func PushOdooSettlement(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"status": "pushed", "record_id": recordID})
 }
+
+// ExportTasksToSheet exports a project's current Kanban tasks to a fresh Google
+// Spreadsheet using the workspace's connected Google account, and returns the
+// sheet's shareable URL. This is the on-demand counterpart to the per-task
+// completion sync — the "Export live Kanban tasks" action the hub advertises.
+func ExportTasksToSheet(c *fiber.Ctx) error {
+	workspaceID := getWorkspaceID(c)
+
+	projectID := c.Query("project_id")
+	if projectID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "project_id is required"})
+	}
+	pid, err := uuid.Parse(projectID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project_id"})
+	}
+
+	// google_sheets shares the "google" OAuth credentials (see GetActiveIntegration)
+	integration, active := GetActiveIntegration(workspaceID, "google_sheets")
+	if !active {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Google Sheets integration is not connected. Connect Google from the App Store hub first."})
+	}
+
+	var tasks []models.Task
+	if err := database.DB.Where("project_id = ?", pid).Order("status asc, priority desc").Find(&tasks).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load tasks"})
+	}
+	if len(tasks) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "This project has no tasks to export"})
+	}
+
+	token := services.GetClient(integration.AccessToken, integration.RefreshToken, integration.Expiry)
+
+	spreadsheetID, spreadsheetURL, err := services.CreateSpreadsheet(c.Context(), token, "Septimus OS - Kanban Export")
+	if err != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"error": fmt.Sprintf("Failed to create Google Sheet: %v", err)})
+	}
+
+	if err := services.AppendToSheet(c.Context(), token, spreadsheetID, "Sheet1!A1:E1", []interface{}{
+		"Title", "Status", "Priority", "Story Points", "Due Date",
+	}); err != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"error": fmt.Sprintf("Failed to write header: %v", err)})
+	}
+
+	for _, task := range tasks {
+		dueDate := ""
+		if task.DueDate != nil {
+			dueDate = task.DueDate.Format("2006-01-02")
+		}
+		// Errors on individual rows are logged inside AppendToSheet's caller path;
+		// keep exporting the rest so a single bad row doesn't abort the export.
+		_ = services.AppendToSheet(c.Context(), token, spreadsheetID, "Sheet1!A:E", []interface{}{
+			task.Title, task.Status, task.Priority, task.StoryPoints, dueDate,
+		})
+	}
+
+	logIntegrationEvent(c, "integration.google_sheets.tasks_exported", "google", fiber.Map{
+		"project_id":  projectID,
+		"task_count":  len(tasks),
+		"spreadsheet": spreadsheetID,
+	})
+
+	return c.JSON(fiber.Map{
+		"status":          "exported",
+		"task_count":      len(tasks),
+		"spreadsheet_url": spreadsheetURL,
+	})
+}

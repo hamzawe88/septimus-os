@@ -1,17 +1,39 @@
 import React, { useState, useEffect } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Sheet, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import TaskCard from "./TaskCard";
 import NewTaskModal from "./NewTaskModal";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { useAppStore } from "@/store/useAppStore";
-import { apiGet, apiPost } from "@/lib/apiClient";
+import { apiGet, apiPost, fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
 import { Task } from "@/types";
 
 export default function KanbanBoard() {
   const { tasks, setTasks, projectId, setProjectId } = useAppStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Export the current project's tasks to a new Google Sheet via the connected integration
+  const exportToSheets = async () => {
+    if (!projectId) return;
+    setIsExporting(true);
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/integrations/google/export-tasks?project_id=${projectId}`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.spreadsheet_url) {
+        window.open(data.spreadsheet_url, "_blank", "noopener,noreferrer");
+      } else {
+        alert(data.error || "فشل تصدير المهام إلى Google Sheets.");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "حدث خطأ غير متوقع.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [sprints, setSprints] = useState<any[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -119,9 +141,21 @@ export default function KanbanBoard() {
              <span className="text-sm font-medium text-amber-600">No active sprint. Please start a sprint from the Backlog view.</span>
           )}
         </div>
-        <Button onClick={() => setIsModalOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" /> New Task
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={exportToSheets}
+            disabled={isExporting || !projectId}
+            className="gap-2"
+            title="تصدير المهام إلى Google Sheets"
+          >
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sheet className="w-4 h-4" />}
+            Export to Sheets
+          </Button>
+          <Button onClick={() => setIsModalOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> New Task
+          </Button>
+        </div>
       </div>
 
       {/* Board Area */}
