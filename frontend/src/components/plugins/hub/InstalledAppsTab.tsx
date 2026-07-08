@@ -18,66 +18,18 @@ import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/useAppStore";
 import { useLocalization } from "@/contexts/LocalizationContext";
 import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
+import { fetchIntegrations, Integration as AppIntegration } from "@/lib/integrations";
 import IntegrationConfigModal from "./IntegrationConfigModal";
-
-interface AppIntegration {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  icon: string;
-  status: "connected" | "disconnected";
-}
-
-const initialApps: AppIntegration[] = [
-  {
-    id: "whatsapp",
-    name: "إشعارات WhatsApp",
-    description: "إرسال التنبيهات والأحداث الهامة للمدراء والموظفين عبر واتساب بشكل فوري.",
-    category: "Communication",
-    icon: "whatsapp",
-    status: "disconnected"
-  },
-  {
-    id: "zendesk",
-    name: "Zendesk Helpdesk",
-    description: "إنشاء تذاكر صيانة تلقائياً عند تعطل أجهزة الـ POS أو فقدان الاتصال بالمحطات.",
-    category: "Support",
-    icon: "helpdesk",
-    status: "connected"
-  },
-  {
-    id: "odoo",
-    name: "Odoo ERP Sync",
-    description: "مزامنة التسويات المالية (Settlements) والحركات اليومية مع نظام المحاسبة.",
-    category: "Finance",
-    icon: "erp",
-    status: "disconnected"
-  },
-  {
-    id: "ai_analytics",
-    name: "Septimus AI Assistant",
-    description: "مساعد ذكي لتحليل العمليات واكتشاف محاولات الاحتيال وتقديم تقارير دورية.",
-    category: "Analytics",
-    icon: "ai",
-    status: "connected"
-  },
-  {
-    id: "google_workspace",
-    name: "Google Workspace Sync",
-    description: "مزامنة الجداول وملفات Drive وتقويم المواعيد ومحاضر الاجتماعات تلقائياً.",
-    category: "Productivity",
-    icon: "google",
-    status: "disconnected"
-  }
-];
 
 const iconMap: Record<string, React.ReactNode> = {
   whatsapp: <MessageCircle className="w-6 h-6 text-green-500" />,
   helpdesk: <LifeBuoy className="w-6 h-6 text-brand" />,
   erp: <Database className="w-6 h-6 text-brand" />,
   ai: <Sparkles className="w-6 h-6 text-amber-500" />,
-  google: <Zap className="w-6 h-6 text-blue-500" />
+  google: <Zap className="w-6 h-6 text-blue-500" />,
+  drive: <Zap className="w-6 h-6 text-blue-500" />,
+  calendar: <Zap className="w-6 h-6 text-blue-500" />,
+  sheets: <Database className="w-6 h-6 text-emerald-500" />
 };
 
 const iconBgMap: Record<string, string> = {
@@ -85,66 +37,36 @@ const iconBgMap: Record<string, string> = {
   helpdesk: "bg-brand-light border-brand-light",
   erp: "bg-brand-light border-brand-light",
   ai: "bg-amber-50 border-amber-200",
-  google: "bg-blue-50 border-blue-200"
+  google: "bg-blue-50 border-blue-200",
+  drive: "bg-blue-50 border-blue-200",
+  calendar: "bg-blue-50 border-blue-200",
+  sheets: "bg-emerald-50 border-emerald-200"
 };
 
 export default function InstalledAppsTab() {
-  const { t, isRtl } = useLocalization();
-  const [apps, setApps] = useState<AppIntegration[]>(initialApps);
+  const { t } = useLocalization();
+  const [apps, setApps] = useState<AppIntegration[]>([]);
+  const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [selectedAppForConfig, setSelectedAppForConfig] = useState<AppIntegration | null>(null);
   const { setCurrentView } = useAppStore();
 
-  const translateAppName = (id: string, name: string) => {
-    if (isRtl) return name;
-    switch (id) {
-      case "whatsapp": return "WhatsApp Notifications";
-      case "zendesk": return "Zendesk Helpdesk";
-      case "odoo": return "Odoo ERP Sync";
-      case "ai_analytics": return "Septimus AI Assistant";
-      case "google_workspace": return "Google Workspace Sync";
-      default: return name;
-    }
-  };
-
-  const translateAppDesc = (id: string, desc: string) => {
-    if (isRtl) return desc;
-    switch (id) {
-      case "whatsapp": return "Send real-time alerts and critical event notifications to managers and staff via WhatsApp.";
-      case "zendesk": return "Automatically create maintenance tickets when POS terminals experience errors or disconnect.";
-      case "odoo": return "Sync financial settlements and daily transactions directly with your accounting ERP.";
-      case "ai_analytics": return "Smart assistant for operational analysis, fraud detection, and automated periodic reporting.";
-      case "google_workspace": return "Automatically sync spreadsheets, Drive files, calendar schedules, and meeting minutes.";
-      default: return desc;
-    }
-  };
-
-  const loadIntegrations = async () => {
+  const loadIntegrations = async (signal?: AbortSignal) => {
     try {
-      const res = await fetchWithAuth(`${API_BASE_URL}/integrations`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.integrations && Array.isArray(data.integrations)) {
-          // Merge backend status into our apps list
-          const backendApps = data.integrations as AppIntegration[];
-          setApps(prevApps => 
-            prevApps.map(a => {
-              const found = backendApps.find(ba => ba.id === a.id);
-              return found ? { ...a, status: found.status } : a;
-            })
-          );
-        }
-      }
+      const list = await fetchIntegrations(signal);
+      if (!signal?.aborted) setApps(list);
     } catch (err) {
-      console.error("Failed to fetch integrations from backend:", err);
+      if (!signal?.aborted) console.error("Failed to fetch integrations from backend:", err);
+    } finally {
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void loadIntegrations();
-    }, 0);
-    return () => clearTimeout(timer);
+    const controller = new AbortController();
+    // Defer to a microtask so state updates run outside the synchronous effect body
+    void Promise.resolve().then(() => loadIntegrations(controller.signal));
+    return () => controller.abort();
   }, []);
 
   const handleDisconnect = async (app: AppIntegration) => {
@@ -208,6 +130,17 @@ export default function InstalledAppsTab() {
         </div>
 
         {/* Apps Grid */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+            <RefreshCw className="w-10 h-10 mb-4 animate-spin opacity-40" />
+            <p>{t("plugins.loading", "Loading integrations...")}</p>
+          </div>
+        ) : apps.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+            <Plug className="w-16 h-16 mb-4 opacity-20" />
+            <p>{t("plugins.noIntegrations", "No integrations available")}</p>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {apps.map((app) => {
             const isConnected = app.status === "connected";
@@ -239,12 +172,12 @@ export default function InstalledAppsTab() {
                 </div>
                 
                 <div className="mb-6 flex-1">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{translateAppName(app.id, app.name)}</h3>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{app.name}</h3>
                   <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 mb-3">
                     {app.category}
                   </span>
                   <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {translateAppDesc(app.id, app.description)}
+                    {app.description}
                   </p>
                 </div>
 
@@ -290,6 +223,7 @@ export default function InstalledAppsTab() {
             );
           })}
         </div>
+        )}
       </div>
 
       {/* Configuration & Live Verification Modal */}
