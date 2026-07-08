@@ -58,80 +58,96 @@ func NewHub() *Hub {
 
 var WSHub = NewHub()
 
+// Run is the Hub's single event loop. Each channel case delegates to a focused
+// handler so the locking/broadcast logic for each concern lives on its own.
 func (h *Hub) Run() {
 	for {
 		select {
-		// ── Register ─────────────────────────────────────────────────────────
 		case client := <-h.register:
-			h.mu.Lock()
-			isNew := false
-			if h.clients[client.userID] == nil {
-				h.clients[client.userID] = make(map[*websocket.Conn]bool)
-				isNew = true
-			}
-			h.clients[client.userID][client.conn] = true
-			h.mu.Unlock()
-			log.Printf("[WS] User %s connected (%d total online)", client.userID, h.onlineCount())
+			h.handleRegister(client)
+		case client := <-h.unregister:
+			h.handleUnregister(client)
+		case cm := <-h.channelBroadcast:
+			h.handleChannelBroadcast(cm)
+		case message := <-h.globalBroadcast:
+			h.handleGlobalBroadcast(message)
+		}
+	}
+}
 
-			if isNew {
+// handleRegister adds a connection and announces presence when a user comes online.
+func (h *Hub) handleRegister(client *Client) {
+	h.mu.Lock()
+	isNew := false
+	if h.clients[client.userID] == nil {
+		h.clients[client.userID] = make(map[*websocket.Conn]bool)
+		isNew = true
+	}
+	h.clients[client.userID][client.conn] = true
+	h.mu.Unlock()
+	log.Printf("[WS] User %s connected (%d total online)", client.userID, h.onlineCount())
+
+	if isNew {
+		presenceMsg, _ := json.Marshal(map[string]interface{}{
+			"type":    "presence",
+			"user_id": client.userID,
+			"online":  true,
+		})
+		h.globalBroadcast <- presenceMsg
+	}
+}
+
+// handleUnregister removes a connection and announces offline presence once the
+// user's last connection is gone.
+func (h *Hub) handleUnregister(client *Client) {
+	h.mu.Lock()
+	if conns, ok := h.clients[client.userID]; ok {
+		if _, ok := conns[client.conn]; ok {
+			delete(conns, client.conn)
+			client.conn.Close()
+			if len(conns) == 0 {
+				delete(h.clients, client.userID)
+				h.mu.Unlock()
+
 				presenceMsg, _ := json.Marshal(map[string]interface{}{
 					"type":    "presence",
 					"user_id": client.userID,
-					"online":  true,
+					"online":  false,
 				})
 				h.globalBroadcast <- presenceMsg
+				log.Printf("[WS] User %s disconnected (%d total online)", client.userID, h.onlineCount())
+				return
 			}
+		}
+	}
+	h.mu.Unlock()
+	log.Printf("[WS] User %s connection closed (%d total online)", client.userID, h.onlineCount())
+}
 
-		// ── Unregister ───────────────────────────────────────────────────────
-		case client := <-h.unregister:
-			h.mu.Lock()
-			if conns, ok := h.clients[client.userID]; ok {
-				if _, ok := conns[client.conn]; ok {
-					delete(conns, client.conn)
-					client.conn.Close()
-					if len(conns) == 0 {
-						delete(h.clients, client.userID)
-						h.mu.Unlock()
-
-						presenceMsg, _ := json.Marshal(map[string]interface{}{
-							"type":    "presence",
-							"user_id": client.userID,
-							"online":  false,
-						})
-						h.globalBroadcast <- presenceMsg
-						log.Printf("[WS] User %s disconnected (%d total online)", client.userID, h.onlineCount())
-						continue
-					}
+// handleChannelBroadcast delivers a payload only to members of the target channel.
+func (h *Hub) handleChannelBroadcast(cm *ChannelMessage) {
+	// 🔐 Security: only send to members of this channel
+	members := h.getChannelMembers(cm.ChannelID)
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, memberID := range members {
+		if conns, ok := h.clients[memberID]; ok {
+			for conn := range conns {
+				if err := conn.WriteMessage(websocket.TextMessage, cm.Payload); err != nil {
+					log.Printf("[WS] Write error for user %s: %v", memberID, err)
 				}
 			}
-			h.mu.Unlock()
-			log.Printf("[WS] User %s connection closed (%d total online)", client.userID, h.onlineCount())
+		}
+	}
+}
 
-		// ── Channel-Scoped Broadcast ─────────────────────────────────────────
-		case cm := <-h.channelBroadcast:
-			// 🔐 Security: only send to members of this channel
-			members := h.getChannelMembers(cm.ChannelID)
-			h.mu.RLock()
-			for _, memberID := range members {
-				if conns, ok := h.clients[memberID]; ok {
-					for conn := range conns {
-						if err := conn.WriteMessage(websocket.TextMessage, cm.Payload); err != nil {
-							log.Printf("[WS] Write error for user %s: %v", memberID, err)
-						}
-					}
-				}
-			}
-			h.mu.RUnlock()
-
-		// ── Global Broadcast (Presence only) ─────────────────────────────────
-		case message := <-h.globalBroadcast:
-			h.mu.RLock()
-			for _, conns := range h.clients {
-				for conn := range conns {
-					conn.WriteMessage(websocket.TextMessage, message)
-				}
-			}
-			h.mu.RUnlock()
+// handleGlobalBroadcast fans a presence/system payload out to every connection.
+func (h *Hub) handleGlobalBroadcast(message []byte) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, conns := range h.clients {
+		for conn := range conns {
+			conn.WriteMessage(websocket.TextMessage, message)
 		}
 	}
 }
@@ -241,61 +257,71 @@ func WebsocketHandler(c *websocket.Conn) {
 
 		switch wsMsg.Type {
 		case "chat_message":
-			if wsMsg.ChannelID == "" || wsMsg.Content == "" {
-				continue
-			}
-
-			// 1. Persist to DB
-			userUUID := database.ParseUUID(userID)
-			channelUUID := database.ParseUUID(wsMsg.ChannelID)
-
-			dbMsg := models.Message{
-				ChannelID:      channelUUID,
-				SenderID:       userUUID,
-				ParentID:       wsMsg.ParentID,
-				Content:        wsMsg.Content,
-				AttachmentURL:  wsMsg.AttachmentURL,
-				AttachmentType: wsMsg.AttachmentType,
-			}
-			if err := database.DB.Create(&dbMsg).Error; err != nil {
-				log.Printf("[WS] Failed to save chat message to DB: %v", err)
-				continue
-			}
-
-			// 2. Load full user info for the broadcast payload
-			if err := database.DB.Preload("User").First(&dbMsg, dbMsg.ID).Error; err != nil {
-				log.Printf("[WS] Failed to load full user info for message: %v", err)
-				continue
-			}
-
-			// 3. Broadcast ONLY to channel members (🔐 scoped)
-			out, _ := json.Marshal(dbMsg)
-			client.hub.BroadcastToChannel(wsMsg.ChannelID, out)
-
-			// 4. Publish to NATS for AI Agent processing
-			if events.NatsConn != nil {
-				natsPayload, _ := json.Marshal(map[string]interface{}{
-					"event":      "events.messages.created",
-					"message_id": dbMsg.ID,
-					"channel_id": dbMsg.ChannelID,
-					"content":    dbMsg.Content,
-					"sender_id":  dbMsg.SenderID,
-				})
-				events.PublishEvent("events.messages.created", natsPayload)
-			}
-
+			client.handleChatMessage(wsMsg)
 		case "typing":
-			// Broadcast typing indicator to channel members only
-			if wsMsg.ChannelID != "" {
-				typingMsg, _ := json.Marshal(map[string]interface{}{
-					"type":       "typing",
-					"user_id":    userID,
-					"channel_id": wsMsg.ChannelID,
-				})
-				client.hub.BroadcastToChannel(wsMsg.ChannelID, typingMsg)
-			}
+			client.handleTypingIndicator(wsMsg)
 		}
 	}
+}
+
+// handleChatMessage persists an inbound chat message, broadcasts it to channel
+// members, and publishes it to NATS for AI processing.
+func (client *Client) handleChatMessage(wsMsg WSMessage) {
+	if wsMsg.ChannelID == "" || wsMsg.Content == "" {
+		return
+	}
+
+	// 1. Persist to DB
+	userUUID := database.ParseUUID(client.userID)
+	channelUUID := database.ParseUUID(wsMsg.ChannelID)
+
+	dbMsg := models.Message{
+		ChannelID:      channelUUID,
+		SenderID:       userUUID,
+		ParentID:       wsMsg.ParentID,
+		Content:        wsMsg.Content,
+		AttachmentURL:  wsMsg.AttachmentURL,
+		AttachmentType: wsMsg.AttachmentType,
+	}
+	if err := database.DB.Create(&dbMsg).Error; err != nil {
+		log.Printf("[WS] Failed to save chat message to DB: %v", err)
+		return
+	}
+
+	// 2. Load full user info for the broadcast payload
+	if err := database.DB.Preload("User").First(&dbMsg, dbMsg.ID).Error; err != nil {
+		log.Printf("[WS] Failed to load full user info for message: %v", err)
+		return
+	}
+
+	// 3. Broadcast ONLY to channel members (🔐 scoped)
+	out, _ := json.Marshal(dbMsg)
+	client.hub.BroadcastToChannel(wsMsg.ChannelID, out)
+
+	// 4. Publish to NATS for AI Agent processing
+	if events.NatsConn != nil {
+		natsPayload, _ := json.Marshal(map[string]interface{}{
+			"event":      "events.messages.created",
+			"message_id": dbMsg.ID,
+			"channel_id": dbMsg.ChannelID,
+			"content":    dbMsg.Content,
+			"sender_id":  dbMsg.SenderID,
+		})
+		events.PublishEvent("events.messages.created", natsPayload)
+	}
+}
+
+// handleTypingIndicator broadcasts a typing notification to channel members only.
+func (client *Client) handleTypingIndicator(wsMsg WSMessage) {
+	if wsMsg.ChannelID == "" {
+		return
+	}
+	typingMsg, _ := json.Marshal(map[string]interface{}{
+		"type":       "typing",
+		"user_id":    client.userID,
+		"channel_id": wsMsg.ChannelID,
+	})
+	client.hub.BroadcastToChannel(wsMsg.ChannelID, typingMsg)
 }
 
 // ─── JWT Auth Middleware for WS ───────────────────────────────────────────────
