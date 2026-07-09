@@ -3,10 +3,12 @@
 import React, { useRef, useState } from "react";
 import { useThemeStore, THEME_PRESETS, ThemePreset } from "@/store/useThemeStore";
 import { useToastStore } from "@/store/useToastStore";
+import { useLocalization } from "@/contexts/LocalizationContext";
 import { Settings, Image as ImageIcon, CheckCircle2, Sun, Moon, Monitor } from "lucide-react";
 
 
 export default function AppearanceSettings() {
+  const { isRtl } = useLocalization();
   const { mode, setMode, theme, setTheme, primaryColor, setPrimaryColor, fontFamily, setFontFamily, logoUrl, setLogoUrl,
     isAdvancedMode, setIsAdvancedMode,
     customTopbarBg, setCustomTopbarBg,
@@ -29,11 +31,11 @@ export default function AppearanceSettings() {
         const base64String = reader.result as string;
         setLogoUrl(base64String);
         setUploading(false);
-        toast.success('تم حفظ الشعار بنجاح!');
+        toast.success(isRtl ? 'تم حفظ الشعار بنجاح!' : 'Logo saved successfully!');
       };
       reader.onerror = () => {
         console.error("Failed to read file");
-        toast.error('فشل تحميل الشعار. يرجى المحاولة مجدداً.');
+        toast.error(isRtl ? 'فشل تحميل الشعار. يرجى المحاولة مجدداً.' : 'Failed to upload logo. Please try again.');
         setUploading(false);
       };
       reader.readAsDataURL(file);
@@ -48,16 +50,16 @@ export default function AppearanceSettings() {
       <div className="h-[56px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#121016] flex items-center px-8 flex-shrink-0 shadow-sm transition-colors">
         <h1 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
           <Settings className="w-6 h-6 text-brand" />
-          إعدادات المظهر وتوحيد الألوان (Appearance & Theme)
+          {isRtl ? "إعدادات المظهر وتوحيد الألوان" : "Appearance & Theme"}
         </h1>
       </div>
 
       <div className="p-8 max-w-4xl mx-auto w-full space-y-8">
-        
+
         {/* Mode Selection (Light / Dark / System) */}
         <section className="bg-white dark:bg-[#222529] p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 transition-colors">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">نمط الرؤية والإضاءة (Theme Mode)</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">اختر بين الوضع المضيء الخالص، الوضع الداكن المريح للعين، أو التزامن التلقائي مع نظامك.</p>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">{isRtl ? "نمط الرؤية والإضاءة" : "Theme Mode"}</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">{isRtl ? "اختر بين الوضع المضيء الخالص، الوضع الداكن المريح للعين، أو التزامن التلقائي مع نظامك." : "Choose pure light mode, an eye-friendly dark mode, or automatic sync with your system."}</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
               onClick={() => setMode('light')}
@@ -68,10 +70,10 @@ export default function AppearanceSettings() {
               </div>
               <div className="text-start rtl:text-end flex-1">
                 <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between">
-                  <span>الوضع المضيء (Light)</span>
+                  <span>{isRtl ? "الوضع المضيء" : "Light"}</span>
                   {mode === 'light' && <CheckCircle2 className="w-4 h-4 text-brand" />}
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ساطع ونقي ومناسب للعمل النهار</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{isRtl ? "ساطع ونقي ومناسب للعمل النهار" : "Bright and clean, ideal for daytime work"}</div>
               </div>
             </button>
 
@@ -84,10 +86,10 @@ export default function AppearanceSettings() {
               </div>
               <div className="text-start rtl:text-end flex-1">
                 <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between">
-                  <span>الوضع الداكن (Dark)</span>
+                  <span>{isRtl ? "الوضع الداكن" : "Dark"}</span>
                   {mode === 'dark' && <CheckCircle2 className="w-4 h-4 text-brand" />}
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">مريح للعين ومثالي للبيئات الهادئة</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{isRtl ? "مريح للعين ومثالي للبيئات الهادئة" : "Easy on the eyes, ideal for low-light spaces"}</div>
               </div>
             </button>
 
@@ -100,10 +102,10 @@ export default function AppearanceSettings() {
               </div>
               <div className="text-start rtl:text-end flex-1">
                 <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between">
-                  <span>تلقائي (System)</span>
+                  <span>{isRtl ? "تلقائي" : "System"}</span>
                   {mode === 'system' && <CheckCircle2 className="w-4 h-4 text-brand" />}
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">يتزامن تلقائياً مع نظام التشغيل</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{isRtl ? "يتزامن تلقائياً مع نظام التشغيل" : "Automatically follows your operating system"}</div>
               </div>
             </button>
           </div>
@@ -111,8 +113,8 @@ export default function AppearanceSettings() {
 
         {/* Theme Presets */}
         <section className="bg-white dark:bg-[#222529] p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 transition-colors">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">الثيمات المسبقة الموحدة (Preset Themes)</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">اختر الهوية اللونية المؤسسية المفضلة لمساحة العمل الخاصة بك.</p>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">{isRtl ? "الثيمات المسبقة الموحدة" : "Preset Themes"}</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">{isRtl ? "اختر الهوية اللونية المؤسسية المفضلة لمساحة العمل الخاصة بك." : "Pick the corporate color identity you prefer for your workspace."}</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {(Object.keys(THEME_PRESETS) as ThemePreset[]).map((preset) => {
               const presetData = THEME_PRESETS[preset];
@@ -146,8 +148,8 @@ export default function AppearanceSettings() {
         <section className="bg-white dark:bg-[#222529] p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 transition-colors">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">تخصيص الألوان المتقدم (Advanced Customization)</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">تفعيل هذا الخيار يلغي الثيمات المسبقة ويتيح لك تحكماً كاملاً بألوان النظام.</p>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">{isRtl ? "تخصيص الألوان المتقدم" : "Advanced Customization"}</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{isRtl ? "تفعيل هذا الخيار يلغي الثيمات المسبقة ويتيح لك تحكماً كاملاً بألوان النظام." : "Enabling this overrides preset themes and gives you full control over the system colors."}</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" title="Toggle Advanced Mode" checked={isAdvancedMode} onChange={(e) => setIsAdvancedMode(e.target.checked)} className="sr-only peer" />
@@ -157,33 +159,33 @@ export default function AppearanceSettings() {
 
           {!isAdvancedMode ? (
             <>
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 mt-4">اللون الأساسي (Primary Color) فقط</h3>
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 mt-4">{isRtl ? "اللون الأساسي فقط" : "Primary Color only"}</h3>
               <div className="flex items-center gap-4">
-                <input 
-                  type="color" 
+                <input
+                  type="color"
                   title="Primary Color"
-                  value={primaryColor} 
+                  value={primaryColor}
                   onChange={(e) => setPrimaryColor(e.target.value)}
                   className="w-14 h-14 rounded-xl cursor-pointer border border-slate-200 dark:border-slate-700 p-1 shadow-sm bg-transparent"
                 />
                 <div className="flex-1 flex items-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-[#1a1d21] font-mono text-sm font-bold text-slate-700 dark:text-slate-200">
-                  <span>{primaryColor.toUpperCase()}</span>
+                  <span dir="ltr">{primaryColor.toUpperCase()}</span>
                 </div>
-                <button 
+                <button
                   onClick={() => setPrimaryColor(THEME_PRESETS[theme].primaryColor)}
                   className="px-5 py-3 text-sm font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all"
                 >
-                  إعادة الضبط
+                  {isRtl ? "إعادة الضبط" : "Reset"}
                 </button>
               </div>
             </>
           ) : (
             <div className="space-y-6 mt-6 border-t border-slate-100 dark:border-slate-800 pt-6">
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Primary Color */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">اللون الأساسي (Primary Color)</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{isRtl ? "اللون الأساسي" : "Primary Color"}</label>
                   <div className="flex items-center gap-2">
                     <input type="color" title="Primary Color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 shrink-0 bg-transparent" />
                     <input type="text" title="Primary Color Hex" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm font-mono font-bold" dir="ltr" />
@@ -192,7 +194,7 @@ export default function AppearanceSettings() {
 
                 {/* Topbar BG */}
                 <div className="col-span-1 md:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">خلفية الشريط العلوي (Topbar)</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{isRtl ? "خلفية الشريط العلوي" : "Topbar Background"}</label>
                   <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
                     {[
                       { name: 'Pure White', value: '#ffffff' },
@@ -202,7 +204,7 @@ export default function AppearanceSettings() {
                       { name: 'Sunset Gradient', value: 'linear-gradient(90deg, #f97316, #e11d48)' },
                       { name: 'Midnight Gradient', value: 'linear-gradient(90deg, #312e81, #1e1b4b)' }
                     ].map(preset => (
-                      <button 
+                      <button
                         key={preset.name}
                         onClick={() => setCustomTopbarBg(preset.value)}
                         className="px-3.5 py-1.5 text-xs font-bold rounded-full border border-slate-200 dark:border-slate-700 hover:border-brand transition-colors whitespace-nowrap shadow-sm"
@@ -214,13 +216,13 @@ export default function AppearanceSettings() {
                   </div>
                   <div className="flex items-center gap-2">
                     <input type="color" title="Topbar Background Color" value={customTopbarBg.startsWith('#') ? customTopbarBg : '#ffffff'} onChange={(e) => setCustomTopbarBg(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 shrink-0 bg-transparent" />
-                    <input type="text" title="Topbar Background Text" value={customTopbarBg} onChange={(e) => setCustomTopbarBg(e.target.value)} placeholder="مثال: #ffffff أو #121016" className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm text-start font-mono" dir="ltr" />
+                    <input type="text" title="Topbar Background Text" value={customTopbarBg} onChange={(e) => setCustomTopbarBg(e.target.value)} placeholder={isRtl ? "مثال: #ffffff أو #121016" : "e.g. #ffffff or #121016"} className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm text-start font-mono" dir="ltr" />
                   </div>
                 </div>
 
                 {/* Sidebar BG */}
                 <div className="col-span-1 md:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">خلفية الشريط الجانبي (Sidebar)</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{isRtl ? "خلفية الشريط الجانبي" : "Sidebar Background"}</label>
                   <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
                     {[
                       { name: 'Pure White', value: '#ffffff' },
@@ -229,7 +231,7 @@ export default function AppearanceSettings() {
                       { name: 'Navy Accent', value: 'linear-gradient(180deg, #1e3a8a, #172554)' },
                       { name: 'Purple Accent', value: 'linear-gradient(180deg, #581c87, #3b0764)' }
                     ].map(preset => (
-                      <button 
+                      <button
                         key={preset.name}
                         onClick={() => setCustomSidebarBg(preset.value)}
                         className="px-3.5 py-1.5 text-xs font-bold rounded-full border border-slate-200 dark:border-slate-700 hover:border-brand transition-colors whitespace-nowrap shadow-sm"
@@ -241,13 +243,13 @@ export default function AppearanceSettings() {
                   </div>
                   <div className="flex items-center gap-2">
                     <input type="color" title="Sidebar Background Color" value={customSidebarBg.startsWith('#') ? customSidebarBg : '#ffffff'} onChange={(e) => setCustomSidebarBg(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 shrink-0 bg-transparent" />
-                    <input type="text" title="Sidebar Background Text" value={customSidebarBg} onChange={(e) => setCustomSidebarBg(e.target.value)} placeholder="مثال: #ffffff أو #19171D" className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm text-start font-mono" dir="ltr" />
+                    <input type="text" title="Sidebar Background Text" value={customSidebarBg} onChange={(e) => setCustomSidebarBg(e.target.value)} placeholder={isRtl ? "مثال: #ffffff أو #19171D" : "e.g. #ffffff or #19171D"} className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm text-start font-mono" dir="ltr" />
                   </div>
                 </div>
 
                 {/* Sidebar Text */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">لون نصوص الشريط الجانبي</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{isRtl ? "لون نصوص الشريط الجانبي" : "Sidebar Text Color"}</label>
                   <div className="flex items-center gap-2">
                     <input type="color" title="Sidebar Text Color" value={customSidebarText} onChange={(e) => setCustomSidebarText(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 shrink-0 bg-transparent" />
                     <input type="text" title="Sidebar Text Color Hex" value={customSidebarText} onChange={(e) => setCustomSidebarText(e.target.value)} className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm text-start font-mono font-bold" dir="ltr" />
@@ -256,10 +258,10 @@ export default function AppearanceSettings() {
 
                 {/* App Background */}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">لون خلفية النظام (App Background)</label>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{isRtl ? "لون خلفية النظام" : "App Background"}</label>
                   <div className="flex items-center gap-2">
                     <input type="color" title="App Background Color" value={customAppBg.startsWith('#') ? customAppBg : '#f8fafc'} onChange={(e) => setCustomAppBg(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 shrink-0 bg-transparent" />
-                    <input type="text" title="App Background Text" value={customAppBg} onChange={(e) => setCustomAppBg(e.target.value)} placeholder="#f8fafc أو #1A1D21" className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm text-start font-mono font-bold" dir="ltr" />
+                    <input type="text" title="App Background Text" value={customAppBg} onChange={(e) => setCustomAppBg(e.target.value)} placeholder="#f8fafc / #1A1D21" className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm text-start font-mono font-bold" dir="ltr" />
                   </div>
                 </div>
               </div>
@@ -269,16 +271,16 @@ export default function AppearanceSettings() {
 
         {/* Font Family */}
         <section className="bg-white dark:bg-[#222529] p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 transition-colors">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-4">خطوط النظام (Typography)</h2>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-4">{isRtl ? "خطوط النظام" : "Typography"}</h2>
           <div className="flex gap-4">
-            <button 
+            <button
               onClick={() => setFontFamily('cairo')}
               className={`font-cairo flex-1 py-5 flex flex-col items-center justify-center gap-2 rounded-xl border-2 transition-all ${fontFamily === 'cairo' ? 'border-brand bg-brand/5 dark:bg-brand/10 shadow-sm ring-2 ring-brand/20' : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-[#1a1d21] hover:shadow-sm'}`}
             >
-              <span className="text-2xl font-black text-slate-900 dark:text-white">خط كايرو</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">عربي مؤسسي متطور وجميل</span>
+              <span className="text-2xl font-black text-slate-900 dark:text-white">{isRtl ? "خط كايرو" : "Cairo Font"}</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{isRtl ? "عربي مؤسسي متطور وجميل" : "Elegant Arabic corporate typography"}</span>
             </button>
-            <button 
+            <button
               onClick={() => setFontFamily('inter')}
               className={`font-inter flex-1 py-5 flex flex-col items-center justify-center gap-2 rounded-xl border-2 transition-all ${fontFamily === 'inter' ? 'border-brand bg-brand/5 dark:bg-brand/10 shadow-sm ring-2 ring-brand/20' : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-[#1a1d21] hover:shadow-sm'}`}
             >
@@ -290,8 +292,8 @@ export default function AppearanceSettings() {
 
         {/* Logo Upload */}
         <section className="bg-white dark:bg-[#222529] p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 transition-colors">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">شعار مساحة العمل (Workspace Logo)</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">قم برفع شعار مؤسستك ليظهر في الزاوية العلوية للنظام.</p>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">{isRtl ? "شعار مساحة العمل" : "Workspace Logo"}</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{isRtl ? "قم برفع شعار مؤسستك ليظهر في الزاوية العلوية للنظام." : "Upload your organization's logo to appear in the top corner of the system."}</p>
           <div className="flex items-center gap-6">
             <div className="w-20 h-20 bg-slate-50 dark:bg-[#1a1d21] rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
               {logoUrl ? (
@@ -302,22 +304,22 @@ export default function AppearanceSettings() {
               )}
             </div>
             <div className="flex-1 space-y-3">
-              <input 
-                type="file" 
+              <input
+                type="file"
                 title="Upload Logo"
-                ref={fileInputRef} 
-                onChange={handleLogoUpload} 
-                accept="image/*" 
-                className="hidden" 
+                ref={fileInputRef}
+                onChange={handleLogoUpload}
+                accept="image/*"
+                className="hidden"
               />
-              <button 
+              <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
                 className="px-5 py-2.5 bg-brand text-white text-sm font-bold rounded-xl hover:bg-brand/90 transition-all disabled:opacity-50 shadow-sm"
               >
-                {uploading ? "جاري الرفع..." : "اختر صورة (Upload File)"}
+                {uploading ? (isRtl ? "جاري الرفع..." : "Uploading...") : (isRtl ? "اختر صورة" : "Upload File")}
               </button>
-              <p className="text-xs text-slate-500 dark:text-slate-400">ينصح باستخدام صور مربعة بخلفية شفافة (PNG أو SVG).</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{isRtl ? "ينصح باستخدام صور مربعة بخلفية شفافة (PNG أو SVG)." : "Square images with a transparent background (PNG or SVG) are recommended."}</p>
             </div>
           </div>
         </section>
