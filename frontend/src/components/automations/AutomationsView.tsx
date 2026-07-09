@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import WorkflowCanvas from "./WorkflowCanvas";
 import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
 import WorkflowBuilder from '../workflows/WorkflowBuilder';
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface Workflow {
   ID: string;
@@ -78,6 +79,7 @@ const iconBgMap: Record<string, string> = {
 };
 
 export default function AutomationsView() {
+  const { isRtl } = useLocalization();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
@@ -198,7 +200,7 @@ export default function AutomationsView() {
         await fetchWorkflows();
       } else {
         const err = await res.json();
-        alert(err.error || "Failed to activate automation");
+        alert(err.error || (isRtl ? "فشل تفعيل الأتمتة" : "Failed to activate automation"));
       }
     } catch (err) {
       console.error(err);
@@ -227,7 +229,7 @@ export default function AutomationsView() {
         fetchWebhooks();
       } else {
         const err = await res.json();
-        alert(err.error || "Failed to create webhook");
+        alert(err.error || (isRtl ? "فشل إنشاء الويب هوك" : "Failed to create webhook"));
       }
     } catch (err) {
       console.error("Failed to add webhook:", err);
@@ -271,7 +273,7 @@ export default function AutomationsView() {
         fetchApiKeys();
       } else {
         const err = await res.json();
-        alert(err.error || "Failed to create API key");
+        alert(err.error || (isRtl ? "فشل إنشاء مفتاح API" : "Failed to create API key"));
       }
     } catch (err) {
       console.error("Failed to create API key:", err);
@@ -322,7 +324,7 @@ export default function AutomationsView() {
             </div>
             <div>
               <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                Automation & Integration Center
+                {isRtl ? "مركز الأتمتة والتكامل" : "Automation & Integration Center"}
                 <span dir="ltr" className="text-slate-400 font-normal text-lg">(Integration Hub)</span>
               </h1>
               <p className="text-slate-500 dark:text-slate-400 mt-1">
@@ -333,9 +335,9 @@ export default function AutomationsView() {
           
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-               <button onClick={() => setActiveTab('templates')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'templates' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Workflows</button>
-               <button onClick={() => setActiveTab('logs')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'logs' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>Execution Log</button>
-               <button onClick={() => setActiveTab('webhooks')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'webhooks' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>API Integration</button>
+               <button onClick={() => setActiveTab('templates')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'templates' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>{isRtl ? "سير العمل" : "Workflows"}</button>
+               <button onClick={() => setActiveTab('logs')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'logs' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>{isRtl ? "سجل التنفيذ" : "Execution Log"}</button>
+               <button onClick={() => setActiveTab('webhooks')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'webhooks' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>{isRtl ? "تكامل API" : "API Integration"}</button>
             </div>
             <Button 
               onClick={() => { setEditingWorkflow(null); setIsEditing(true); }}
@@ -352,11 +354,11 @@ export default function AutomationsView() {
             {/* Stats Bar */}
             <div className="grid grid-cols-3 gap-6 mb-8">
               <div className="bg-[#f8fafc] rounded-2xl p-6 border border-slate-200/60 shadow-sm">
-                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Total Workflows</p>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">{isRtl ? "إجمالي سير العمل" : "Total Workflows"}</p>
                 <p className="text-4xl font-extrabold text-slate-800">{workflows.length}</p>
               </div>
               <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100 shadow-sm">
-                <p className="text-sm font-bold text-emerald-600 uppercase tracking-wider mb-2">Active Flows</p>
+                <p className="text-sm font-bold text-emerald-600 uppercase tracking-wider mb-2">{isRtl ? "التدفّقات النشطة" : "Active Flows"}</p>
                 <p className="text-4xl font-extrabold text-emerald-700">
                   {workflows.filter(w => w.IsActive).length}
                 </p>
@@ -382,8 +384,8 @@ export default function AutomationsView() {
                     <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
                       <Webhook className="w-8 h-8 text-slate-400" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-2">No workflows yet</h3>
-                    <p className="text-slate-500 max-w-sm mx-auto mb-6">Create your first automated workflow to save time and connect your systems.</p>
+                    <h3 className="text-lg font-bold text-slate-800 mb-2">{isRtl ? "لا يوجد سير عمل بعد" : "No workflows yet"}</h3>
+                    <p className="text-slate-500 max-w-sm mx-auto mb-6">{isRtl ? "أنشئ أول سير عمل مؤتمت لتوفير الوقت وربط أنظمتك." : "Create your first automated workflow to save time and connect your systems."}</p>
                     <Button onClick={() => { setEditingWorkflow(null); setIsEditing(true); }} className="bg-brand hover:bg-brand/90 text-white font-bold h-11 px-8 rounded-xl shadow-md">
                       Create First Workflow
                     </Button>
@@ -457,11 +459,11 @@ export default function AutomationsView() {
               <table className="w-full text-start text-sm text-slate-600">
                 <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase font-bold text-slate-400">
                   <tr>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Workflow Name</th>
-                    <th className="px-6 py-4">Trigger</th>
-                    <th className="px-6 py-4">Execution Time</th>
-                    <th className="px-6 py-4">Duration</th>
+                    <th className="px-6 py-4">{isRtl ? "الحالة" : "Status"}</th>
+                    <th className="px-6 py-4">{isRtl ? "اسم سير العمل" : "Workflow Name"}</th>
+                    <th className="px-6 py-4">{isRtl ? "المُشغّل" : "Trigger"}</th>
+                    <th className="px-6 py-4">{isRtl ? "وقت التنفيذ" : "Execution Time"}</th>
+                    <th className="px-6 py-4">{isRtl ? "المدة" : "Duration"}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -481,7 +483,7 @@ export default function AutomationsView() {
                             <span className="text-rose-500 font-bold flex items-center gap-1"><X className="w-4 h-4" /> {log.Status || 'Failed'}</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 font-bold text-slate-800">{log.WorkflowName || 'Workflow Execution'}</td>
+                        <td className="px-6 py-4 font-bold text-slate-800">{log.WorkflowName || (isRtl ? 'تنفيذ سير عمل' : 'Workflow Execution')}</td>
                         <td className="px-6 py-4">{log.TriggerName || 'Webhook / Event'}</td>
                         <td className="px-6 py-4">{new Date(log.CreatedAt).toLocaleString()}</td>
                         <td className="px-6 py-4">{log.DurationMs ? `${log.DurationMs}ms` : '120ms'}</td>
@@ -504,8 +506,8 @@ export default function AutomationsView() {
                     <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-6 text-indigo-600 shadow-sm border border-indigo-200/50">
                       <LinkIcon className="w-6 h-6" />
                     </div>
-                    <h3 className="text-xl font-extrabold text-slate-800 mb-2">Incoming Webhooks</h3>
-                    <p className="text-slate-500 font-medium mb-6">Create unique URLs to receive data from external systems directly into your workflows.</p>
+                    <h3 className="text-xl font-extrabold text-slate-800 mb-2">{isRtl ? "الويب هوكس الواردة" : "Incoming Webhooks"}</h3>
+                    <p className="text-slate-500 font-medium mb-6">{isRtl ? "أنشئ روابط فريدة لاستقبال البيانات من الأنظمة الخارجية مباشرة في سير عملك." : "Create unique URLs to receive data from external systems directly into your workflows."}</p>
                     
                     {webhooks.length === 0 ? (
                       <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6 text-center text-slate-500 text-sm font-medium">
@@ -531,7 +533,7 @@ export default function AutomationsView() {
                                 className="h-8 px-2 text-xs font-bold border-slate-300 gap-1"
                               >
                                 {copiedUrlId === hook.ID ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                                {copiedUrlId === hook.ID ? 'Copied' : 'Copy'}
+                                {copiedUrlId === hook.ID ? (isRtl ? 'تم النسخ' : 'Copied') : (isRtl ? 'نسخ' : 'Copy')}
                               </Button>
                               <Button 
                                 variant="outline" 
@@ -565,8 +567,8 @@ export default function AutomationsView() {
                     <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center mb-6 text-rose-600 shadow-sm border border-rose-200/50">
                       <Key className="w-6 h-6" />
                     </div>
-                    <h3 className="text-xl font-extrabold text-slate-800 mb-2">API Credentials</h3>
-                    <p className="text-slate-500 font-medium mb-6">Manage your API keys securely to authenticate integrations with external platforms.</p>
+                    <h3 className="text-xl font-extrabold text-slate-800 mb-2">{isRtl ? "بيانات اعتماد API" : "API Credentials"}</h3>
+                    <p className="text-slate-500 font-medium mb-6">{isRtl ? "أدر مفاتيح API بأمان لمصادقة التكاملات مع المنصات الخارجية." : "Manage your API keys securely to authenticate integrations with external platforms."}</p>
                     
                     {apiKeys.length === 0 ? (
                       <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6 text-center text-slate-500 text-sm font-medium">
@@ -627,7 +629,7 @@ export default function AutomationsView() {
                 </div>
                 <div>
                   <h3 className="font-extrabold text-xl text-slate-800">{selectedTemplate.name}</h3>
-                  <p className="text-sm text-slate-500 font-medium">Visual Workflow Overview</p>
+                  <p className="text-sm text-slate-500 font-medium">{isRtl ? "نظرة عامة مرئية على سير العمل" : "Visual Workflow Overview"}</p>
                 </div>
               </div>
               <button 
@@ -675,7 +677,7 @@ export default function AutomationsView() {
           <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden p-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-extrabold text-xl text-slate-800 flex items-center gap-2">
-                <LinkIcon className="w-5 h-5 text-indigo-600" /> Create New Webhook
+                <LinkIcon className="w-5 h-5 text-indigo-600" /> {isRtl ? "إنشاء ويب هوك جديد" : "Create New Webhook"}
               </h3>
               <button onClick={() => setShowAddWebhook(false)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full" aria-label="Close">
                 <X className="w-5 h-5" />
@@ -683,41 +685,41 @@ export default function AutomationsView() {
             </div>
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Target URL</label>
+                <label className="block text-sm font-bold text-slate-700 mb-1">{isRtl ? "الرابط الهدف" : "Target URL"}</label>
                 <input 
                   type="text" 
                   className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
-                  placeholder="https://your-domain.com/webhook-callback" 
+                  placeholder={isRtl ? "https://your-domain.com/webhook-callback" : "https://your-domain.com/webhook-callback"} 
                   value={newHookUrl} 
                   onChange={e => setNewHookUrl(e.target.value)} 
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">Subscribed Events</label>
+                <label className="block text-sm font-bold text-slate-700 mb-1">{isRtl ? "الأحداث المشترَك بها" : "Subscribed Events"}</label>
                 <input 
                   type="text" 
                   className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
-                  placeholder="all, ticket.created, entity.updated" 
+                  placeholder={isRtl ? "all، ticket.created، entity.updated" : "all, ticket.created, entity.updated"} 
                   value={newHookEvents} 
                   onChange={e => setNewHookEvents(e.target.value)} 
                 />
-                <p className="text-xs text-slate-400 mt-1">Use &quot;all&quot; or comma-separated event names.</p>
+                <p className="text-xs text-slate-400 mt-1">{isRtl ? "استخدم «all» أو أسماء أحداث مفصولة بفواصل." : "Use \"all\" or comma-separated event names."}</p>
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">HMAC Secret (Optional)</label>
+                <label className="block text-sm font-bold text-slate-700 mb-1">{isRtl ? "مفتاح HMAC السري (اختياري)" : "HMAC Secret (Optional)"}</label>
                 <input 
                   type="password" 
                   className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
-                  placeholder="Secret key to sign payload" 
+                  placeholder={isRtl ? "مفتاح سري لتوقيع الحمولة" : "Secret key to sign payload"} 
                   value={newHookSecret} 
                   onChange={e => setNewHookSecret(e.target.value)} 
                 />
               </div>
             </div>
             <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setShowAddWebhook(false)} className="font-bold">Cancel</Button>
+              <Button variant="ghost" onClick={() => setShowAddWebhook(false)} className="font-bold">{isRtl ? "إلغاء" : "Cancel"}</Button>
               <Button onClick={handleAddWebhook} className="bg-brand hover:bg-brand/90 text-white font-bold px-6 rounded-xl shadow-md">
-                Save Webhook
+                {isRtl ? "حفظ الويب هوك" : "Save Webhook"}
               </Button>
             </div>
           </div>
@@ -732,7 +734,7 @@ export default function AutomationsView() {
               <>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-extrabold text-xl text-slate-800 flex items-center gap-2">
-                    <Key className="w-5 h-5 text-rose-600" /> Generate New API Credential
+                    <Key className="w-5 h-5 text-rose-600" /> {isRtl ? "توليد بيانات اعتماد API جديدة" : "Generate New API Credential"}
                   </h3>
                   <button onClick={() => setShowAddApiKey(false)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full" aria-label="Close">
                     <X className="w-5 h-5" />
@@ -740,21 +742,21 @@ export default function AutomationsView() {
                 </div>
                 <div className="space-y-4 mb-6">
                   <div>
-                    <label htmlFor="apiKeyNameInput" className="block text-sm font-bold text-slate-700 mb-1">Credential Name</label>
+                    <label htmlFor="apiKeyNameInput" className="block text-sm font-bold text-slate-700 mb-1">{isRtl ? "اسم بيانات الاعتماد" : "Credential Name"}</label>
                     <input 
                       id="apiKeyNameInput"
                       type="text" 
                       className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
-                      placeholder="e.g., ERP System Integration" 
+                      placeholder={isRtl ? "مثال: تكامل نظام ERP" : "e.g., ERP System Integration"} 
                       value={newKeyName} 
                       onChange={e => setNewKeyName(e.target.value)} 
                     />
                   </div>
                 </div>
                 <div className="flex justify-end gap-3">
-                  <Button variant="ghost" onClick={() => setShowAddApiKey(false)} className="font-bold">Cancel</Button>
+                  <Button variant="ghost" onClick={() => setShowAddApiKey(false)} className="font-bold">{isRtl ? "إلغاء" : "Cancel"}</Button>
                   <Button onClick={handleAddApiKey} disabled={!newKeyName.trim()} className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-6 rounded-xl shadow-md">
-                    Generate Key
+                    {isRtl ? "توليد المفتاح" : "Generate Key"}
                   </Button>
                 </div>
               </>
@@ -762,11 +764,11 @@ export default function AutomationsView() {
               <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-extrabold text-lg text-emerald-800 flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-emerald-600" /> Key Generated Successfully!
+                    <CheckCircle className="w-5 h-5 text-emerald-600" /> {isRtl ? "تم توليد المفتاح بنجاح!" : "Key Generated Successfully!"}
                   </h3>
                 </div>
                 <p className="text-xs text-emerald-700 mb-4 leading-relaxed font-medium">
-                  Please copy your new API key immediately and store it in a secure password manager. For security reasons, <strong>it will never be displayed again</strong>.
+                  {isRtl ? <>يرجى نسخ مفتاح API الجديد فوراً وتخزينه في مدير كلمات مرور آمن. لأسباب أمنية، <strong>لن يُعرض مرة أخرى أبداً</strong>.</> : <>Please copy your new API key immediately and store it in a secure password manager. For security reasons, <strong>it will never be displayed again</strong>.</>}
                 </p>
                 <div className="flex items-center gap-2 mb-6">
                   <input 
@@ -781,7 +783,7 @@ export default function AutomationsView() {
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 px-4 rounded-xl shrink-0 gap-1"
                   >
                     {copiedKey ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {copiedKey ? 'Copied' : 'Copy Key'}
+                    {copiedKey ? (isRtl ? 'تم النسخ' : 'Copied') : (isRtl ? 'نسخ المفتاح' : 'Copy Key')}
                   </Button>
                 </div>
                 <div className="flex justify-end">
@@ -789,7 +791,7 @@ export default function AutomationsView() {
                     onClick={() => { setShowAddApiKey(false); setGeneratedKey(""); }} 
                     className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-6 rounded-xl shadow-md"
                   >
-                    Done & Close
+                    {isRtl ? "تم والإغلاق" : "Done & Close"}
                   </Button>
                 </div>
               </div>
