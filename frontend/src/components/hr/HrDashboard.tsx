@@ -131,11 +131,11 @@ export default function HrDashboard() {
           </div>
           <div className="flex gap-3">
             <div className="relative">
-              <Search className={`w-4 h-4 absolute ${isRtl ? "right-3" : "left-3"} top-1/2 -translate-y-1/2 text-slate-400`} />
-              <input 
-                type="text" 
+              <Search className="w-4 h-4 absolute start-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
                 placeholder={t("hr.searchEmployee")}
-                className={`py-2 border border-slate-200 rounded-md text-sm w-64 focus:outline-none focus:border-brand ${isRtl ? "pr-9 pl-4" : "pl-9 pr-4"}`}
+                className="py-2 border border-slate-200 rounded-md text-sm w-64 focus:outline-none focus:border-brand ps-9 pe-4"
               />
             </div>
             <Button variant="outline" className="text-slate-600 gap-2 border-slate-200">
@@ -211,7 +211,7 @@ export default function HrDashboard() {
             <h3 className="text-lg font-semibold text-slate-800">{t("hr.recentOnboarding")}</h3>
           </div>
           <div className="overflow-x-auto">
-            <table className={`w-full text-sm ${isRtl ? "text-right" : "text-left"}`}>
+            <table className="w-full text-sm text-start">
               <thead className="bg-[#f8fafc] text-slate-500">
                 <tr>
                   <th className="px-6 py-3 font-medium">{t("common.table.name")}</th>

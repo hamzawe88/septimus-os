@@ -89,7 +89,7 @@ export default function DiscoverTab() {
                 placeholder={t("plugins.searchPlaceholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-[#222529] border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand/50 text-slate-800 dark:text-slate-200 ps-10"
+                className="w-full ps-10 pe-4 py-2.5 bg-white dark:bg-[#222529] border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand/50 text-slate-800 dark:text-slate-200"
               />
             </div>
           </div>

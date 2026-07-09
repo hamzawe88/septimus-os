@@ -223,7 +223,7 @@ export default function TopBar() {
             <LayoutGrid className="w-5 h-5" />
           </button>
           {isAppGridOpen && (
-            <div className={`absolute ${isRtl ? "left-0" : "right-0"} mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden`} dir={isRtl ? "rtl" : "ltr"}>
+            <div className={`absolute end-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden`} dir={isRtl ? "rtl" : "ltr"}>
               <div className="p-4 bg-slate-50 border-b border-slate-100">
                 <h3 className="font-bold text-slate-800">{t("appGrid.title")}</h3>
                 <p className="text-xs text-slate-500">{t("appGrid.subtitle")}</p>
@@ -273,7 +273,7 @@ export default function TopBar() {
             {unreadCount > 0 && <span className="topbar-notif-dot" aria-hidden />}
           </button>
           {isNotifOpen && (
-            <div className={`absolute ${isRtl ? "left-0" : "right-0"} mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden`} dir={isRtl ? "rtl" : "ltr"}>
+            <div className={`absolute end-0 mt-2 w-80 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden`} dir={isRtl ? "rtl" : "ltr"}>
               <div className="flex items-center justify-between p-3 border-b border-slate-100 bg-white ">
                 <span className="font-semibold text-sm text-[var(--sb-bg)] [var(--sb-bg)]">{t("topbar.notifications")}</span>
                 <button 
@@ -416,7 +416,7 @@ export default function TopBar() {
           </button>
           
           {isProfileOpen && (
-            <div className={`absolute ${isRtl ? "left-0" : "right-0"} mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden`} dir={isRtl ? "rtl" : "ltr"}>
+            <div className={`absolute end-0 mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden`} dir={isRtl ? "rtl" : "ltr"}>
               <div className="p-4 border-b border-slate-100 flex items-center space-x-3">
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={currentUser?.avatarUrl || `https://ui-avatars.com/api/?name=${currentUser?.name || "User"}&background=random`} />
