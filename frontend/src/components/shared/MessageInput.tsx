@@ -7,6 +7,7 @@ import EmojiPicker from 'emoji-picker-react';
 import { useAppStore } from "@/store/useAppStore";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { useFileUpload } from "@/hooks/useFileUpload";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface MessageInputProps {
   channelName: string;
@@ -17,6 +18,7 @@ interface MessageInputProps {
 }
 
 export default function MessageInput({ channelName, channelId, onSend, variant = "default", isDm = false }: MessageInputProps) {
+  const { isRtl } = useLocalization();
   const { currentUser } = useAppStore();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showEmoji, setShowEmoji] = useState(false);
@@ -106,7 +108,7 @@ export default function MessageInput({ channelName, channelId, onSend, variant =
         type="file" 
         ref={fileInputRef} 
         className="hidden" 
-        title="Upload file"
+        title={isRtl ? "رفع ملف" : "Upload file"}
         onChange={handleFileSelect} 
       />
 
@@ -120,7 +122,7 @@ export default function MessageInput({ channelName, channelId, onSend, variant =
               <Paperclip className="h-6 w-6 text-gray-500 me-3" />
             )}
             <div className="flex-1 truncate text-sm text-gray-700 font-medium">{attachment.name}</div>
-            <button type="button" onClick={() => setAttachment(null)} className="p-1 hover:bg-gray-100 rounded-md" title="Remove attachment" aria-label="Remove attachment">
+            <button type="button" onClick={() => setAttachment(null)} className="p-1 hover:bg-gray-100 rounded-md" title={isRtl ? "إزالة المرفق" : "Remove attachment"} aria-label={isRtl ? "إزالة المرفق" : "Remove attachment"}>
               <X className="h-4 w-4 text-gray-500" />
             </button>
           </div>
@@ -145,7 +147,7 @@ export default function MessageInput({ channelName, channelId, onSend, variant =
             notifyTyping();
           }}
           rows={1}
-          placeholder={isDm ? `Message ${channelName}` : `Message #${channelName}`}
+          placeholder={isRtl ? (isDm ? `مراسلة ${channelName}` : `مراسلة #${channelName}`) : (isDm ? `Message ${channelName}` : `Message #${channelName}`)}
           className="msg-input-textarea"
           onKeyDown={handleKeyDown}
           aria-label={`Type a message in #${channelName}`}
@@ -159,13 +161,13 @@ export default function MessageInput({ channelName, channelId, onSend, variant =
             {/* Formatting Tools - Hidden in compact mode */}
             {!isCompact && (
               <div className="flex items-center bg-slate-50 dark:bg-slate-800/50 rounded-lg p-0.5">
-                <button type="button" className="msg-tool-btn" title="Bold" aria-label="Bold" onMouseDown={(e) => e.preventDefault()} onClick={() => insertText("**", "**")}>
+                <button type="button" className="msg-tool-btn" title={isRtl ? "غامق" : "Bold"} aria-label={isRtl ? "غامق" : "Bold"} onMouseDown={(e) => e.preventDefault()} onClick={() => insertText("**", "**")}>
                   <Bold className="w-4 h-4" strokeWidth={1.5} />
                 </button>
-                <button type="button" className="msg-tool-btn" title="Italic" aria-label="Italic" onMouseDown={(e) => e.preventDefault()} onClick={() => insertText("_", "_")}>
+                <button type="button" className="msg-tool-btn" title={isRtl ? "مائل" : "Italic"} aria-label={isRtl ? "مائل" : "Italic"} onMouseDown={(e) => e.preventDefault()} onClick={() => insertText("_", "_")}>
                   <Italic className="w-4 h-4" strokeWidth={1.5} />
                 </button>
-                <button type="button" className="msg-tool-btn" title="Link" aria-label="Insert link" onMouseDown={(e) => e.preventDefault()} onClick={() => insertText("[", "](url)")}>
+                <button type="button" className="msg-tool-btn" title={isRtl ? "رابط" : "Link"} aria-label={isRtl ? "إدراج رابط" : "Insert link"} onMouseDown={(e) => e.preventDefault()} onClick={() => insertText("[", "](url)")}>
                   <Link2 className="w-4 h-4" strokeWidth={1.5} />
                 </button>
               </div>
@@ -177,8 +179,8 @@ export default function MessageInput({ channelName, channelId, onSend, variant =
             <button 
               type="button"
               className="msg-tool-btn" 
-              title="Attach file" 
-              aria-label="Attach file"
+              title={isRtl ? "إرفاق ملف" : "Attach file"} 
+              aria-label={isRtl ? "إرفاق ملف" : "Attach file"}
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
             >
@@ -187,14 +189,14 @@ export default function MessageInput({ channelName, channelId, onSend, variant =
             <button 
               type="button"
               className="msg-tool-btn" 
-              title="Emoji" 
-              aria-label="Add emoji"
+              title={isRtl ? "إيموجي" : "Emoji"} 
+              aria-label={isRtl ? "إضافة إيموجي" : "Add emoji"}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => setShowEmoji(!showEmoji)}
             >
               <Smile className="w-4 h-4" strokeWidth={1.5} />
             </button>
-            <button type="button" className="msg-tool-btn" title="Mention" aria-label="Mention someone" onMouseDown={(e) => e.preventDefault()} onClick={() => insertText("@")}>
+            <button type="button" className="msg-tool-btn" title={isRtl ? "إشارة" : "Mention"} aria-label={isRtl ? "الإشارة إلى شخص" : "Mention someone"} onMouseDown={(e) => e.preventDefault()} onClick={() => insertText("@")}>
               <AtSign className="w-4 h-4" strokeWidth={1.5} />
             </button>
 
@@ -202,14 +204,14 @@ export default function MessageInput({ channelName, channelId, onSend, variant =
             <button 
               type="button"
               className="msg-tool-ai ms-1" 
-              aria-label="Ask AI assistant"
+              aria-label={isRtl ? "اسأل المساعد الذكي" : "Ask AI assistant"}
               onClick={() => {
                 window.dispatchEvent(new CustomEvent('toggle-rag-sidebar'));
               }}
             >
               <div className="ai-pill-bg"></div>
               <Sparkles className="w-3.5 h-3.5 relative z-10 shrink-0" aria-hidden />
-              <span className={`relative z-10 ai-pill-text whitespace-nowrap ${isCompact ? 'hidden' : 'hidden sm:inline'}`}>Ask AI</span>
+              <span className={`relative z-10 ai-pill-text whitespace-nowrap ${isCompact ? 'hidden' : 'hidden sm:inline'}`}>{isRtl ? "اسأل AI" : "Ask AI"}</span>
             </button>
           </div>
 
@@ -218,8 +220,8 @@ export default function MessageInput({ channelName, channelId, onSend, variant =
             type="button"
             className="msg-send-btn shrink-0"
             onClick={handleSend}
-            aria-label="Send message"
-            title="Send message"
+            aria-label={isRtl ? "إرسال الرسالة" : "Send message"}
+            title={isRtl ? "إرسال الرسالة" : "Send message"}
           >
             <svg
               width="14"

@@ -2,6 +2,7 @@ import React from 'react';
 import { Sparkles, X, Wand2, CheckSquare, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AIProposal } from '@/types';
+import { useLocalization } from '@/contexts/LocalizationContext';
 
 interface AIAutoPlanModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export function AIAutoPlanModal({
   onAccept,
   priorities
 }: AIAutoPlanModalProps) {
+  const { isRtl } = useLocalization();
   if (!isOpen || !proposal) return null;
 
   return (
@@ -31,11 +33,11 @@ export function AIAutoPlanModal({
               <Sparkles className="w-6 h-6 text-purple-200 animate-pulse" />
             </div>
             <div>
-              <h3 className="text-lg font-black tracking-tight">AI Agile Co-Pilot Proposal</h3>
-              <p className="text-xs text-purple-200 font-medium">Auto-planned sprint increment for {proposal.targetSprint.Name}</p>
+              <h3 className="text-lg font-black tracking-tight">{isRtl ? "اقتراح مساعد أجايل الذكي" : "AI Agile Co-Pilot Proposal"}</h3>
+              <p className="text-xs text-purple-200 font-medium">{isRtl ? `تخطيط تلقائي لمخرجات السبرنت ${proposal.targetSprint.Name}` : `Auto-planned sprint increment for ${proposal.targetSprint.Name}`}</p>
             </div>
           </div>
-          <button onClick={onClose} title="Close AI Proposal" aria-label="Close AI Proposal" className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10">
+          <button onClick={onClose} title={isRtl ? "إغلاق اقتراح الذكاء الاصطناعي" : "Close AI Proposal"} aria-label={isRtl ? "إغلاق اقتراح الذكاء الاصطناعي" : "Close AI Proposal"} className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -43,16 +45,16 @@ export function AIAutoPlanModal({
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           <div className="bg-brand-light border border-brand-light rounded-xl p-4 text-xs text-brand-dark space-y-1">
             <div className="font-bold flex items-center gap-1.5 text-purple-950 text-sm">
-              <Wand2 className="w-4 h-4 text-brand" /> AI Strategy Rationale:
+              <Wand2 className="w-4 h-4 text-brand" /> {isRtl ? "مبرّر استراتيجية الذكاء الاصطناعي:" : "AI Strategy Rationale:"}
             </div>
             <p className="leading-relaxed text-brand-dark font-medium">{proposal.rationale}</p>
           </div>
 
           <div>
             <div className="flex justify-between items-center mb-3">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Proposed Work Items ({proposal.selectedTasks.length})</span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{isRtl ? `عناصر العمل المقترحة (${proposal.selectedTasks.length})` : `Proposed Work Items (${proposal.selectedTasks.length})`}</span>
               <span className="text-xs font-bold text-brand bg-brand-light px-2.5 py-1 rounded-full border border-brand-light">
-                Total Load: {proposal.selectedTasks.reduce((acc, t) => acc + (t.StoryPoints || 0), 0)} / 30 pts
+                {isRtl ? "الحمل الكلي:" : "Total Load:"} {proposal.selectedTasks.reduce((acc, t) => acc + (t.StoryPoints || 0), 0)} / 30 {isRtl ? "نقطة" : "pts"}
               </span>
             </div>
 
@@ -79,10 +81,10 @@ export function AIAutoPlanModal({
 
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
           <Button variant="outline" onClick={onClose} disabled={isAssigning} className="font-semibold text-xs">
-            Discard Proposal
+            {isRtl ? "تجاهل الاقتراح" : "Discard Proposal"}
           </Button>
           <Button onClick={onAccept} disabled={isAssigning} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md">
-            {isAssigning ? "Assigning Tasks..." : `Accept & Assign (${proposal.selectedTasks.length} Tasks)`} <ArrowRight className="w-4 h-4 ms-1.5" />
+            {isAssigning ? (isRtl ? "جارِ الإسناد..." : "Assigning Tasks...") : (isRtl ? `قبول وإسناد (${proposal.selectedTasks.length} مهمة)` : `Accept & Assign (${proposal.selectedTasks.length} Tasks)`)} <ArrowRight className="w-4 h-4 ms-1.5" />
           </Button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useLocalization } from "@/contexts/LocalizationContext";
 import { X, Sparkles, BrainCircuit, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,6 +9,7 @@ import MessageInput from "@/components/shared/MessageInput";
 import { fetchWithAuth,     API_BASE_URL } from '@/lib/apiClient';
 
 export function RightSidebar() {
+  const { isRtl } = useLocalization();
   const { activeThread: activeThreadRaw, setActiveThread, centrifuge, isRagSidebarOpen, setIsRagSidebarOpen } = useAppStore();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const activeThread = activeThreadRaw as any;
@@ -118,10 +120,10 @@ export function RightSidebar() {
       if (res.ok) {
         setRagHistory(prev => [...prev, { role: "ai", text: data.answer }]);
       } else {
-        setRagHistory(prev => [...prev, { role: "ai", text: "Error: " + (data.detail || "Failed to query.") }]);
+        setRagHistory(prev => [...prev, { role: "ai", text: (isRtl ? "خطأ: " : "Error: ") + (data.detail || (isRtl ? "فشل الاستعلام." : "Failed to query.")) }]);
       }
     } catch {
-      setRagHistory(prev => [...prev, { role: "ai", text: "Network error connecting to AI agent." }]);
+      setRagHistory(prev => [...prev, { role: "ai", text: isRtl ? "خطأ شبكة أثناء الاتصال بوكيل الذكاء الاصطناعي." : "Network error connecting to AI agent." }]);
     } finally {
       setIsRagLoading(false);
     }
@@ -138,11 +140,11 @@ export function RightSidebar() {
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white">
         <div className="flex items-center space-x-2">
           {isThread ? (
-            <h3 className="font-bold text-[15px] text-[var(--sb-bg)]">Thread</h3>
+            <h3 className="font-bold text-[15px] text-[var(--sb-bg)]">{isRtl ? "الموضوع" : "Thread"}</h3>
           ) : (
             <h3 className="font-bold text-[15px] text-[var(--sb-bg)] flex items-center gap-2">
               <BrainCircuit className="w-4 h-4 text-[var(--sb-bg)]" />
-              Document Assistant
+              {isRtl ? "مساعد المستندات" : "Document Assistant"}
             </h3>
           )}
         </div>
@@ -183,7 +185,7 @@ export function RightSidebar() {
             <div className="px-5 py-4">
               <div className="flex items-center space-x-4 mb-4">
                 <div className="flex-1 border-t border-slate-200"></div>
-                <span className="text-xs font-medium text-[var(--sb-bg)]/70">{replies.length} replies</span>
+                <span className="text-xs font-medium text-[var(--sb-bg)]/70">{replies.length} {isRtl ? "ردود" : "replies"}</span>
                 <div className="flex-1 border-t border-slate-200"></div>
               </div>
 
@@ -215,7 +217,7 @@ export function RightSidebar() {
                 <div className="w-16 h-16 bg-slate-100 text-[var(--sb-bg)] rounded-full flex items-center justify-center">
                   <Sparkles className="w-8 h-8" />
                 </div>
-                <h4 className="font-bold text-lg text-[var(--sb-bg)]">Ask about your documents</h4>
+                <h4 className="font-bold text-lg text-[var(--sb-bg)]">{isRtl ? "اسأل عن مستنداتك" : "Ask about your documents"}</h4>
                 <p className="text-sm text-[var(--sb-bg)]/70 max-w-xs">
                   Upload PDFs or text files to the channel, then ask the AI Orchestrator to summarize or extract information from them.
                 </p>
@@ -258,7 +260,7 @@ export function RightSidebar() {
           <div className="relative">
              <input 
                type="text" 
-               placeholder="Ask AI about documents..." 
+               placeholder={isRtl ? "اسأل الذكاء الاصطناعي عن المستندات..." : "Ask AI about documents..."} 
                className="w-full ps-4 pe-10 py-3 rounded-xl border border-gray-300 focus:outline-none focus:border-[var(--sb-bg)] focus:ring-2 focus:ring-[var(--sb-bg)]/30 transition-all text-sm"
                onKeyDown={(e) => {
                  if (e.key === 'Enter') {

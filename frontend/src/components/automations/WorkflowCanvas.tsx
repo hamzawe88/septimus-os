@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useLocalization } from "@/contexts/LocalizationContext";
 import { Webhook, Mail, CalendarDays, FolderOpen, Sheet, Play, Settings } from "lucide-react";
 
 interface WorkflowCanvasProps {
@@ -35,6 +36,7 @@ const getBgColor = (iconStr: string) => {
 };
 
 export default function WorkflowCanvas({ template }: WorkflowCanvasProps) {
+  const { isRtl } = useLocalization();
   return (
     <div className="w-full h-96 bg-[#f8fafc] rounded-xl border border-slate-200 overflow-hidden relative flex items-center justify-center bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px]">
       
@@ -43,7 +45,7 @@ export default function WorkflowCanvas({ template }: WorkflowCanvasProps) {
         <div className="w-48 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden z-10 transition-transform hover:-translate-y-1 hover:shadow-md">
           <div className="px-4 py-2 bg-[#f8fafc] border-b border-slate-100 flex items-center gap-2">
             <Play className="w-4 h-4 text-slate-500" />
-            <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Trigger</span>
+            <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{isRtl ? "مُشغّل" : "Trigger"}</span>
           </div>
           <div className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-brand-light flex items-center justify-center">
@@ -83,7 +85,7 @@ export default function WorkflowCanvas({ template }: WorkflowCanvasProps) {
           <div className="px-4 py-2 bg-[#f8fafc] border-b border-slate-100 flex justify-between items-center">
             <div className="flex items-center gap-2">
               <Settings className="w-4 h-4 text-slate-500" />
-              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Action</span>
+              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{isRtl ? "إجراء" : "Action"}</span>
             </div>
             <div className="flex gap-1">
               <div className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -95,7 +97,7 @@ export default function WorkflowCanvas({ template }: WorkflowCanvasProps) {
             </div>
             <div>
               <p className="text-sm font-bold text-slate-800">{template.action}</p>
-              <p className="text-xs text-slate-500">Integration Node</p>
+              <p className="text-xs text-slate-500">{isRtl ? "عقدة تكامل" : "Integration Node"}</p>
             </div>
           </div>
         </div>

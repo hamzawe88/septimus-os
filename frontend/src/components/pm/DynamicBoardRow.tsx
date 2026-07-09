@@ -1,6 +1,7 @@
 import React from "react";
 import { ChevronRight, CheckCircle2, Check, X, User as UserIcon } from "lucide-react";
 import { Task, User } from "@/types";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface Status {
   value: string;
@@ -64,6 +65,7 @@ export default function DynamicBoardRow({
   toggleRow,
   setSelectedTaskId
 }: DynamicBoardRowProps) {
+  const { isRtl } = useLocalization();
   const currentStatus = statuses.find(s => s.value === task.Status) || statuses[0];
   const currentPriority = priorities.find(p => p.value === task.Priority) || priorities[3];
 
@@ -75,7 +77,7 @@ export default function DynamicBoardRow({
       {/* Checkbox / Index */}
       <div className="w-12 py-3 border-e border-slate-100 flex justify-center">
         <span className="text-xs text-slate-300 font-mono group-hover:hidden">{index + 1}</span>
-        <input type="checkbox" title={`Select task ${task.ID}`} aria-label={`Select task ${task.ID}`} className="hidden group-hover:block rounded border-slate-300 text-brand focus:ring-brand" />
+        <input type="checkbox" title={isRtl ? `تحديد المهمة ${task.ID}` : `Select task ${task.ID}`} aria-label={isRtl ? `تحديد المهمة ${task.ID}` : `Select task ${task.ID}`} className="hidden group-hover:block rounded border-slate-300 text-brand focus:ring-brand" />
       </div>
       
       {/* Task ID */}
@@ -89,8 +91,8 @@ export default function DynamicBoardRow({
           <button 
             onClick={(e) => { e.stopPropagation(); toggleRow(task.ID); }}
             className={`w-5 h-5 flex items-center justify-center rounded hover:bg-slate-200 transition-colors ${hasChildren ? 'visible' : 'invisible'}`}
-            title="Toggle row"
-            aria-label="Toggle row"
+            title={isRtl ? "طيّ/فرد الصف" : "Toggle row"}
+            aria-label={isRtl ? "طيّ/فرد الصف" : "Toggle row"}
           >
             <ChevronRight className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
           </button>
@@ -103,8 +105,8 @@ export default function DynamicBoardRow({
               handleUpdateTaskField(task.ID, 'status', task.Status === 'done' ? 'todo' : 'done');
             }}
             className="focus:outline-none"
-            title="Toggle task completion"
-            aria-label="Toggle task completion"
+            title={isRtl ? "تبديل إكمال المهمة" : "Toggle task completion"}
+            aria-label={isRtl ? "تبديل إكمال المهمة" : "Toggle task completion"}
           >
             {task.Status === 'done' ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-500 hover:scale-110 transition-transform" />
@@ -119,9 +121,9 @@ export default function DynamicBoardRow({
             <input
               type="text"
               autoFocus
-              title="Edit task title"
-              aria-label="Edit task title"
-              placeholder="Task title"
+              title={isRtl ? "تعديل عنوان المهمة" : "Edit task title"}
+              aria-label={isRtl ? "تعديل عنوان المهمة" : "Edit task title"}
+              placeholder={isRtl ? "عنوان المهمة" : "Task title"}
               value={editTitleValue}
               onChange={(e) => setEditTitleValue(e.target.value)}
               onKeyDown={(e) => {
@@ -130,8 +132,8 @@ export default function DynamicBoardRow({
               }}
               className="w-full bg-white border border-purple-400 rounded px-2 py-1 text-sm text-slate-900 focus:outline-none shadow-sm"
             />
-            <button onClick={() => handleUpdateTaskField(task.ID, 'title', editTitleValue)} title="Save title" aria-label="Save title" className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"><Check className="w-3.5 h-3.5"/></button>
-            <button onClick={() => setEditingCell(null)} title="Cancel editing" aria-label="Cancel editing" className="p-1 text-slate-400 hover:bg-slate-100 rounded"><X className="w-3.5 h-3.5"/></button>
+            <button onClick={() => handleUpdateTaskField(task.ID, 'title', editTitleValue)} title={isRtl ? "حفظ العنوان" : "Save title"} aria-label={isRtl ? "حفظ العنوان" : "Save title"} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"><Check className="w-3.5 h-3.5"/></button>
+            <button onClick={() => setEditingCell(null)} title={isRtl ? "إلغاء التعديل" : "Cancel editing"} aria-label={isRtl ? "إلغاء التعديل" : "Cancel editing"} className="p-1 text-slate-400 hover:bg-slate-100 rounded"><X className="w-3.5 h-3.5"/></button>
           </div>
         ) : (
           <span 
@@ -141,7 +143,7 @@ export default function DynamicBoardRow({
               setEditingCell({ id: task.ID, field: 'title' });
             }}
             className={`text-sm font-semibold truncate select-none border-b border-transparent hover:border-dashed hover:border-slate-300 pb-0.5 transition-all ${task.Status === 'done' ? 'text-slate-400 line-through' : 'text-slate-800'}`}
-            title="Double-click to inline edit title"
+            title={isRtl ? "انقر مرتين للتعديل المباشر" : "Double-click to inline edit title"}
           >
             {task.Title}
           </span>
@@ -153,8 +155,8 @@ export default function DynamicBoardRow({
         <div className="w-40 py-2 px-3 border-e border-slate-100 flex items-center" onClick={(e) => e.stopPropagation()}>
           <div className="relative w-full">
             <select
-              title="Task status"
-              aria-label="Task status"
+              title={isRtl ? "حالة المهمة" : "Task status"}
+              aria-label={isRtl ? "حالة المهمة" : "Task status"}
               value={task.Status}
               onChange={(e) => handleUpdateTaskField(task.ID, 'status', e.target.value)}
               className={`w-full appearance-none px-2.5 py-1 rounded-lg border text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/30 transition-all ${currentStatus.bg}`}
@@ -174,8 +176,8 @@ export default function DynamicBoardRow({
       {cols.priority && (
         <div className="w-36 py-2 px-3 border-e border-slate-100 flex items-center" onClick={(e) => e.stopPropagation()}>
           <select
-            title="Task priority"
-            aria-label="Task priority"
+            title={isRtl ? "أولوية المهمة" : "Task priority"}
+            aria-label={isRtl ? "أولوية المهمة" : "Task priority"}
             value={task.Priority || 0}
             onChange={(e) => handleUpdateTaskField(task.ID, 'priority', parseInt(e.target.value))}
             className={`w-full appearance-none px-2.5 py-1 rounded-lg border text-xs cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/30 transition-all text-center ${currentPriority.badge}`}
@@ -194,8 +196,8 @@ export default function DynamicBoardRow({
         <div className="w-28 py-2 px-3 border-e border-slate-100 flex items-center justify-center font-mono text-xs text-slate-600">
           <input
             type="number"
-            title="Story points"
-            aria-label="Story points"
+            title={isRtl ? "نقاط الجهد" : "Story points"}
+            aria-label={isRtl ? "نقاط الجهد" : "Story points"}
             placeholder="--"
             defaultValue={task.StoryPoints || ""}
             onBlur={(e) => {
@@ -215,7 +217,7 @@ export default function DynamicBoardRow({
         <div className="w-36 py-2 px-3 border-e border-slate-100 flex items-center justify-center text-xs text-slate-600 font-medium" onClick={(e) => e.stopPropagation()}>
           <input
             type="date"
-            title="Due date"
+            title={isRtl ? "تاريخ الاستحقاق" : "Due date"}
             aria-label="Due date"
             value={task.DueDate ? task.DueDate.substring(0, 10) : ""}
             onChange={(e) => handleUpdateTaskField(task.ID, 'due_date', e.target.value)}
@@ -229,13 +231,13 @@ export default function DynamicBoardRow({
         <div className="w-40 py-2 px-3 flex items-center" onClick={(e) => e.stopPropagation()}>
           <div className="relative w-full">
             <select
-              title="Task assignee"
+              title={isRtl ? "المُسند إليه" : "Task assignee"}
               aria-label="Task assignee"
               value={task.AssigneeID || ""}
               onChange={(e) => handleUpdateTaskField(task.ID, 'assignee_id', e.target.value)}
               className="w-full appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/30 truncate pe-6 transition-colors"
             >
-              <option value="" className="text-slate-400">Unassigned</option>
+              <option value="" className="text-slate-400">{isRtl ? "غير مُسند" : "Unassigned"}</option>
               {users.map(u => (
                 <option key={u.id} value={u.id} className="text-slate-800 font-medium">
                   {u.email.split('@')[0]}

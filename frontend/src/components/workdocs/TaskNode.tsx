@@ -1,11 +1,13 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react';
 import React, { useState } from 'react';
+import { useLocalization } from '@/contexts/LocalizationContext';
 import { CheckCircle2, Circle } from 'lucide-react';
 import { fetchWithAuth,     API_BASE_URL } from '@/lib/apiClient';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const TaskComponent = (props: any) => {
+  const { isRtl } = useLocalization();
   const { node, updateAttributes } = props;
   const isDone = node.attrs.isDone;
   const taskId = node.attrs.taskId;
@@ -76,7 +78,7 @@ const TaskComponent = (props: any) => {
           className={`w-full bg-transparent outline-none font-medium text-sm ${isDone ? 'text-slate-400 line-through' : 'text-slate-700'}`}
           value={node.attrs.title}
           onChange={(e) => updateAttributes({ title: e.target.value })}
-          placeholder="Task title..."
+          placeholder={isRtl ? "عنوان المهمة..." : "Task title..."}
         />
       </div>
       <div contentEditable={false} className="flex items-center gap-2">
