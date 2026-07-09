@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { apiGet, apiPost, apiPut } from '@/lib/apiClient';
 import AISettings from '../settings/AISettings';
 import { Activity, Cpu, Zap, ShieldCheck } from 'lucide-react';
+import { useLocalization } from '@/contexts/LocalizationContext';
 
 interface AgentState {
   id: string;
@@ -37,6 +38,7 @@ interface AIConfig {
 }
 
 export function AgentOrchestrator() {
+  const { isRtl } = useLocalization();
   const [states, setStates] = useState<AgentState[]>([]);
   const [logs, setLogs] = useState<AgentLog[]>([]);
   const [pending, setPending] = useState<PendingApproval[]>([]);
@@ -103,7 +105,7 @@ export function AgentOrchestrator() {
       setNewAgent({ name: '', role: '', config: '{}' });
       fetchStatus();
     } catch {
-      alert("Invalid JSON config");
+      alert(isRtl ? "إعداد JSON غير صالح" : "Invalid JSON config");
     }
   };
 
@@ -112,8 +114,8 @@ export function AgentOrchestrator() {
       <div className="max-w-6xl mx-auto space-y-8">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">AI Center</h1>
-            <p className="text-slate-500 mt-2">Monitor agents and manage your LLM providers in one place.</p>
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{isRtl ? "مركز الذكاء الاصطناعي" : "AI Center"}</h1>
+            <p className="text-slate-500 mt-2">{isRtl ? "راقب الوكلاء وأدر مزوّدي نماذج اللغة من مكان واحد." : "Monitor agents and manage your LLM providers in one place."}</p>
           </div>
           <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
             <button
@@ -122,7 +124,7 @@ export function AgentOrchestrator() {
                 activeTab === 'monitoring' ? 'bg-white text-brand shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
-              Monitoring & Control
+              {isRtl ? "المراقبة والتحكم" : "Monitoring & Control"}
             </button>
             <button
               onClick={() => setActiveTab('providers')}
@@ -130,7 +132,7 @@ export function AgentOrchestrator() {
                 activeTab === 'providers' ? 'bg-white text-brand shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
-              Providers & Models
+              {isRtl ? "المزوّدون والنماذج" : "Providers & Models"}
             </button>
           </div>
         </header>
@@ -142,11 +144,11 @@ export function AgentOrchestrator() {
               <Activity className="w-6 h-6 animate-pulse" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Agents</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{isRtl ? "الوكلاء النشطون" : "Active Agents"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-black text-white">{states.filter(s => s.status !== 'killed').length}</span>
                 <span className="text-xs text-green-400 font-bold flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-ping" /> Online
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-ping" /> {isRtl ? "متصل" : "Online"}
                 </span>
               </div>
             </div>
@@ -157,10 +159,10 @@ export function AgentOrchestrator() {
               <Zap className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Loops</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{isRtl ? "إجمالي الدورات" : "Total Loops"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-2xl font-black text-white">{states.reduce((acc, s) => acc + (s.loop_count || 0), 0)}</span>
-                <span className="text-xs text-purple-300">Cycles Executed</span>
+                <span className="text-xs text-purple-300">{isRtl ? "الدورات المنفّذة" : "Cycles Executed"}</span>
               </div>
             </div>
           </div>
@@ -170,7 +172,7 @@ export function AgentOrchestrator() {
               <Cpu className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Provider</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{isRtl ? "المزوّد النشط" : "Active Provider"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-lg font-bold text-white truncate max-w-[140px]" title={activeModelName}>
                   {activeModelName}
@@ -184,10 +186,10 @@ export function AgentOrchestrator() {
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">System Status</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{isRtl ? "حالة النظام" : "System Status"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-lg font-bold text-emerald-400">Autonomous</span>
-                <span className="text-xs text-slate-400">Triage Active</span>
+                <span className="text-lg font-bold text-emerald-400">{isRtl ? "مستقل" : "Autonomous"}</span>
+                <span className="text-xs text-slate-400">{isRtl ? "الفرز نشط" : "Triage Active"}</span>
               </div>
             </div>
           </div>
@@ -204,7 +206,7 @@ export function AgentOrchestrator() {
 
         {/* Live Grid */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">Deployed Agents</h2>
+          <h2 className="text-2xl font-bold text-slate-800">{isRtl ? "الوكلاء المنشورون" : "Deployed Agents"}</h2>
           <button onClick={() => setShowDeployModal(true)} className="px-6 py-2 bg-brand text-white rounded-xl font-bold hover:bg-brand/90 transition-colors shadow-md">
             + Deploy New Agent
           </button>
@@ -222,7 +224,7 @@ export function AgentOrchestrator() {
                 <div className="text-sm text-slate-500 space-y-1 mb-6">
                   <p className="font-medium">Role: <span className="text-slate-800 font-bold">{state.role || 'General'}</span></p>
                   <p className="font-medium">Status: <span className={isKilled ? 'text-red-500 font-bold' : 'text-green-600 font-bold'}>{state.status || 'idle'}</span></p>
-                  <p className="font-medium">Loops Executed: <span className="text-slate-800 font-bold">{state.loop_count || 0}</span></p>
+                  <p className="font-medium">{isRtl ? "الدورات المنفّذة:" : "Loops Executed:"} <span className="text-slate-800 font-bold">{state.loop_count || 0}</span></p>
                 </div>
                 <button
                   onClick={() => toggleKillSwitch(state.id, state.status)}
@@ -237,7 +239,7 @@ export function AgentOrchestrator() {
               </div>
             );
           })}
-          {states.length === 0 && <p className="text-slate-500 col-span-3 text-center italic py-8">No agents deployed yet.</p>}
+          {states.length === 0 && <p className="text-slate-500 col-span-3 text-center italic py-8">{isRtl ? "لا وكلاء منشورون بعد." : "No agents deployed yet."}</p>}
         </div>
 
         {/* Pending Approvals */}
@@ -267,7 +269,7 @@ export function AgentOrchestrator() {
 
         {/* Live Logs */}
         <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm">
-          <h3 className="text-xl font-bold text-slate-800 mb-4">Collaboration Stream</h3>
+          <h3 className="text-xl font-bold text-slate-800 mb-4">{isRtl ? "تدفّق التعاون" : "Collaboration Stream"}</h3>
           <div className="space-y-3 max-h-[400px] overflow-y-auto pe-2 scrollbar-thin">
             {logs.map(log => (
               <div key={log.id} className="text-sm font-mono border-s-4 border-slate-200 ps-4 py-2 bg-slate-50/50 rounded-e-lg">
@@ -286,7 +288,7 @@ export function AgentOrchestrator() {
                 <div className="text-slate-600 text-xs break-all">OUT: {log.output_data}</div>
               </div>
             ))}
-            {logs.length === 0 && <p className="text-slate-400 italic text-center py-8">No agent activity yet.</p>}
+            {logs.length === 0 && <p className="text-slate-400 italic text-center py-8">{isRtl ? "لا نشاط للوكلاء بعد." : "No agent activity yet."}</p>}
           </div>
         </div>
         </>
@@ -297,39 +299,39 @@ export function AgentOrchestrator() {
       {showDeployModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-slate-200">
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">Deploy New Agent</h2>
+            <h2 className="text-2xl font-bold text-slate-800 mb-6">{isRtl ? "نشر وكيل جديد" : "Deploy New Agent"}</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Agent Name</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">{isRtl ? "اسم الوكيل" : "Agent Name"}</label>
                 <input
                   type="text"
                   value={newAgent.name}
                   onChange={e => setNewAgent({...newAgent, name: e.target.value})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand focus:bg-white"
-                  placeholder="e.g. Finance Analyst"
+                  placeholder={isRtl ? "مثال: محلل مالي" : "e.g. Finance Analyst"}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Role / Specialization</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">{isRtl ? "الدور / التخصص" : "Role / Specialization"}</label>
                 <select
-                  title="Agent Role"
+                  title={isRtl ? "دور الوكيل" : "Agent Role"}
                   aria-label="Role / Specialization"
                   value={newAgent.role}
                   onChange={e => setNewAgent({...newAgent, role: e.target.value})}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand focus:bg-white"
                 >
-                  <option value="">Select Role</option>
-                  <option value="data_analyst">Data Analyst (Read-only)</option>
-                  <option value="workflow_architect">Workflow Architect</option>
-                  <option value="qa_tester">QA / Compliance Tester</option>
-                  <option value="custom">Custom Agent</option>
+                  <option value="">{isRtl ? "اختر الدور" : "Select Role"}</option>
+                  <option value="data_analyst">{isRtl ? "محلل بيانات (قراءة فقط)" : "Data Analyst (Read-only)"}</option>
+                  <option value="workflow_architect">{isRtl ? "مهندس سير العمل" : "Workflow Architect"}</option>
+                  <option value="qa_tester">{isRtl ? "مختبِر جودة / امتثال" : "QA / Compliance Tester"}</option>
+                  <option value="custom">{isRtl ? "وكيل مخصّص" : "Custom Agent"}</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Configuration (JSON)</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">{isRtl ? "الإعداد (JSON)" : "Configuration (JSON)"}</label>
                 <textarea
                   value={newAgent.config}
                   onChange={e => setNewAgent({...newAgent, config: e.target.value})}
@@ -344,13 +346,13 @@ export function AgentOrchestrator() {
                 onClick={() => setShowDeployModal(false)}
                 className="px-6 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
               >
-                Cancel
+                {isRtl ? "إلغاء" : "Cancel"}
               </button>
               <button 
                 onClick={deployAgent}
                 className="px-6 py-2.5 rounded-xl font-bold text-white bg-brand hover:bg-brand/90 shadow-md transition-colors"
               >
-                Deploy
+                {isRtl ? "نشر" : "Deploy"}
               </button>
             </div>
           </div>
