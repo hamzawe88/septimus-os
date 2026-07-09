@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/useAppStore";
 import { useLocalization } from "@/contexts/LocalizationContext";
 import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
-import { fetchIntegrations, Integration as AppIntegration } from "@/lib/integrations";
+import { fetchIntegrations, integrationName, integrationDescription, Integration as AppIntegration } from "@/lib/integrations";
 import IntegrationConfigModal from "./IntegrationConfigModal";
 
 const iconMap: Record<string, React.ReactNode> = {
@@ -44,7 +44,8 @@ const iconBgMap: Record<string, string> = {
 };
 
 export default function InstalledAppsTab() {
-  const { t } = useLocalization();
+  const { t, isRtl } = useLocalization();
+  const catLabel = (c: string) => t(`plugins.category${c}`, c);
   const [apps, setApps] = useState<AppIntegration[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -172,12 +173,12 @@ export default function InstalledAppsTab() {
                 </div>
                 
                 <div className="mb-6 flex-1">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{app.name}</h3>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{integrationName(app, isRtl)}</h3>
                   <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 mb-3">
-                    {app.category}
+                    {catLabel(app.category)}
                   </span>
                   <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {app.description}
+                    {integrationDescription(app, isRtl)}
                   </p>
                 </div>
 

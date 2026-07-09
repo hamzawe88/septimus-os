@@ -4,10 +4,10 @@ import React, { useState, useEffect } from "react";
 import { useLocalization } from "@/contexts/LocalizationContext";
 import { Search, Puzzle, Settings, Download, CheckCircle2, RefreshCw } from "lucide-react";
 import IntegrationConfigModal from "./IntegrationConfigModal";
-import { fetchIntegrations, Integration } from "@/lib/integrations";
+import { fetchIntegrations, integrationName, integrationDescription, Integration } from "@/lib/integrations";
 
 export default function DiscoverTab() {
-  const { t } = useLocalization();
+  const { t, isRtl } = useLocalization();
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -44,6 +44,10 @@ export default function DiscoverTab() {
     ...Array.from(new Set(integrations.map((i) => i.category))).filter(Boolean),
   ];
 
+  // Backend returns English category names; translate for display (fallback keeps the raw value)
+  const catLabel = (c: string) =>
+    c === "all" ? t("plugins.categoryAll", "All") : t(`plugins.category${c}`, c);
+
   const filtered = integrations.filter((item) => {
     const matchesCategory = activeCategory === "all" || item.category === activeCategory;
     const q = searchQuery.toLowerCase();
@@ -75,7 +79,7 @@ export default function DiscoverTab() {
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                   }`}
                 >
-                  {cat === "all" ? t("plugins.categoryAll", "All") : cat}
+                  {catLabel(cat)}
                 </button>
               ))}
             </div>
@@ -141,14 +145,14 @@ export default function DiscoverTab() {
                     )}
                   </div>
 
-                  <h3 className="text-lg font-black text-slate-800 dark:text-white mb-2">{item.name}</h3>
+                  <h3 className="text-lg font-black text-slate-800 dark:text-white mb-2">{integrationName(item, isRtl)}</h3>
 
                   <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 flex-1 line-clamp-3">
-                    {item.description}
+                    {integrationDescription(item, isRtl)}
                   </p>
 
                   <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <span className="text-xs font-medium text-slate-400">{item.category}</span>
+                    <span className="text-xs font-medium text-slate-400">{catLabel(item.category)}</span>
 
                     {isConnected ? (
                       <button
