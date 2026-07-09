@@ -5,6 +5,7 @@ import StarterKit from '@tiptap/starter-kit';
 
 import { Task, User, Subtask } from "@/types";
 import { AI_BASE_URL, apiGet, apiPut, apiPost } from "@/lib/apiClient";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface TaskDetailsPanelProps {
   task: Task;
@@ -12,6 +13,7 @@ interface TaskDetailsPanelProps {
 }
 
 export default function TaskDetailsPanel({ task, onClose }: TaskDetailsPanelProps) {
+  const { isRtl } = useLocalization();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [generatedSubtasks, setGeneratedSubtasks] = useState<Subtask[]>([]);
@@ -140,8 +142,8 @@ export default function TaskDetailsPanel({ task, onClose }: TaskDetailsPanelProp
         <button 
           onClick={onClose}
           className="p-2 hover:bg-slate-100 rounded-md text-slate-500 transition-colors"
-          title="Close Panel"
-          aria-label="Close Panel"
+          title={isRtl ? "إغلاق اللوحة" : "Close Panel"}
+          aria-label={isRtl ? "إغلاق اللوحة" : "Close Panel"}
         >
           <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12.8536 2.85355C13.0488 2.65829 13.0488 2.34171 12.8536 2.14645C12.6583 1.95118 12.3417 1.95118 12.1464 2.14645L7.5 6.79289L2.85355 2.14645C2.65829 1.95118 2.34171 1.95118 2.14645 2.14645C1.95118 2.34171 1.95118 2.65829 2.14645 2.85355L6.79289 7.5L2.14645 12.1464C1.95118 12.3417 1.95118 12.6583 2.14645 12.8536C2.34171 13.0488 2.65829 13.0488 2.85355 12.8536L7.5 8.20711L12.1464 12.8536C12.3417 13.0488 12.6583 13.0488 12.8536 12.8536C13.0488 12.6583 13.0488 12.3417 12.8536 12.1464L8.20711 7.5L12.8536 2.85355Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path>
@@ -153,54 +155,54 @@ export default function TaskDetailsPanel({ task, onClose }: TaskDetailsPanelProp
         
         <div className="space-y-6">
           <div className="grid grid-cols-3 gap-y-4 text-sm items-center">
-            <div className="text-slate-500">Status</div>
+            <div className="text-slate-500">{isRtl ? "الحالة" : "Status"}</div>
             <div className="col-span-2">
               <select 
-                aria-label="Task Status"
+                aria-label={isRtl ? "حالة المهمة" : "Task Status"}
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full px-3 py-1.5 bg-slate-100 border-none rounded-md font-medium text-slate-700 capitalize focus:ring-0 outline-none"
               >
-                <option value="todo">To Do</option>
-                <option value="in_progress">In Progress</option>
-                <option value="review">Review</option>
-                <option value="done">Done</option>
+                <option value="todo">{isRtl ? "قيد الانتظار" : "To Do"}</option>
+                <option value="in_progress">{isRtl ? "قيد التنفيذ" : "In Progress"}</option>
+                <option value="review">{isRtl ? "مراجعة" : "Review"}</option>
+                <option value="done">{isRtl ? "مكتملة" : "Done"}</option>
               </select>
             </div>
             
-            <div className="text-slate-500">Assignee</div>
+            <div className="text-slate-500">{isRtl ? "المُسند إليه" : "Assignee"}</div>
             <div className="col-span-2 flex items-center gap-2">
               <select 
-                aria-label="Assignee"
+                aria-label={isRtl ? "المُسند إليه" : "Assignee"}
                 value={assigneeId}
                 onChange={(e) => setAssigneeId(e.target.value)}
                 className="w-full px-3 py-1.5 bg-slate-100 border-none rounded-md font-medium text-slate-700 focus:ring-0 outline-none"
               >
-                <option value="unassigned">Unassigned</option>
+                <option value="unassigned">{isRtl ? "غير مُسند" : "Unassigned"}</option>
                 {users.map(u => (
                   <option key={u.id} value={u.id}>{u.email}</option>
                 ))}
               </select>
             </div>
 
-            <div className="text-slate-500">Priority</div>
+            <div className="text-slate-500">{isRtl ? "الأولوية" : "Priority"}</div>
             <div className="col-span-2">
               <select 
-                aria-label="Task Priority"
+                aria-label={isRtl ? "أولوية المهمة" : "Task Priority"}
                 value={priority}
                 onChange={(e) => setPriority(parseInt(e.target.value))}
                 className="w-full px-3 py-1.5 bg-slate-100 border-none rounded-md font-medium text-slate-700 focus:ring-0 outline-none"
               >
-                <option value={0}>Normal</option>
-                <option value={1}>High</option>
-                <option value={2}>Urgent</option>
+                <option value={0}>{isRtl ? "عادية" : "Normal"}</option>
+                <option value={1}>{isRtl ? "عالية" : "High"}</option>
+                <option value={2}>{isRtl ? "عاجلة" : "Urgent"}</option>
               </select>
             </div>
 
-            <div className="text-slate-500">Story Points</div>
+            <div className="text-slate-500">{isRtl ? "نقاط الجهد" : "Story Points"}</div>
             <div className="col-span-2">
               <select 
-                aria-label="Story Points"
+                aria-label={isRtl ? "نقاط الجهد" : "Story Points"}
                 value={storyPoints}
                 onChange={(e) => setStoryPoints(parseInt(e.target.value))}
                 className="w-full px-3 py-1.5 bg-slate-100 border-none rounded-md font-medium text-slate-700 focus:ring-0 outline-none"
@@ -220,7 +222,7 @@ export default function TaskDetailsPanel({ task, onClose }: TaskDetailsPanelProp
           <div className="w-full h-px bg-slate-100" />
 
           <div>
-            <h3 className="text-sm font-semibold text-slate-900 mb-2">Description</h3>
+            <h3 className="text-sm font-semibold text-slate-900 mb-2">{isRtl ? "الوصف" : "Description"}</h3>
             <EditorContent editor={editor} />
           </div>
 
@@ -228,14 +230,14 @@ export default function TaskDetailsPanel({ task, onClose }: TaskDetailsPanelProp
 
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-slate-900">Subtasks</h3>
+              <h3 className="text-sm font-semibold text-slate-900">{isRtl ? "المهام الفرعية" : "Subtasks"}</h3>
               {generatedSubtasks.length === 0 && !isGenerating && (
                 <button 
                   onClick={handleAIBreakdown}
                   className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-brand-light text-brand rounded-md hover:bg-brand-light transition-colors border border-brand-light"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  Break down with AI
+                  {isRtl ? "تقسيم بالذكاء الاصطناعي" : "Break down with AI"}
                 </button>
               )}
             </div>
@@ -243,7 +245,7 @@ export default function TaskDetailsPanel({ task, onClose }: TaskDetailsPanelProp
             {isGenerating && (
               <div className="flex flex-col items-center justify-center py-8 space-y-3 bg-slate-50 rounded-lg border border-slate-100 border-dashed">
                 <Loader2 className="w-6 h-6 text-brand animate-spin" />
-                <p className="text-sm text-slate-500 font-medium">AI is analyzing task context...</p>
+                <p className="text-sm text-slate-500 font-medium">{isRtl ? "يقوم الذكاء الاصطناعي بتحليل سياق المهمة..." : "AI is analyzing task context..."}</p>
               </div>
             )}
 
@@ -271,7 +273,7 @@ export default function TaskDetailsPanel({ task, onClose }: TaskDetailsPanelProp
                   disabled={isSaving}
                   className="mt-2 text-xs font-semibold text-brand hover:text-brand-dark transition-colors w-full text-center py-2 flex items-center justify-center gap-2"
                 >
-                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "+ Add these to board"}
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isRtl ? "+ أضف هذه إلى اللوحة" : "+ Add these to board")}
                 </button>
               </div>
             )}
@@ -286,7 +288,7 @@ export default function TaskDetailsPanel({ task, onClose }: TaskDetailsPanelProp
           className="w-full py-2 bg-brand text-white rounded-md font-medium hover:bg-brand transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Save Changes
+          {isRtl ? "حفظ التغييرات" : "Save Changes"}
         </button>
       </div>
     </div>
