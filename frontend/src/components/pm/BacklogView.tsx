@@ -11,8 +11,10 @@ import { apiGet, apiPost, apiDelete, apiPut, AI_BASE_URL } from "@/lib/apiClient
 import { AIAutoPlanModal } from './backlog/AIAutoPlanModal';
 import { BacklogHeader } from './backlog/BacklogHeader';
 import { Task, Sprint, User, AIProposal } from "@/types";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 export default function BacklogView() {
+  const { isRtl } = useLocalization();
   const { projectId } = useAppStore();
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -87,7 +89,7 @@ export default function BacklogView() {
       await apiPost("/sprints", {
           project_id: projectId,
           name: sprintName,
-          goal: "Deliver sprint increments effectively",
+          goal: isRtl ? "تسليم مخرجات السبرنت بفعالية" : "Deliver sprint increments effectively",
         });
       fetchSprintsAndTasks();
     } catch (err) {
@@ -120,7 +122,7 @@ export default function BacklogView() {
   const handleSuggestGoal = (sprint: Sprint) => {
     const sprintTasks = tasks.filter(t => t.SprintID === sprint.ID);
     if (sprintTasks.length === 0) {
-      alert("Please add some tasks to the sprint first so AI can generate a tailored goal!");
+      alert(isRtl ? "يرجى إضافة بعض المهام للسبرنت أولاً ليتمكن الذكاء الاصطناعي من توليد هدف مناسب!" : "Please add some tasks to the sprint first so AI can generate a tailored goal!");
       return;
     }
     const titles = sprintTasks.map(t => t.Title.toLowerCase());
@@ -190,7 +192,7 @@ export default function BacklogView() {
   const handleAutoPlan = async () => {
     const targetSprint = planningSprints[0] || activeSprint;
     if (!targetSprint) {
-      alert("Please create a Sprint first before auto-planning.");
+      alert(isRtl ? "يرجى إنشاء سبرنت أولاً قبل التخطيط التلقائي." : "Please create a Sprint first before auto-planning.");
       return;
     }
 
@@ -202,7 +204,7 @@ export default function BacklogView() {
     }));
 
     if (backlog.length === 0) {
-      alert("Backlog is empty!");
+      alert(isRtl ? "قائمة المهام فارغة!" : "Backlog is empty!");
       return;
     }
 
@@ -219,18 +221,18 @@ export default function BacklogView() {
         
         const proposedTasks = tasks.filter(t => selectedIds.includes(t.ID));
         if (proposedTasks.length === 0) {
-          alert("AI analyzed the backlog but could not fit tasks within sprint capacity constraints.");
+          alert(isRtl ? "حلّل الذكاء الاصطناعي المهام لكن تعذّر احتواؤها ضمن قيود سعة السبرنت." : "AI analyzed the backlog but could not fit tasks within sprint capacity constraints.");
           return;
         }
 
         const rationale = `AI analyzed ${backlog.length} backlog items and selected ${proposedTasks.length} tasks prioritizing high-urgency items while balancing story point weights against optimal sprint velocity (30 pts).`;
         setAiProposalModal({ targetSprint, selectedTasks: proposedTasks, rationale });
       } else {
-        alert("AI Planning service returned an error.");
+        alert(isRtl ? "خدمة التخطيط بالذكاء الاصطناعي أعادت خطأ." : "AI Planning service returned an error.");
       }
     } catch (err) {
       console.error(err);
-      alert("AI Planning endpoint unreachable. Make sure ai-agents orchestrator is running on port 8000.");
+      alert(isRtl ? "تعذّر الوصول لخدمة التخطيط. تأكد من تشغيل منسّق ai-agents على المنفذ 8000." : "AI Planning endpoint unreachable. Make sure ai-agents orchestrator is running on port 8000.");
     } finally {
       setIsLoading(false);
     }
@@ -253,10 +255,10 @@ export default function BacklogView() {
   };
 
   const priorities = [
-    { value: 1, label: "P1 Urgent", badge: "text-red-700 bg-red-100 border-red-200 font-bold" },
-    { value: 2, label: "P2 High", badge: "text-orange-700 bg-orange-100 border-orange-200 font-semibold" },
-    { value: 3, label: "P3 Normal", badge: "text-brand bg-brand-light border-brand-light font-medium" },
-    { value: 0, label: "No Priority", badge: "text-slate-500 bg-slate-100 border-slate-200" }
+    { value: 1, label: isRtl ? "P1 عاجلة" : "P1 Urgent", badge: "text-red-700 bg-red-100 border-red-200 font-bold" },
+    { value: 2, label: isRtl ? "P2 عالية" : "P2 High", badge: "text-orange-700 bg-orange-100 border-orange-200 font-semibold" },
+    { value: 3, label: isRtl ? "P3 عادية" : "P3 Normal", badge: "text-brand bg-brand-light border-brand-light font-medium" },
+    { value: 0, label: isRtl ? "بلا أولوية" : "No Priority", badge: "text-slate-500 bg-slate-100 border-slate-200" }
   ];
 
   const filterTask = (t: Task) => {
@@ -307,7 +309,7 @@ export default function BacklogView() {
                   <UserIcon className="w-3 h-3" /> {assignee.email.split('@')[0]}
                 </span>
               ) : (
-                <span className="text-[11px] text-slate-400 italic">Unassigned</span>
+                <span className="text-[11px] text-slate-400 italic">{isRtl ? "غير مُسند" : "Unassigned"}</span>
               )}
             </div>
           </div>
@@ -329,12 +331,12 @@ export default function BacklogView() {
       <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-200 flex flex-col gap-1.5">
         <div className="flex justify-between items-center text-xs font-semibold">
           <span className="text-slate-600 flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-slate-400" /> Sprint Capacity Velocity
+            <Clock className="w-3.5 h-3.5 text-slate-400" />  {isRtl ? "سرعة سعة السبرنت" : "Sprint Capacity Velocity"}
           </span>
           <div className="flex items-center gap-2">
             {isOver && (
               <span className="flex items-center gap-1 text-red-600 bg-red-100 px-2 py-0.5 rounded-full text-[10px] font-bold animate-pulse">
-                <AlertTriangle className="w-3 h-3" /> Over Capacity (+{totalPts - capacity} pts)
+                <AlertTriangle className="w-3 h-3" />  {isRtl ? `تجاوز السعة (+${totalPts - capacity})` : `Over Capacity (+${totalPts - capacity} pts)`}
               </span>
             )}
             <span className={`font-bold ${isOver ? 'text-red-600' : 'text-slate-800'}`}>{totalPts} / {capacity} pts</span>
@@ -404,8 +406,8 @@ export default function BacklogView() {
             {backlogTasks.length === 0 ? (
               <div className="text-center p-12 text-slate-400 text-sm bg-white rounded-2xl border-2 border-dashed border-slate-200/80 flex flex-col items-center justify-center space-y-2 shadow-sm">
                 <LayoutGrid className="w-10 h-10 text-slate-300" />
-                <p className="font-bold text-slate-600">Backlog is empty</p>
-                <p className="text-xs text-slate-400">Add tasks below or reset your filters to see more work items.</p>
+                <p className="font-bold text-slate-600">{isRtl ? "قائمة المهام فارغة" : "Backlog is empty"}</p>
+                <p className="text-xs text-slate-400">{isRtl ? "أضف مهاماً بالأسفل أو أعد ضبط الفلاتر لعرض المزيد." : "Add tasks below or reset your filters to see more work items."}</p>
               </div>
             ) : (
               backlogTasks.map(task => renderTaskCard(task))
@@ -417,9 +419,9 @@ export default function BacklogView() {
                 <input
                   type="text"
                   autoFocus
-                  title="New backlog item title"
-                  aria-label="New backlog item title"
-                  placeholder="What needs to be done?..."
+                  title={isRtl ? "عنوان عنصر جديد" : "New backlog item title"}
+                  aria-label={isRtl ? "عنوان عنصر جديد" : "New backlog item title"}
+                  placeholder={isRtl ? "ما الذي يجب إنجازه؟..." : "What needs to be done?..."}
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
                   onKeyDown={(e) => {
@@ -433,8 +435,8 @@ export default function BacklogView() {
                     <span className="text-[11px] font-semibold text-slate-500">Points:</span>
                     <input
                       type="number"
-                      title="Story points estimation"
-                      aria-label="Story points estimation"
+                      title={isRtl ? "تقدير نقاط الجهد" : "Story points estimation"}
+                      aria-label={isRtl ? "تقدير نقاط الجهد" : "Story points estimation"}
                       value={newTaskPoints}
                       onChange={(e) => setNewTaskPoints(Number(e.target.value))}
                       className="w-14 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-center font-bold focus:outline-none"
@@ -442,7 +444,7 @@ export default function BacklogView() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button onClick={() => setCreatingInTarget(null)} title="Cancel" aria-label="Cancel" className="px-2.5 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-md">Cancel</button>
-                    <button onClick={() => handleCreateTaskInline("backlog")} title="Add task" aria-label="Add task" className="px-3 py-1 bg-brand hover:bg-brand text-white font-bold text-xs rounded-md shadow-sm">Add</button>
+                    <button onClick={() => handleCreateTaskInline("backlog")} title={isRtl ? "إضافة مهمة" : "Add task"} aria-label={isRtl ? "إضافة مهمة" : "Add task"} className="px-3 py-1 bg-brand hover:bg-brand text-white font-bold text-xs rounded-md shadow-sm">{isRtl ? "إضافة" : "Add"}</button>
                   </div>
                 </div>
               </div>
@@ -476,12 +478,12 @@ export default function BacklogView() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-black text-slate-900 text-base">{activeSprint.Name}</h3>
-                        <span className="text-[10px] font-black bg-emerald-500 text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm animate-pulse">Active Cycle</span>
+                        <span className="text-[10px] font-black bg-emerald-500 text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm animate-pulse">{isRtl ? "الدورة النشطة" : "Active Cycle"}</span>
                       </div>
                       <p className="text-xs font-medium text-slate-500 mt-0.5">{activeSprint.Goal || "Delivering core increments and customer value"}</p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" className="text-xs font-bold border-emerald-300 text-emerald-800 hover:bg-emerald-100 shadow-sm">Complete Sprint</Button>
+                  <Button variant="outline" size="sm" className="text-xs font-bold border-emerald-300 text-emerald-800 hover:bg-emerald-100 shadow-sm">{isRtl ? "إنهاء السبرنت" : "Complete Sprint"}</Button>
                 </div>
                 
                 {/* Capacity & Progress Bar */}
@@ -489,7 +491,7 @@ export default function BacklogView() {
 
                 <div className="bg-slate-50/50 min-h-[140px] p-4 space-y-2.5">
                   {tasks.filter(t => t.SprintID === activeSprint.ID).filter(filterTask).length === 0 ? (
-                    <div className="text-center p-8 text-slate-400 text-sm bg-white rounded-xl border border-dashed border-slate-200 m-2">No active tasks match your filters.</div>
+                    <div className="text-center p-8 text-slate-400 text-sm bg-white rounded-xl border border-dashed border-slate-200 m-2">{isRtl ? "لا مهام نشطة تطابق الفلاتر." : "No active tasks match your filters."}</div>
                   ) : (
                     tasks.filter(t => t.SprintID === activeSprint.ID).filter(filterTask).map(task => renderTaskCard(task))
                   )}
@@ -500,9 +502,9 @@ export default function BacklogView() {
                       <input
                         type="text"
                         autoFocus
-                        title="New sprint task title"
-                        aria-label="New sprint task title"
-                        placeholder="Task title for active sprint..."
+                        title={isRtl ? "عنوان مهمة السبرنت" : "New sprint task title"}
+                        aria-label={isRtl ? "عنوان مهمة السبرنت" : "New sprint task title"}
+                        placeholder={isRtl ? "عنوان مهمة للسبرنت النشط..." : "Task title for active sprint..."}
                         value={newTaskTitle}
                         onChange={(e) => setNewTaskTitle(e.target.value)}
                         onKeyDown={(e) => {
@@ -527,7 +529,7 @@ export default function BacklogView() {
                       onClick={() => { setCreatingInTarget(activeSprint.ID); setNewTaskTitle(""); setNewTaskPoints(3); }}
                       className="w-full py-2 border border-dashed border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50/50 rounded-xl text-emerald-700 font-bold text-xs flex items-center justify-center gap-1 transition-all"
                     >
-                      <Plus className="w-3.5 h-3.5" /> Add Task to Active Sprint
+                      <Plus className="w-3.5 h-3.5" /> {isRtl ? "إضافة مهمة للسبرنت النشط" : "Add Task to Active Sprint"}
                     </button>
                   )}
                 </div>
@@ -536,7 +538,7 @@ export default function BacklogView() {
 
             {/* Planning Sprints */}
             <div className="space-y-6">
-              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider px-1">Upcoming Work Cycles</h3>
+              <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider px-1">{isRtl ? "دورات العمل القادمة" : "Upcoming Work Cycles"}</h3>
               
               {planningSprints.map(sprint => (
                 <div 
@@ -550,17 +552,17 @@ export default function BacklogView() {
                       <div className="flex items-center gap-2 flex-1 me-4">
                         <input
                           type="text"
-                          title="Sprint name"
-                          aria-label="Sprint name"
+                          title={isRtl ? "اسم السبرنت" : "Sprint name"}
+                          aria-label={isRtl ? "اسم السبرنت" : "Sprint name"}
                           value={sprintEditName}
                           onChange={(e) => setSprintEditName(e.target.value)}
                           className="bg-white border border-indigo-400 rounded px-2 py-1 text-sm font-bold text-slate-800 focus:outline-none w-48"
                         />
                         <input
                           type="text"
-                          title="Sprint goal"
-                          aria-label="Sprint goal"
-                          placeholder="Sprint Goal..."
+                          title={isRtl ? "هدف السبرنت" : "Sprint goal"}
+                          aria-label={isRtl ? "هدف السبرنت" : "Sprint goal"}
+                          placeholder={isRtl ? "هدف السبرنت..." : "Sprint Goal..."}
                           value={sprintEditGoal}
                           onChange={(e) => setSprintEditGoal(e.target.value)}
                           className="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-600 focus:outline-none flex-1"
@@ -590,15 +592,15 @@ export default function BacklogView() {
 
                     <div className="flex items-center gap-2">
                       <Button size="sm" onClick={() => handleStartSprint(sprint.ID)} className="bg-brand hover:bg-brand text-white font-bold text-xs shadow-sm">
-                        Start Sprint
+                        {isRtl ? "بدء السبرنت" : "Start Sprint"}
                       </Button>
 
                       {/* Sprint Settings Dropdown */}
                       <div className="relative">
                         <button 
                           onClick={() => setActiveMenuId(activeMenuId === sprint.ID ? null : sprint.ID)}
-                          title="Sprint options"
-                          aria-label="Sprint options"
+                          title={isRtl ? "خيارات السبرنت" : "Sprint options"}
+                          aria-label={isRtl ? "خيارات السبرنت" : "Sprint options"}
                           className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                         >
                           <MoreHorizontal className="w-4 h-4" />
@@ -653,9 +655,9 @@ export default function BacklogView() {
                         <input
                           type="text"
                           autoFocus
-                          title="New sprint task title"
-                          aria-label="New sprint task title"
-                          placeholder="Task title..."
+                          title={isRtl ? "عنوان مهمة السبرنت" : "New sprint task title"}
+                          aria-label={isRtl ? "عنوان مهمة السبرنت" : "New sprint task title"}
+                          placeholder={isRtl ? "عنوان المهمة..." : "Task title..."}
                           value={newTaskTitle}
                           onChange={(e) => setNewTaskTitle(e.target.value)}
                           onKeyDown={(e) => {
@@ -680,7 +682,7 @@ export default function BacklogView() {
                         onClick={() => { setCreatingInTarget(sprint.ID); setNewTaskTitle(""); setNewTaskPoints(3); }}
                         className="w-full py-2 border border-dashed border-slate-300 hover:border-indigo-400 hover:bg-brand-light/50 rounded-xl text-slate-500 hover:text-brand font-bold text-xs flex items-center justify-center gap-1 transition-all"
                       >
-                        <Plus className="w-3.5 h-3.5" /> Add Task to {sprint.Name}
+                        <Plus className="w-3.5 h-3.5" /> {isRtl ? `إضافة مهمة إلى ${sprint.Name}` : `Add Task to ${sprint.Name}`}
                       </button>
                     )}
                   </div>
