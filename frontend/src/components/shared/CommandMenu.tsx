@@ -13,7 +13,9 @@ declare global {
 }
 
 import { useAppStore } from "@/store/useAppStore";
+import { useLocalization } from "@/contexts/LocalizationContext";
 export default function CommandMenu() {
+  const { isRtl } = useLocalization();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -55,7 +57,7 @@ export default function CommandMenu() {
     }
 
     if (!('webkitSpeechRecognition' in window)) {
-      alert("Your browser does not support speech recognition. Please use Chrome.");
+      alert(isRtl ? "متصفحك لا يدعم التعرف على الكلام. يرجى استخدام Chrome." : "Your browser does not support speech recognition. Please use Chrome.");
       return;
     }
 
@@ -94,31 +96,31 @@ export default function CommandMenu() {
 
   const commands = [
     {
-      group: "Navigation",
+      group: isRtl ? "التنقل" : "Navigation",
       items: [
-        { name: "Go to Chat", icon: <MessageSquare className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("chat")) },
-        { name: "Go to Kanban Board", icon: <CheckSquare className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("kanban")) },
-        { name: "Go to Sprints & Backlog", icon: <Terminal className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("backlog")) },
-        { name: "Go to Reports Center", icon: <BarChart2 className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("reports")) },
-        { name: "Go to WorkDocs", icon: <FileText className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("workdocs")) },
-        { name: "Go to Workflows", icon: <Zap className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("workflows")) },
-        { name: "Go to Settings", icon: <Settings className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("roles_settings")) },
+        { name: isRtl ? "الذهاب إلى الدردشة" : "Go to Chat", icon: <MessageSquare className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("chat")) },
+        { name: isRtl ? "الذهاب إلى لوحة كانبان" : "Go to Kanban Board", icon: <CheckSquare className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("kanban")) },
+        { name: isRtl ? "الذهاب إلى السبرنتات والمهام" : "Go to Sprints & Backlog", icon: <Terminal className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("backlog")) },
+        { name: isRtl ? "الذهاب إلى مركز التقارير" : "Go to Reports Center", icon: <BarChart2 className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("reports")) },
+        { name: isRtl ? "الذهاب إلى المستندات" : "Go to WorkDocs", icon: <FileText className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("workdocs")) },
+        { name: isRtl ? "الذهاب إلى سير العمل" : "Go to Workflows", icon: <Zap className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("workflows")) },
+        { name: isRtl ? "الذهاب إلى الإعدادات" : "Go to Settings", icon: <Settings className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("roles_settings")) },
       ],
     },
     {
-      group: "Tasks & Actions",
+      group: isRtl ? "المهام والإجراءات" : "Tasks & Actions",
       items: [
-        { name: query ? `Create Task: ${query}` : "Create New Task", icon: <Plus className="w-4 h-4" />, action: () => handleSelect(() => { 
+        { name: query ? (isRtl ? `إنشاء مهمة: ${query}` : `Create Task: ${query}`) : (isRtl ? "إنشاء مهمة جديدة" : "Create New Task"), icon: <Plus className="w-4 h-4" />, action: () => handleSelect(() => { 
           setCurrentView("entity_creator"); 
           setIsEntityModalOpen(true); 
         }) },
-        { name: "New Sprint", icon: <Briefcase className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("backlog")) },
+        { name: isRtl ? "سبرنت جديد" : "New Sprint", icon: <Briefcase className="w-4 h-4" />, action: () => handleSelect(() => setCurrentView("backlog")) },
       ],
     },
     {
-      group: "Channels",
+      group: isRtl ? "القنوات" : "Channels",
       items: channels.map(c => ({
-        name: `Join #${c.Name}`,
+        name: (isRtl ? `انضم إلى #${c.Name}` : `Join #${c.Name}`),
         icon: <Hash className="w-4 h-4" />,
         action: () => handleSelect(() => { setActiveChannelId(c.ID); setCurrentView("chat"); })
       })),
@@ -142,14 +144,14 @@ export default function CommandMenu() {
             ref={inputRef}
             type="text"
             className="flex-1 bg-transparent border-none outline-none text-slate-800 placeholder-slate-400 text-lg"
-            placeholder="Type a command or search..."
+            placeholder={isRtl ? "اكتب أمراً أو ابحث..." : "Type a command or search..."}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
           <button 
             onClick={toggleListen}
             className={`me-3 p-2 rounded-full transition-all duration-300 ${isListening ? 'bg-red-100 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)] animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-brand-light hover:text-brand'}`}
-            title="Speak to search or create a task"
+            title={isRtl ? "تحدّث للبحث أو إنشاء مهمة" : "Speak to search or create a task"}
           >
             {isListening ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
           </button>
@@ -161,7 +163,7 @@ export default function CommandMenu() {
         <div className="max-h-[60vh] overflow-y-auto p-2 scrollbar-thin">
           {filteredCommands.length === 0 ? (
             <div className="py-14 text-center text-sm text-slate-500">
-              No results found for <span className="font-medium text-slate-900">&quot;{query}&quot;</span>
+              {isRtl ? "لا نتائج لـ" : "No results found for"} <span className="font-medium text-slate-900">&quot;{query}&quot;</span>
             </div>
           ) : (
             filteredCommands.map((group, idx) => (
@@ -189,7 +191,7 @@ export default function CommandMenu() {
         </div>
         
         <div className="bg-[#f8fafc] px-4 py-3 text-xs text-slate-500 border-t border-slate-100 flex justify-between items-center">
-          <span>Search navigation, actions, and channels</span>
+          <span>{isRtl ? "ابحث في التنقل والإجراءات والقنوات" : "Search navigation, actions, and channels"}</span>
           <span className="font-mono bg-slate-200 px-1.5 py-0.5 rounded text-slate-600">Septimus OS</span>
         </div>
       </div>

@@ -5,7 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { MapPin, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { fetchWithAuth,     API_BASE_URL } from '@/lib/apiClient';
+import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 // Dynamically import MapComponent to disable SSR, because Leaflet needs window object
 const MapComponent = dynamic(() => import("./MapComponent"), { ssr: false });
@@ -34,6 +35,7 @@ function deg2rad(deg: number) {
 }
 
 export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProps) {
+  const { isRtl } = useLocalization();
   const token = typeof window !== "undefined" ? localStorage.getItem("septimus_token") : null;
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
     setLocationError(null);
 
     if (!navigator.geolocation) {
-      setLocationError("Geolocation is not supported by your browser");
+      setLocationError(isRtl ? "المتصفح لا يدعم تحديد الموقع الجغرافي" : "Geolocation is not supported by your browser");
       setLoadingLocation(false);
       return;
     }
@@ -70,7 +72,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
         setLoadingLocation(false);
       },
       (error) => {
-        setLocationError("Unable to retrieve your location. Please allow location permissions.");
+        setLocationError(isRtl ? "تعذّر تحديد موقعك. يرجى السماح بأذونات الموقع." : "Unable to retrieve your location. Please allow location permissions.");
         setLoadingLocation(false);
         console.warn(error);
       },
@@ -158,18 +160,18 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
         });
         if (!res.ok) {
           const data = await res.json();
-          alert("Error: " + (data.error || "Check-in failed"));
+          alert((isRtl ? "خطأ: " : "Error: ") + (data.error || (isRtl ? "فشل تسجيل الحضور" : "Check-in failed")));
           return;
         }
       }
 
       setIsCheckedIn(true);
       localStorage.setItem("septimus_attendance_status", "checked_in");
-      alert("Check-in successful!");
+      alert(isRtl ? "تم تسجيل الحضور بنجاح!" : "Check-in successful!");
       onClose();
     } catch (err) {
       console.error(err);
-      alert("An error occurred during check-in.");
+      alert(isRtl ? "حدث خطأ أثناء تسجيل الحضور." : "An error occurred during check-in.");
     }
   };
 
@@ -190,18 +192,18 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
         });
         if (!res.ok) {
           const data = await res.json();
-          alert("Error: " + (data.error || "Check-out failed"));
+          alert((isRtl ? "خطأ: " : "Error: ") + (data.error || (isRtl ? "فشل تسجيل الانصراف" : "Check-out failed")));
           return;
         }
       }
 
       setIsCheckedIn(false);
       localStorage.removeItem("septimus_attendance_status");
-      alert("Check-out successful!");
+      alert(isRtl ? "تم تسجيل الانصراف بنجاح!" : "Check-out successful!");
       onClose();
     } catch (err) {
       console.error(err);
-      alert("An error occurred during check-out.");
+      alert(isRtl ? "حدث خطأ أثناء تسجيل الانصراف." : "An error occurred during check-out.");
     }
   };
 
@@ -211,10 +213,10 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-[var(--sb-bg)]" />
-            Attendance Check-In / Check-Out
+            {isRtl ? "تسجيل الحضور / الانصراف" : "Attendance Check-In / Check-Out"}
           </DialogTitle>
           <DialogDescription>
-            Please ensure you are within the company radius (less than {radiusMeters} meters) to register attendance.
+            {isRtl ? `يرجى التأكد من وجودك ضمن نطاق الشركة (أقل من ${radiusMeters} متر) لتسجيل الحضور.` : `Please ensure you are within the company radius (less than ${radiusMeters} meters) to register attendance.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -222,13 +224,13 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
           {loadingLocation ? (
             <div className="flex flex-col items-center justify-center py-10 space-y-4">
               <Loader2 className="w-8 h-8 text-[var(--sb-bg)] animate-spin" />
-              <p className="text-sm text-neutral-500 ">Fetching location...</p>
+              <p className="text-sm text-neutral-500 ">{isRtl ? "جارِ تحديد الموقع..." : "Fetching location..."}</p>
             </div>
           ) : locationError ? (
             <div className="p-4 bg-red-50 text-red-600 rounded-md text-sm text-center">
               {locationError}
               <Button variant="outline" size="sm" className="mt-4 w-full" onClick={getLocation}>
-                Retry
+                {isRtl ? "إعادة المحاولة" : "Retry"}
               </Button>
             </div>
           ) : userLat && userLng ? (
@@ -247,20 +249,20 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
               {/* Status & Action */}
               <div className="flex flex-col gap-2 p-4 bg-white rounded-md border border-slate-200 ">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-[var(--sb-bg)]/80 [var(--sb-bg)]/70">Distance from HQ:</span>
-                  <span className="text-sm font-medium text-[var(--sb-bg)] [var(--sb-bg)]">{distance?.toFixed(2)} meters</span>
+                  <span className="text-sm text-[var(--sb-bg)]/80 [var(--sb-bg)]/70">{isRtl ? "المسافة من المقر:" : "Distance from HQ:"}</span>
+                  <span className="text-sm font-medium text-[var(--sb-bg)] [var(--sb-bg)]" dir="ltr">{distance?.toFixed(2)} {isRtl ? "متر" : "meters"}</span>
                 </div>
                 
                 {isWithinRadius ? (
                   <div className="flex items-center gap-2 text-green-600 mt-2">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span className="text-sm font-medium">You are within the company radius.</span>
+                    <span className="text-sm font-medium">{isRtl ? "أنت ضمن نطاق الشركة." : "You are within the company radius."}</span>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 mt-2">
                     <div className="flex items-center gap-2 text-red-600 ">
                       <XCircle className="w-4 h-4" />
-                      <span className="text-sm font-medium">You are outside the company radius!</span>
+                      <span className="text-sm font-medium">{isRtl ? "أنت خارج نطاق الشركة!" : "You are outside the company radius!"}</span>
                     </div>
                     {allowRemote && (
                       <div className="flex items-center gap-2 mt-2 p-2 bg-brand-light rounded border border-brand-light ">
@@ -272,7 +274,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
                           className="w-4 h-4 rounded text-brand focus:ring-brand"
                         />
                         <label htmlFor="remote-checkin" className="text-sm text-brand font-medium cursor-pointer">
-                          Register Attendance Remotely (Remote Work)
+                          {isRtl ? "تسجيل الحضور عن بُعد (العمل عن بُعد)" : "Register Attendance Remotely (Remote Work)"}
                         </label>
                       </div>
                     )}
@@ -282,14 +284,14 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
 
               <div className="flex gap-2 justify-end mt-2">
                 <Button variant="outline" onClick={getLocation}>
-                  Refresh Location
+                  {isRtl ? "تحديث الموقع" : "Refresh Location"}
                 </Button>
                 {isCheckedIn ? (
                   <Button 
                     onClick={handleCheckOut}
                     className="bg-red-600 hover:bg-red-700 text-white"
                   >
-                    Check Out
+                    {isRtl ? "تسجيل انصراف" : "Check Out"}
                   </Button>
                 ) : (
                   <Button 
@@ -297,7 +299,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
                     disabled={!canCheckIn}
                     className={canCheckIn ? "bg-green-600 hover:bg-green-700 text-white" : "bg-slate-200 text-slate-400 [var(--sb-bg)]/70"}
                   >
-                    Check In
+                    {isRtl ? "تسجيل حضور" : "Check In"}
                   </Button>
                 )}
               </div>
