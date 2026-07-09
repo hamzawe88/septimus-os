@@ -4,6 +4,7 @@ import { apiPost } from "@/lib/apiClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface NewTaskModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface NewTaskModalProps {
 }
 
 export default function NewTaskModal({ isOpen, onClose, onTaskCreated, projectId }: NewTaskModalProps) {
+  const { isRtl } = useLocalization();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState(0);
@@ -50,30 +52,30 @@ export default function NewTaskModal({ isOpen, onClose, onTaskCreated, projectId
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-white border border-slate-200 text-slate-900 sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create New Task</DialogTitle>
+          <DialogTitle>{isRtl ? "إنشاء مهمة جديدة" : "Create New Task"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Title</label>
+            <label className="text-sm font-medium text-slate-700">{isRtl ? "العنوان" : "Title"}</label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Implement user authentication"
+              placeholder={isRtl ? "مثال: تنفيذ مصادقة المستخدم" : "e.g. Implement user authentication"}
               className="bg-white border-slate-200 focus-visible:ring-primary"
               required
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Description</label>
+            <label className="text-sm font-medium text-slate-700">{isRtl ? "الوصف" : "Description"}</label>
             <Textarea
               value={description}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-              placeholder="Add details about this task..."
+              placeholder={isRtl ? "أضف تفاصيل عن هذه المهمة..." : "Add details about this task..."}
               className="bg-white border-slate-200 focus-visible:ring-primary min-h-[100px]"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Priority</label>
+            <label className="text-sm font-medium text-slate-700">{isRtl ? "الأولوية" : "Priority"}</label>
             <div className="flex space-x-2">
               {[0, 1, 2, 3].map((p) => (
                 <Button
@@ -89,21 +91,21 @@ export default function NewTaskModal({ isOpen, onClose, onTaskCreated, projectId
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Story Points</label>
+            <label className="text-sm font-medium text-slate-700">{isRtl ? "نقاط الجهد" : "Story Points"}</label>
             <Input
               type="number"
               value={storyPoints}
               onChange={(e) => setStoryPoints(e.target.value === "" ? "" : Number(e.target.value))}
-              placeholder="e.g. 5"
+              placeholder={isRtl ? "مثال: 5" : "e.g. 5"}
               className="bg-white border-slate-200 focus-visible:ring-primary"
             />
           </div>
           <DialogFooter className="pt-4">
             <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
-              Cancel
+              {isRtl ? "إلغاء" : "Cancel"}
             </Button>
             <Button type="submit" disabled={isSubmitting || !title.trim()}>
-              {isSubmitting ? "Creating..." : "Create Task"}
+              {isSubmitting ? (isRtl ? "جارِ الإنشاء..." : "Creating...") : (isRtl ? "إنشاء المهمة" : "Create Task")}
             </Button>
           </DialogFooter>
         </form>

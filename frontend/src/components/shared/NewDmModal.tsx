@@ -6,6 +6,7 @@ import { X, Search, Loader2, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAppStore } from "@/store/useAppStore";
 import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface NewDmModalProps {
   onClose: () => void;
@@ -18,6 +19,7 @@ interface User {
 }
 
 export default function NewDmModal({ onClose }: NewDmModalProps) {
+  const { isRtl } = useLocalization();
   const [search, setSearch] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
@@ -96,7 +98,7 @@ export default function NewDmModal({ onClose }: NewDmModalProps) {
       onClose();
     } catch (err) {
       console.error(err);
-      alert("Failed to create DM");
+      alert(isRtl ? "فشل إنشاء المحادثة" : "Failed to create DM");
     } finally {
       setIsSubmitting(false);
     }
@@ -110,9 +112,9 @@ export default function NewDmModal({ onClose }: NewDmModalProps) {
             <div className="modal-icon-bg">
               <MessageSquare className="w-5 h-5 text-brand" />
             </div>
-            <h2 id="modal-title" className="modal-title">Direct Messages</h2>
+            <h2 id="modal-title" className="modal-title">{isRtl ? "الرسائل المباشرة" : "Direct Messages"}</h2>
           </div>
-          <button onClick={onClose} className="modal-close-btn" aria-label="Close modal">
+          <button onClick={onClose} className="modal-close-btn" aria-label={isRtl ? "إغلاق النافذة" : "Close modal"}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -122,7 +124,7 @@ export default function NewDmModal({ onClose }: NewDmModalProps) {
             <Search className="absolute start-3 top-2.5 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Type the name of a person..."
+              placeholder={isRtl ? "اكتب اسم شخص..." : "Type the name of a person..."}
               className="modal-input ps-9"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -139,7 +141,7 @@ export default function NewDmModal({ onClose }: NewDmModalProps) {
                     <AvatarFallback className="text-[8px]">{u.email[0].toUpperCase()}</AvatarFallback>
                   </Avatar>
                   {u.email}
-                  <button type="button" onClick={() => toggleUser(u)} className="hover:text-brand-dark :text-indigo-100 ms-1" title="Remove User">
+                  <button type="button" onClick={() => toggleUser(u)} className="hover:text-brand-dark :text-indigo-100 ms-1" title={isRtl ? "إزالة المستخدم" : "Remove User"}>
                     <X size={14} />
                   </button>
                 </div>
@@ -150,14 +152,14 @@ export default function NewDmModal({ onClose }: NewDmModalProps) {
           {/* Search Results List */}
           <div className="border border-slate-200 rounded-md overflow-hidden max-h-48 overflow-y-auto mb-4">
             {filteredUsers.length === 0 ? (
-              <div className="p-4 text-center text-sm text-slate-500 ">No matching people found.</div>
+              <div className="p-4 text-center text-sm text-slate-500 ">{isRtl ? "لا يوجد أشخاص مطابقون." : "No matching people found."}</div>
             ) : (
               filteredUsers.map((u) => (
                 <button
                   key={u.id}
                   type="button"
                   onClick={() => toggleUser(u)}
-                  aria-label="Start Conversation"
+                  aria-label={isRtl ? "بدء محادثة" : "Start Conversation"}
                   className="w-full text-start flex items-center gap-3 p-2 hover:bg-[#f8fafc] :bg-slate-800 border-b border-slate-100 last:border-0 transition-colors"
                 >
                   <Avatar className="w-8 h-8">
@@ -175,7 +177,7 @@ export default function NewDmModal({ onClose }: NewDmModalProps) {
           <div className="modal-footer pt-4 pb-6 mt-0 border-t border-slate-100 ">
             <Button type="submit" disabled={isSubmitting || selectedUsers.length === 0} className="modal-submit-btn bg-brand hover:bg-brand w-full sm:w-auto ms-auto">
               {isSubmitting && <Loader2 className="w-4 h-4 me-2 animate-spin" />}
-              Go
+              {isRtl ? "بدء" : "Go"}
             </Button>
           </div>
         </form>

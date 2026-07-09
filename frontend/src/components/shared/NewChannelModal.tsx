@@ -4,13 +4,15 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Hash, Lock, Loader2 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { fetchWithAuth,     API_BASE_URL } from '@/lib/apiClient';
+import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface NewChannelModalProps {
   onClose: () => void;
 }
 
 export default function NewChannelModal({ onClose }: NewChannelModalProps) {
+  const { isRtl } = useLocalization();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -37,7 +39,7 @@ export default function NewChannelModal({ onClose }: NewChannelModalProps) {
       });
 
       if (!res.ok) {
-        throw new Error("Failed to create channel");
+        throw new Error(isRtl ? "فشل إنشاء القناة" : "Failed to create channel");
       }
 
       const newChannel = await res.json();
@@ -48,7 +50,7 @@ export default function NewChannelModal({ onClose }: NewChannelModalProps) {
       onClose();
     } catch (err) {
       console.error(err);
-      alert("Failed to create channel");
+      alert(isRtl ? "فشل إنشاء القناة" : "Failed to create channel");
     } finally {
       setIsSubmitting(false);
     }
@@ -62,24 +64,24 @@ export default function NewChannelModal({ onClose }: NewChannelModalProps) {
             <div className="modal-icon-bg">
               <Hash className="w-5 h-5 text-brand" />
             </div>
-            <h2 id="modal-title" className="modal-title">Create a channel</h2>
+            <h2 id="modal-title" className="modal-title">{isRtl ? "إنشاء قناة" : "Create a channel"}</h2>
           </div>
-          <button onClick={onClose} className="modal-close-btn" aria-label="Close modal">
+          <button onClick={onClose} className="modal-close-btn" aria-label={isRtl ? "إغلاق النافذة" : "Close modal"}>
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="modal-body">
           <p className="text-sm text-slate-500 mb-4">
-            Channels are where your team communicates. They’re best when organized around a topic — #marketing, for example.
+            {isRtl ? "القنوات هي حيث يتواصل فريقك. تكون الأفضل عند تنظيمها حول موضوع — مثل ‏#التسويق." : "Channels are where your team communicates. They’re best when organized around a topic — #marketing, for example."}
           </p>
           
           <div className="form-group">
-            <label className="form-label">Name</label>
+            <label className="form-label">{isRtl ? "الاسم" : "Name"}</label>
             <input
               type="text"
               required
-              placeholder="e.g. plan-budget"
+              placeholder={isRtl ? "مثال: plan-budget" : "e.g. plan-budget"}
               className="modal-input font-medium"
               value={name}
               onChange={(e) => setName(e.target.value.toLowerCase().replace(/\s+/g, "-"))}
@@ -87,11 +89,11 @@ export default function NewChannelModal({ onClose }: NewChannelModalProps) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Description (optional)</label>
+            <label className="form-label">{isRtl ? "الوصف (اختياري)" : "Description (optional)"}</label>
             <input
               type="text"
-              aria-label="Channel Description"
-              placeholder="What's this channel about?"
+              aria-label={isRtl ? "وصف القناة" : "Channel Description"}
+              placeholder={isRtl ? "ما موضوع هذه القناة؟" : "What's this channel about?"}
               className="modal-input"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -102,15 +104,15 @@ export default function NewChannelModal({ onClose }: NewChannelModalProps) {
             <div>
               <label className="form-label mb-0 flex items-center gap-1.5">
                 <Lock className="w-4 h-4 text-slate-600 " />
-                Make private
+                {isRtl ? "اجعلها خاصة" : "Make private"}
               </label>
               <p className="text-xs text-slate-500 mt-1">
-                When a channel is set to private, it can only be viewed or joined by invitation.
+                {isRtl ? "عند تعيين القناة كخاصة، لا يمكن عرضها أو الانضمام إليها إلا بدعوة." : "When a channel is set to private, it can only be viewed or joined by invitation."}
               </p>
             </div>
             <input
               type="checkbox"
-              title="Make Private"
+              title={isRtl ? "اجعلها خاصة" : "Make Private"}
               className="w-4 h-4 accent-indigo-600 cursor-pointer"
               checked={isPrivate}
               onChange={(e) => setIsPrivate(e.target.checked)}
@@ -118,12 +120,12 @@ export default function NewChannelModal({ onClose }: NewChannelModalProps) {
           </div>
 
           <div className="modal-footer mt-6">
-            <Button type="button" title="Cancel" variant="ghost" onClick={onClose} disabled={isSubmitting}>
-              Cancel
+            <Button type="button" title={isRtl ? "إلغاء" : "Cancel"} variant="ghost" onClick={onClose} disabled={isSubmitting}>
+              {isRtl ? "إلغاء" : "Cancel"}
             </Button>
-            <Button type="submit" title="Create Channel" disabled={isSubmitting} className="modal-submit-btn bg-brand hover:bg-brand">
+            <Button type="submit" title={isRtl ? "إنشاء القناة" : "Create Channel"} disabled={isSubmitting} className="modal-submit-btn bg-brand hover:bg-brand">
               {isSubmitting && <Loader2 className="w-4 h-4 me-2 animate-spin" />}
-              Create
+              {isRtl ? "إنشاء" : "Create"}
             </Button>
           </div>
         </form>
