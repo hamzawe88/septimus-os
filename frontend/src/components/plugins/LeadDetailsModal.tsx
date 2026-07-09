@@ -19,7 +19,7 @@ export default function LeadDetailsModal({ lead, onClose, onSuccess }: LeadDetai
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"details" | "copilot">("details");
   const [showQuote, setShowQuote] = useState(false);
-  const { t } = useLocalization();
+  const { t, isRtl } = useLocalization();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -77,9 +77,11 @@ export default function LeadDetailsModal({ lead, onClose, onSuccess }: LeadDetai
   if (stage === "closed_won") suggestedActions.push("Send welcome onboarding kit", "Schedule kickoff meeting", "Request a review/testimonial");
   if (stage === "closed_lost") suggestedActions.push("Send a follow-up in 3 months", "Ask for feedback on why deal was lost");
 
-  const contactPerson = formData.contact_person || "العميل المحترم";
-  const company = formData.company || "شركتكم";
-  const waMessage = `السلام عليكم ${contactPerson}،\n\nبخصوص ${company} - نود متابعة ${stage === "quote_sent" ? "عرض السعر المرسل" : "الفرصة التجارية"}. هل لديكم أي استفسارات؟\n\nنحن في خدمتكم دائماً.`;
+  const contactPerson = formData.contact_person || (isRtl ? "العميل المحترم" : "Valued Customer");
+  const company = formData.company || (isRtl ? "شركتكم" : "your company");
+  const waMessage = isRtl
+    ? `السلام عليكم ${contactPerson}،\n\nبخصوص ${company} - نود متابعة ${stage === "quote_sent" ? "عرض السعر المرسل" : "الفرصة التجارية"}. هل لديكم أي استفسارات؟\n\nنحن في خدمتكم دائماً.`
+    : `Hello ${contactPerson},\n\nRegarding ${company} - we'd like to follow up on ${stage === "quote_sent" ? "the quote we sent" : "the business opportunity"}. Do you have any questions?\n\nWe're always at your service.`;
   const emailSubject = `Follow-up: ${formData.company || "Your Project"} - Next Steps`;
   const emailBody = `Dear ${formData.contact_person || "Team"},\n\nThank you for your continued interest. Regarding ${formData.company || "your project"}, we wanted to follow up on the ${stage === "quote_sent" ? "quotation we sent" : "business opportunity"}.\n\nPlease let us know if you have any questions.\n\nBest regards`;
 

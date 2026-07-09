@@ -23,7 +23,7 @@ export default function MessageInput({ channelName, channelId, onSend, variant =
   const [messageText, setMessageText] = useState("");
 
   const { fileInputRef, attachment, setAttachment, isUploading, handleFileSelect } = useFileUpload();
-  const { notifyTyping } = useTypingIndicator(channelId, currentUser?.Email || "مستخدم");
+  const { notifyTyping } = useTypingIndicator(channelId, currentUser?.Email || "User");
 
   // Auto-resize textarea as user types
   const handleInput = () => {

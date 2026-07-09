@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocalization } from "@/contexts/LocalizationContext";
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 
@@ -26,6 +27,7 @@ export default function MapComponent({
   officeLng,
   radiusMeters,
 }: MapComponentProps) {
+  const { isRtl } = useLocalization();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export default function MapComponent({
         />
         {/* Office Location & Geofence */}
         <Marker position={center}>
-          <Popup>مقر الشركة (Office)</Popup>
+          <Popup>{isRtl ? "مقر الشركة" : "Office"}</Popup>
         </Marker>
         <Circle
           center={center}
@@ -71,7 +73,7 @@ export default function MapComponent({
         
         {/* User Location */}
         <Marker position={userPosition}>
-          <Popup>موقعك الحالي (You)</Popup>
+          <Popup>{isRtl ? "موقعك الحالي" : "You"}</Popup>
         </Marker>
       </MapContainer>
     </div>

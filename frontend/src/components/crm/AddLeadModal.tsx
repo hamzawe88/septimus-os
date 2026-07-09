@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiPost } from "@/lib/apiClient";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface AddLeadModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface AddLeadModalProps {
 }
 
 export default function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModalProps) {
+  const { isRtl } = useLocalization();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -112,7 +114,7 @@ export default function AddLeadModal({ isOpen, onClose, onSuccess }: AddLeadModa
 
           <div className="flex justify-end gap-3 mt-8">
             <Button type="button" variant="outline" onClick={onClose}>
-              إلغاء
+              {isRtl ? "إلغاء" : "Cancel"}
             </Button>
             <Button type="submit" disabled={loading} className="bg-brand hover:bg-brand/90">
               {loading ? "Saving..." : "Save Lead"}

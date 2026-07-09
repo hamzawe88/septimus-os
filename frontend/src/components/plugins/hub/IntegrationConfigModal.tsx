@@ -29,7 +29,7 @@ interface IntegrationConfigModalProps {
 }
 
 export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess }: IntegrationConfigModalProps) {
-  const { t } = useLocalization();
+  const { t, isRtl } = useLocalization();
   const [accessToken, setAccessToken] = useState("");
   const [config, setConfig] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -152,7 +152,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               type="text"
               value={config.phone_number_id || ""}
               onChange={(e) => handleConfigChange("phone_number_id", e.target.value)}
-              placeholder="مثال: 10839281928392"
+              placeholder={isRtl ? "مثال: 10839281928392" : "e.g. 10839281928392"}
               className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
@@ -162,7 +162,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               type="text"
               value={config.business_account_id || ""}
               onChange={(e) => handleConfigChange("business_account_id", e.target.value)}
-              placeholder="مثال: 10928392839201"
+              placeholder={isRtl ? "مثال: 10928392839201" : "e.g. 10928392839201"}
               className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
@@ -300,7 +300,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               type="password"
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
-              placeholder="AIzaSy... أو sk-..."
+              placeholder={isRtl ? "AIzaSy... أو sk-..." : "AIzaSy... or sk-..."}
               className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
             />
           </div>

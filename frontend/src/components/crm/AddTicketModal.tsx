@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiPost } from "@/lib/apiClient";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface AddTicketModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface AddTicketModalProps {
 }
 
 export default function AddTicketModal({ isOpen, onClose, onSuccess }: AddTicketModalProps) {
+  const { isRtl } = useLocalization();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -96,7 +98,7 @@ export default function AddTicketModal({ isOpen, onClose, onSuccess }: AddTicket
 
           <div className="flex justify-end gap-3 mt-8">
             <Button type="button" variant="outline" onClick={onClose}>
-              إلغاء
+              {isRtl ? "إلغاء" : "Cancel"}
             </Button>
             <Button type="submit" disabled={loading} className="bg-brand hover:bg-brand/90">
               {loading ? "Saving..." : "Create Ticket"}

@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
+import { useLocalization } from '@/contexts/LocalizationContext';
 
 export type Node = {
   id: string;
@@ -32,6 +33,7 @@ interface OrgChartGraphProps {
 }
 
 const OrgChartGraph: React.FC<OrgChartGraphProps> = ({ data, onNodeClick }) => {
+  const { isRtl } = useLocalization();
   const graphRef = useRef<unknown>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -96,10 +98,10 @@ const OrgChartGraph: React.FC<OrgChartGraphProps> = ({ data, onNodeClick }) => {
          <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
             <span 
               className="w-3 h-3 rounded-full block bg-[var(--primary-hex,#1164A3)]" 
-            ></span> إدارة / قسم
+            ></span> {isRtl ? "إدارة / قسم" : "Department"}
          </div>
          <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
-            <span className="w-3 h-3 rounded-full bg-[#f15153] block"></span> موظف
+            <span className="w-3 h-3 rounded-full bg-[#f15153] block"></span> {isRtl ? "موظف" : "Employee"}
          </div>
       </div>
       <ForceGraph2D

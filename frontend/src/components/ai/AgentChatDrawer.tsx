@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Bot, User, Sparkles, Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import { apiPost, AI_BASE_URL } from '@/lib/apiClient';
+import { useLocalization } from '@/contexts/LocalizationContext';
 
 export type AgentType = 'crm' | 'hr' | 'finance' | 'general';
 
@@ -19,6 +20,7 @@ interface Message {
 }
 
 export default function AgentChatDrawer({ isOpen, onClose, agentType, title, contextData }: AgentChatDrawerProps) {
+  const { isRtl } = useLocalization();
   const getWelcomeMessage = () => {
     if (agentType === 'crm') return 'Hello! I am your CRM Assistant. I can help you draft replies, summarize tickets, or analyze customer data. What do you need?';
     if (agentType === 'hr') return 'Hello! I am your HR Assistant. I can check leave balances, explain company policies, or process requests. How can I help?';
@@ -62,7 +64,7 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
       setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: response.reply }]);
     } catch (err) {
       console.error("AI chat error", err);
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: "عذراً، حدث خطأ أثناء الاتصال بالذكاء الاصطناعي." }]);
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: isRtl ? "عذراً، حدث خطأ أثناء الاتصال بالذكاء الاصطناعي." : "Sorry, an error occurred while connecting to the AI." }]);
     } finally {
       setIsTyping(false);
     }
