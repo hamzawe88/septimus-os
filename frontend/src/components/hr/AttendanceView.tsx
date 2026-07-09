@@ -36,19 +36,24 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function formatTime(iso?: string): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleTimeString("en-SA", { hour: "2-digit", minute: "2-digit" });
+// Western digits in both languages; Arabic month/weekday names when RTL
+function localeFor(isRtl: boolean): string {
+  return isRtl ? "ar-SA-u-nu-latn" : "en-SA";
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-SA", { weekday: "short", year: "numeric", month: "short", day: "numeric" });
+function formatTime(iso: string | undefined, isRtl: boolean): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleTimeString(localeFor(isRtl), { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDate(iso: string, isRtl: boolean): string {
+  return new Date(iso).toLocaleDateString(localeFor(isRtl), { weekday: "short", year: "numeric", month: "short", day: "numeric" });
 }
 
 type GeoStatus = "idle" | "locating" | "inside" | "outside" | "error";
 
 export default function AttendanceView() {
-  const { t } = useLocalization();
+  const { t, isRtl } = useLocalization();
   const today = new Date().toISOString().split("T")[0];
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +67,7 @@ export default function AttendanceView() {
   const [employeeName, setEmployeeName] = useState("");
   const [filterDate, setFilterDate] = useState(today);
 
-  const currentTime = new Date().toLocaleTimeString("en-SA", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const currentTime = new Date().toLocaleTimeString(isRtl ? "ar-SA-u-nu-latn" : "en-SA", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const workspaceId = typeof window !== "undefined"
     ? (localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e")
     : "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
@@ -76,7 +81,7 @@ export default function AttendanceView() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data: AttendanceRecord[] = (json.data || []).map((e: any) => ({
         id: e.id || e.ID,
-        employee_name: e.data?.employee_name || "Unknown",
+        employee_name: e.data?.employee_name || t("hr.unknownEmployee"),
         date: e.data?.date || today,
         check_in: e.data?.check_in,
         check_out: e.data?.check_out,
@@ -92,6 +97,8 @@ export default function AttendanceView() {
     } finally {
       setLoading(false);
     }
+    // `t` is a stable fallback label here; excluded to avoid refetching on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, today]);
 
   useEffect(() => {
@@ -106,7 +113,7 @@ export default function AttendanceView() {
     setErrorMsg(null);
     if (!navigator.geolocation) {
       setGeoStatus("error");
-      setErrorMsg("Geolocation is not supported by this browser.");
+      setErrorMsg(t("hr.geoUnsupported"));
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -120,15 +127,15 @@ export default function AttendanceView() {
       },
       (err) => {
         setGeoStatus("error");
-        setErrorMsg(`Location error: ${err.message}`);
+        setErrorMsg(`${t("hr.locationErrorPrefix")}${err.message}`);
       },
       { timeout: 10000, enableHighAccuracy: true }
     );
   };
 
   const handleCheckIn = async () => {
-    if (!employeeName.trim()) { setErrorMsg("Please enter your name first."); return; }
-    if (geoStatus !== "inside" && geoStatus !== "outside") { setErrorMsg("Please verify location first."); return; }
+    if (!employeeName.trim()) { setErrorMsg(t("hr.enterNameFirst")); return; }
+    if (geoStatus !== "inside" && geoStatus !== "outside") { setErrorMsg(t("hr.verifyLocationFirst")); return; }
 
     setSaving(true);
     setErrorMsg(null);
@@ -159,10 +166,10 @@ export default function AttendanceView() {
         }),
       });
       if (!res.ok) throw new Error("Failed to record check-in");
-      setSuccessMsg(`✅ ${t("hr.checkInSuccess")} ${employeeName} ${t("hr.atTime")} ${formatTime(now)} ${geoStatus === "inside" ? `📍 (${t("hr.insideGeofence")})` : `⚠️ (${t("hr.outsideGeofence")})`}`);
+      setSuccessMsg(`✅ ${t("hr.checkInSuccess")} ${employeeName} ${t("hr.atTime")} ${formatTime(now, isRtl)} ${geoStatus === "inside" ? `📍 (${t("hr.insideGeofence")})` : `⚠️ (${t("hr.outsideGeofence")})`}`);
       fetchRecords();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Failed to record attendance.");
+      setErrorMsg(err instanceof Error ? err.message : t("hr.recordFailed"));
     } finally {
       setSaving(false);
     }
@@ -194,7 +201,7 @@ export default function AttendanceView() {
       setSuccessMsg(`✅ ${t("hr.checkOutSuccess")} ${record.employee_name} — ${t("hr.worked")} ${hoursWorked} ${t("hr.hours")}`);
       fetchRecords();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Failed.");
+      setErrorMsg(err instanceof Error ? err.message : t("hr.recordFailed"));
     } finally {
       setSaving(false);
     }
@@ -222,7 +229,7 @@ export default function AttendanceView() {
               <Clock className="w-5 h-5 text-indigo-500" />
               {currentTime}
             </div>
-            <p className="text-xs text-slate-400 mt-1">{formatDate(today)}</p>
+            <p className="text-xs text-slate-400 mt-1">{formatDate(today, isRtl)}</p>
           </div>
         </div>
 
@@ -352,8 +359,8 @@ export default function AttendanceView() {
                 <input
                   type="date"
                   value={filterDate}
-                  aria-label="Logs Date"
-                  title="Logs Date"
+                  aria-label={t("hr.logsDate")}
+                  title={t("hr.logsDate")}
                   onChange={e => setFilterDate(e.target.value)}
                   className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 text-slate-700 focus:border-indigo-400 outline-none"
                 />
@@ -361,7 +368,7 @@ export default function AttendanceView() {
                   type="button"
                   onClick={fetchRecords}
                   className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                  title="Refresh"
+                  title={t("common.refresh")}
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
@@ -389,12 +396,12 @@ export default function AttendanceView() {
                         <div className="flex items-center gap-3 mt-0.5">
                           <span className="text-xs text-slate-400 flex items-center gap-1">
                             <LogIn className="w-3 h-3 text-emerald-500" />
-                            {formatTime(record.check_in)}
+                            {formatTime(record.check_in, isRtl)}
                           </span>
                           {record.check_out && (
                             <span className="text-xs text-slate-400 flex items-center gap-1">
                               <LogOut className="w-3 h-3 text-rose-400" />
-                              {formatTime(record.check_out)}
+                              {formatTime(record.check_out, isRtl)}
                             </span>
                           )}
                           <span className={`text-xs flex items-center gap-1 ${record.location_verified ? "text-emerald-600" : "text-amber-600"}`}>

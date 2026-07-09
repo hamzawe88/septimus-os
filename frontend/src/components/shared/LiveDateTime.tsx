@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { CalendarDays, Clock } from "lucide-react";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 export default function LiveDateTime() {
+  const { isRtl } = useLocalization();
   const [time, setTime] = useState<Date | null>(null);
 
   useEffect(() => {
-     
+
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTime(new Date());
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -14,14 +16,17 @@ export default function LiveDateTime() {
 
   if (!time) return null; // Avoid hydration mismatch
 
-  const formattedDate = time.toLocaleDateString('en-US', {
+  // Arabic month/weekday names but Western digits (matches the app's numeral convention)
+  const locale = isRtl ? "ar-SA-u-nu-latn" : "en-US";
+
+  const formattedDate = time.toLocaleDateString(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
     year: 'numeric'
   });
 
-  const formattedTime = time.toLocaleTimeString('en-US', {
+  const formattedTime = time.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit'
   });
@@ -34,7 +39,7 @@ export default function LiveDateTime() {
       </div>
       <div className="flex items-center gap-1.5">
         <Clock className="w-4 h-4 text-brand" />
-        <span className="text-xs font-bold text-slate-800 tracking-wide">{formattedTime}</span>
+        <span className="text-xs font-bold text-slate-800 tracking-wide" dir="ltr">{formattedTime}</span>
       </div>
     </div>
   );

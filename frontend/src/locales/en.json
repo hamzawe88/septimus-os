@@ -358,7 +358,7 @@
     "reason": "Reason",
     "requestedOn": "Requested On",
     "to": "to",
-    "unknownEmployee": "Unknown Employee",
+    "unknownEmployee": "Unknown",
     "pending": "Pending",
     "approved": "Approved",
     "rejected": "Rejected",
@@ -475,7 +475,13 @@
     "engineering": "Engineering",
     "marketing": "Marketing",
     "sales": "Sales",
-    "aiReviewPrompt": "Review this leave request and recommend approval or rejection."
+    "aiReviewPrompt": "Review this leave request and recommend approval or rejection.",
+    "geoUnsupported": "Geolocation is not supported by this browser.",
+    "locationErrorPrefix": "Location error: ",
+    "enterNameFirst": "Please enter your name first.",
+    "verifyLocationFirst": "Please verify your location first.",
+    "recordFailed": "Failed to record attendance.",
+    "logsDate": "Logs Date"
   },
   "finance": {
     "title": "SME Invoice Management",
@@ -898,7 +904,8 @@
     "paginationOf": "of",
     "paginationRecords": "records",
     "paginationEmpty": "No records",
-    "retry": "Retry"
+    "retry": "Retry",
+    "refresh": "Refresh"
   },
   "plugins": {
     "createEntityFailed": "Failed to create entity. Check console for details.",

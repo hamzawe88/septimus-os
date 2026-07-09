@@ -358,7 +358,7 @@
     "reason": "السبب",
     "requestedOn": "تاريخ الطلب",
     "to": "إلى",
-    "unknownEmployee": "موظف غير معروف",
+    "unknownEmployee": "غير معروف",
     "pending": "قيد الانتظار",
     "approved": "معتمد",
     "rejected": "مرفوض",
@@ -475,7 +475,13 @@
     "engineering": "الهندسة",
     "marketing": "التسويق",
     "sales": "المبيعات",
-    "aiReviewPrompt": "راجع طلب الإجازة هذا وأوصِ بالاعتماد أو الرفض."
+    "aiReviewPrompt": "راجع طلب الإجازة هذا وأوصِ بالاعتماد أو الرفض.",
+    "geoUnsupported": "متصفحك لا يدعم تحديد الموقع الجغرافي.",
+    "locationErrorPrefix": "خطأ في تحديد الموقع: ",
+    "enterNameFirst": "يرجى إدخال اسمك أولاً.",
+    "verifyLocationFirst": "يرجى التحقق من موقعك أولاً.",
+    "recordFailed": "فشل تسجيل الحضور.",
+    "logsDate": "تاريخ السجلّات"
   },
   "finance": {
     "title": "إدارة فواتير الشركات (SME)",
@@ -898,7 +904,8 @@
     "paginationOf": "من",
     "paginationRecords": "سجل",
     "paginationEmpty": "لا سجلّات",
-    "retry": "إعادة المحاولة"
+    "retry": "إعادة المحاولة",
+    "refresh": "تحديث"
   },
   "plugins": {
     "createEntityFailed": "فشل في إنشاء الكيان. راجع وحدة التحكم للتفاصيل.",
