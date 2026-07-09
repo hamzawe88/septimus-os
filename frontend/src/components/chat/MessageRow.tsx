@@ -7,6 +7,7 @@ import { MessageSquare, Search, Sparkles, CheckSquare, Smile, Edit, Trash2, Chec
 import { EntityCard, AIProposalCard } from "@/components/messages/Cards";
 // Message type is removed if unused
 import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 const processMentionsAndTags = (text: string) => {
   if (!text) return "";
@@ -28,6 +29,7 @@ const formatAuthorName = (name: string) => {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { msg: any, onReplyClick?: () => void, onEdit?: (id: string, newText: string) => void, onDelete?: (id: string) => void }) {
+  const { isRtl } = useLocalization();
   const hasAttachment = !!msg.AttachmentURL;
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(msg.text || "");
@@ -62,7 +64,7 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
               {msg.author ? msg.author.charAt(0).toUpperCase() : "U"}
             </AvatarFallback>
           </Avatar>
-          <span className="absolute bottom-0 end-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full shadow-sm" title="متصل الآن" />
+          <span className="absolute bottom-0 end-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full shadow-sm" title={isRtl ? "متصل الآن" : "Online now"} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
@@ -94,8 +96,8 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
               <textarea
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
-                placeholder="تعديل الرسالة..."
-                aria-label="تعديل الرسالة"
+                placeholder={isRtl ? "تعديل الرسالة..." : "Edit message..."}
+                aria-label={isRtl ? "تعديل الرسالة" : "Edit message"}
                 className="w-full p-2.5 border border-brand/40 rounded-xl text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand shadow-inner"
                 rows={3}
                 dir="auto"
@@ -111,7 +113,7 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
                   }}
                   className="px-3 py-1 bg-brand text-white text-xs font-semibold rounded-lg flex items-center gap-1 hover:bg-brand-dark transition-colors shadow-sm"
                 >
-                  <Check className="w-3 h-3" /> حفظ التعديل
+                  <Check className="w-3 h-3" /> {isRtl ? "حفظ التعديل" : "Save Changes"}
                 </button>
                 <button
                   type="button"
@@ -121,7 +123,7 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
                   }}
                   className="px-3 py-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg flex items-center gap-1 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
                 >
-                  <X className="w-3 h-3" /> إلغاء
+                  <X className="w-3 h-3" /> {isRtl ? "إلغاء" : "Cancel"}
                 </button>
               </div>
             </div>
@@ -141,20 +143,20 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
           )}
         </div>
         <div className="absolute top-[-14px] end-4 lg:end-6 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/80 shadow-md rounded-full px-2 py-0.5 opacity-0 group-hover:opacity-100 transition-all duration-150 scale-95 group-hover:scale-100 flex items-center gap-1 z-10" aria-label="Message actions">
-          <button className="p-1 text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label="React with emoji" title="تفاعل"><Smile className="w-3.5 h-3.5" /></button>
-          <button className="p-1 text-slate-500 hover:text-brand hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label="Reply in thread" title="رد في خيط" onClick={onReplyClick}><MessageSquare className="w-3.5 h-3.5" /></button>
+          <button className="p-1 text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "تفاعل" : "React with emoji"} title={isRtl ? "تفاعل" : "React"}><Smile className="w-3.5 h-3.5" /></button>
+          <button className="p-1 text-slate-500 hover:text-brand hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "رد في خيط" : "Reply in thread"} title={isRtl ? "رد في خيط" : "Reply in thread"} onClick={onReplyClick}><MessageSquare className="w-3.5 h-3.5" /></button>
           {onEdit && (
-            <button className="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label="Edit message" title="تعديل الرسالة" onClick={() => { setEditText(msg.text || ""); setIsEditing(true); }}>
+            <button className="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "تعديل الرسالة" : "Edit message"} title={isRtl ? "تعديل الرسالة" : "Edit message"} onClick={() => { setEditText(msg.text || ""); setIsEditing(true); }}>
               <Edit className="w-3.5 h-3.5" />
             </button>
           )}
           {onDelete && (
-            <button className="p-1 text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label="Delete message" title="حذف الرسالة" onClick={() => onDelete(msg.ID || msg.id)}>
+            <button className="p-1 text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "حذف الرسالة" : "Delete message"} title={isRtl ? "حذف الرسالة" : "Delete message"} onClick={() => onDelete(msg.ID || msg.id)}>
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
-          <button className="p-1 text-slate-500 hover:text-brand hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label="Mention" title="إشارة"><Search className="w-3.5 h-3.5" /></button>
-          <button className="p-1 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label="Convert to Task" title="تحويل إلى مهمة Kanban" onClick={handleConvertToTask}><CheckSquare className="w-3.5 h-3.5" /></button>
+          <button className="p-1 text-slate-500 hover:text-brand hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "إشارة" : "Mention"} title={isRtl ? "إشارة" : "Mention"}><Search className="w-3.5 h-3.5" /></button>
+          <button className="p-1 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "تحويل إلى مهمة Kanban" : "Convert to Task"} title={isRtl ? "تحويل إلى مهمة Kanban" : "Convert to Task"} onClick={handleConvertToTask}><CheckSquare className="w-3.5 h-3.5" /></button>
         </div>
       </div>
     );
@@ -191,7 +193,7 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
               AI
             </AvatarFallback>
           </Avatar>
-          <span className="absolute bottom-0 end-0 w-2.5 h-2.5 bg-amber-400 border-2 border-white dark:border-slate-900 rounded-full shadow-sm animate-pulse" title="متصل الآن" />
+          <span className="absolute bottom-0 end-0 w-2.5 h-2.5 bg-amber-400 border-2 border-white dark:border-slate-900 rounded-full shadow-sm animate-pulse" title={isRtl ? "متصل الآن" : "Online now"} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
@@ -220,15 +222,15 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
           )}
         </div>
         <div className="absolute top-[-14px] end-4 lg:end-6 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/80 shadow-md rounded-full px-2 py-0.5 opacity-0 group-hover:opacity-100 transition-all duration-150 scale-95 group-hover:scale-100 flex items-center gap-1 z-10" aria-label="Message actions">
-          <button className="p-1 text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label="React with emoji" title="تفاعل"><Smile className="w-3.5 h-3.5" /></button>
-          <button className="p-1 text-slate-500 hover:text-brand hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label="Reply in thread" title="رد في خيط" onClick={onReplyClick}><MessageSquare className="w-3.5 h-3.5" /></button>
+          <button className="p-1 text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "تفاعل" : "React with emoji"} title={isRtl ? "تفاعل" : "React"}><Smile className="w-3.5 h-3.5" /></button>
+          <button className="p-1 text-slate-500 hover:text-brand hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "رد في خيط" : "Reply in thread"} title={isRtl ? "رد في خيط" : "Reply in thread"} onClick={onReplyClick}><MessageSquare className="w-3.5 h-3.5" /></button>
           {onDelete && (
-            <button className="p-1 text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label="Delete message" title="حذف الرسالة" onClick={() => onDelete(msg.ID || msg.id)}>
+            <button className="p-1 text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "حذف الرسالة" : "Delete message"} title={isRtl ? "حذف الرسالة" : "Delete message"} onClick={() => onDelete(msg.ID || msg.id)}>
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
-          <button className="p-1 text-slate-500 hover:text-brand hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label="Ask AI" title="سؤال الذكاء الاصطناعي"><Sparkles className="w-3.5 h-3.5" /></button>
-          <button className="p-1 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label="Convert to Task" title="تحويل إلى مهمة Kanban" onClick={handleConvertToTask}><CheckSquare className="w-3.5 h-3.5" /></button>
+          <button className="p-1 text-slate-500 hover:text-brand hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "سؤال الذكاء الاصطناعي" : "Ask AI"} title={isRtl ? "سؤال الذكاء الاصطناعي" : "Ask AI"}><Sparkles className="w-3.5 h-3.5" /></button>
+          <button className="p-1 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "تحويل إلى مهمة Kanban" : "Convert to Task"} title={isRtl ? "تحويل إلى مهمة Kanban" : "Convert to Task"} onClick={handleConvertToTask}><CheckSquare className="w-3.5 h-3.5" /></button>
         </div>
       </div>
     );
