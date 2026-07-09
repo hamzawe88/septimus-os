@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Sparkles, Palette } from "lucide-react";
 import { useThemeStore, THEME_PRESETS, ThemePreset } from "@/store/useThemeStore";
 import { API_BASE_URL } from "@/lib/apiClient";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface LoginScreenProps {
   onLogin: () => void;
 }
 
 export default function LoginScreen({ onLogin }: LoginScreenProps) {
+  const { isRtl } = useLocalization();
   const { logoUrl, theme, setTheme } = useThemeStore();
   const companyName = "Septimus OS";
   const [user, setUser] = useState("admin@septimus.local");
@@ -33,7 +35,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Login failed");
+        throw new Error(data.error || (isRtl ? "فشل تسجيل الدخول" : "Login failed"));
       }
 
       // Save token
@@ -56,7 +58,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       <div className="absolute top-4 end-4 flex items-center gap-2 bg-white/10 backdrop-blur p-2 rounded-lg border border-white/20 shadow-sm">
         <Palette className="w-4 h-4 text-white" />
         <select 
-          title="Select Theme"
+          title={isRtl ? "اختيار الثيم" : "Select Theme"}
           value={theme} 
           onChange={(e) => setTheme(e.target.value as ThemePreset)}
           className="bg-transparent text-white text-sm outline-none border-none cursor-pointer"
@@ -79,14 +81,14 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               {companyName ? companyName.charAt(0).toUpperCase() : "S"}
             </div>
           )}
-          <h1 className="login-title">Sign in to {companyName || "Septimus OS"}</h1>
-          <p className="login-subtitle">Enterprise Intelligence Platform</p>
+          <h1 className="login-title">{isRtl ? "تسجيل الدخول إلى" : "Sign in to"} {companyName || "Septimus OS"}</h1>
+          <p className="login-subtitle">{isRtl ? "منصة ذكاء المؤسسات" : "Enterprise Intelligence Platform"}</p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label className="form-label">Email or username</label>
+            <label className="form-label">{isRtl ? "البريد الإلكتروني أو اسم المستخدم" : "Email or username"}</label>
             <Input
               value={user}
               onChange={(e) => setUser(e.target.value)}
@@ -95,7 +97,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label">{isRtl ? "كلمة المرور" : "Password"}</label>
             <Input
               type="password"
               value={pass}
@@ -110,11 +112,11 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             className="login-btn w-full mt-4 flex items-center justify-center font-bold text-white transition-colors rounded-lg py-3 bg-brand" 
             disabled={isLoading}
           >
-            {isLoading ? "Signing in..." : "Sign In"}
+            {isLoading ? (isRtl ? "جارِ تسجيل الدخول..." : "Signing in...") : (isRtl ? "تسجيل الدخول" : "Sign In")}
           </button>
           <p className="login-hint mt-4">
             <Sparkles className="inline w-3 h-3 me-1 opacity-60" />
-            Use: admin@septimus.local / admin123
+            {isRtl ? "استخدم:" : "Use:"} <span dir="ltr">admin@septimus.local / admin123</span>
           </p>
         </form>
       </div>

@@ -3,6 +3,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { Search, X, MessageSquare } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface SearchResult {
   ID?: string;
@@ -13,6 +14,7 @@ interface SearchResult {
 }
 
 export default function GlobalSearchModal() {
+  const { isRtl } = useLocalization();
   const { isGlobalSearchOpen, setIsGlobalSearchOpen } = useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -53,7 +55,7 @@ export default function GlobalSearchModal() {
           <input
             autoFocus
             type="text"
-            placeholder="Search channels, messages, or people..."
+            placeholder={isRtl ? "ابحث في القنوات والرسائل والأشخاص..." : "Search channels, messages, or people..."}
             className="flex-1 bg-transparent border-none outline-none text-slate-900 placeholder-slate-400 text-lg"
             value={searchQuery}
             onChange={(e) => {
@@ -65,7 +67,7 @@ export default function GlobalSearchModal() {
           <button 
             onClick={() => setIsGlobalSearchOpen(false)}
             className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 transition-colors ms-2"
-            aria-label="Close Global Search"
+            aria-label={isRtl ? "إغلاق البحث الشامل" : "Close Global Search"}
           >
             <X className="w-5 h-5" />
           </button>
@@ -75,11 +77,11 @@ export default function GlobalSearchModal() {
         <ScrollArea className="flex-1 p-2">
           {searchQuery.trim().length > 0 ? (
             <div className="py-2">
-              <h3 className="px-3 text-xs font-semibold text-[var(--sb-bg)] uppercase tracking-wider mb-2">Results</h3>
+              <h3 className="px-3 text-xs font-semibold text-[var(--sb-bg)] uppercase tracking-wider mb-2">{isRtl ? "النتائج" : "Results"}</h3>
               {isSearching ? (
-                <div className="p-4 text-sm text-slate-500 text-center">Searching...</div>
+                <div className="p-4 text-sm text-slate-500 text-center">{isRtl ? "جارِ البحث..." : "Searching..."}</div>
               ) : results.length === 0 ? (
-                <div className="p-4 text-sm text-slate-500 text-center">No results found for &quot;{searchQuery}&quot;</div>
+                <div className="p-4 text-sm text-slate-500 text-center">{isRtl ? "لا نتائج لـ" : "No results found for"} &quot;{searchQuery}&quot;</div>
               ) : (
                 results.map((res, idx) => (
                   <button
@@ -95,7 +97,7 @@ export default function GlobalSearchModal() {
                           {res.User?.Email || res.AIAgentRole || "System"}
                         </span>
                         <span className="text-slate-500 text-xs">
-                          in {res.Channel?.Name || "Unknown"}
+                          {isRtl ? "في" : "in"} {res.Channel?.Name || (isRtl ? "غير معروف" : "Unknown")}
                         </span>
                       </div>
                       <div className="text-slate-500 text-sm truncate">{res.Content}</div>
@@ -107,7 +109,7 @@ export default function GlobalSearchModal() {
           ) : (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400">
               <Search className="w-12 h-12 mb-4 opacity-20" />
-              <p>Type to search across your workspace</p>
+              <p>{isRtl ? "اكتب للبحث في مساحة العمل" : "Type to search across your workspace"}</p>
             </div>
           )}
         </ScrollArea>
