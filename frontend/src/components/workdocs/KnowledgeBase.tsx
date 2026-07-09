@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Upload, FileText, Database, Trash2, CheckCircle2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiGet, fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface DocumentEntity {
   id: string;
@@ -19,6 +20,7 @@ interface DocumentEntity {
 }
 
 export default function KnowledgeBase() {
+  const { isRtl } = useLocalization();
   const [documents, setDocuments] = useState<DocumentEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -61,7 +63,7 @@ export default function KnowledgeBase() {
         await fetchDocuments();
       } else {
         const err = await res.json();
-        alert(err.error || "فشل رفع المستند");
+        alert(err.error || (isRtl ? "فشل رفع المستند" : "Failed to upload document"));
       }
     } catch (err) {
       console.error("Upload error", err);
@@ -80,15 +82,15 @@ export default function KnowledgeBase() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <Database className="w-6 h-6 text-indigo-500" />
-            قاعدة المعرفة (Knowledge Base)
+            {isRtl ? "قاعدة المعرفة" : "Knowledge Base"}
           </h1>
           <p className="text-slate-500 mt-1">
-            ارفع المستندات لتدريب الذكاء الاصطناعي وجعلها قابلة للبحث (RAG).
+            {isRtl ? "ارفع المستندات لتدريب الذكاء الاصطناعي وجعلها قابلة للبحث (RAG)." : "Upload documents to train the AI and make them searchable (RAG)."}
           </p>
         </div>
         <div>
           <input
-            title="رفع مستند"
+            title={isRtl ? "رفع مستند" : "Upload document"}
             type="file"
             ref={fileInputRef}
             onChange={handleFileUpload}
@@ -105,7 +107,7 @@ export default function KnowledgeBase() {
             ) : (
               <Upload className="w-4 h-4" />
             )}
-            رفع مستند
+            {isRtl ? "رفع مستند" : "Upload Document"}
           </Button>
         </div>
       </div>
@@ -119,8 +121,8 @@ export default function KnowledgeBase() {
         ) : documents.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-500 border-2 border-dashed border-slate-300 rounded-xl bg-white">
             <Database className="w-12 h-12 mb-4 text-slate-300" />
-            <p className="text-lg font-medium text-slate-700">قاعدة المعرفة فارغة</p>
-            <p className="text-sm mt-1">قم برفع مستندات PDF أو نصوص ليقوم الذكاء الاصطناعي بقراءتها.</p>
+            <p className="text-lg font-medium text-slate-700">{isRtl ? "قاعدة المعرفة فارغة" : "Knowledge base is empty"}</p>
+            <p className="text-sm mt-1">{isRtl ? "قم برفع مستندات PDF أو نصوص ليقوم الذكاء الاصطناعي بقراءتها." : "Upload PDF or text documents for the AI to read."}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -138,7 +140,7 @@ export default function KnowledgeBase() {
                       <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
                         <FileText className="w-6 h-6" />
                       </div>
-                      <button title="حذف المستند" className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
+                      <button title={isRtl ? "حذف المستند" : "Delete document"} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -156,11 +158,11 @@ export default function KnowledgeBase() {
                     </span>
                     {isProcessing ? (
                       <span className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-                        <Clock className="w-3 h-3" /> جاري التحليل...
+                        <Clock className="w-3 h-3" /> {isRtl ? "جاري التحليل..." : "Analyzing..."}
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-                        <CheckCircle2 className="w-3 h-3" /> جاهز للذكاء الاصطناعي
+                        <CheckCircle2 className="w-3 h-3" /> {isRtl ? "جاهز للذكاء الاصطناعي" : "Ready for AI"}
                       </span>
                     )}
                   </div>
