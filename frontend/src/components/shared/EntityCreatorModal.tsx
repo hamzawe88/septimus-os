@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { X, Zap, Loader2 } from "lucide-react";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface EntityCreatorModalProps {
   onClose: () => void;
 }
 
 export default function EntityCreatorModal({ onClose }: EntityCreatorModalProps) {
+  const { isRtl } = useLocalization();
   const [entityType, setEntityType] = useState("task");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -48,55 +50,55 @@ export default function EntityCreatorModal({ onClose }: EntityCreatorModalProps)
             <div className="modal-icon-bg">
               <Zap className="w-5 h-5 text-yellow-500" />
             </div>
-            <h2 id="modal-title" className="modal-title">Create New Entity</h2>
+            <h2 id="modal-title" className="modal-title">{isRtl ? "إنشاء كيان جديد" : "Create New Entity"}</h2>
           </div>
-          <button onClick={onClose} className="modal-close-btn" aria-label="Close modal">
+          <button onClick={onClose} className="modal-close-btn" aria-label={isRtl ? "إغلاق النافذة" : "Close modal"}>
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="modal-body">
           <div className="form-group">
-            <label className="form-label">Entity Type</label>
+            <label className="form-label">{isRtl ? "نوع الكيان" : "Entity Type"}</label>
             <select 
               value={entityType}
               onChange={(e) => setEntityType(e.target.value)}
               className="modal-input"
-              title="Entity Type"
-              aria-label="Entity Type"
+              title={isRtl ? "نوع الكيان" : "Entity Type"}
+              aria-label={isRtl ? "نوع الكيان" : "Entity Type"}
             >
-              <option value="task">Task / To-Do</option>
-              <option value="document">Document</option>
-              <option value="meeting">Meeting</option>
-              <option value="issue">Issue Tracker</option>
+              <option value="task">{isRtl ? "مهمة" : "Task / To-Do"}</option>
+              <option value="document">{isRtl ? "مستند" : "Document"}</option>
+              <option value="meeting">{isRtl ? "اجتماع" : "Meeting"}</option>
+              <option value="issue">{isRtl ? "متتبع المشكلات" : "Issue Tracker"}</option>
             </select>
           </div>
 
           {entityType === "task" && (
             <>
               <div className="form-group">
-                <label className="form-label">Task Title</label>
+                <label className="form-label">{isRtl ? "عنوان المهمة" : "Task Title"}</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Update marketing materials"
+                  placeholder={isRtl ? "مثال: تحديث المواد التسويقية" : "e.g. Update marketing materials"}
                   className="modal-input"
                   value={taskData.title}
                   onChange={(e) => setTaskData({ ...taskData, title: e.target.value })}
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Priority</label>
+                <label className="form-label">{isRtl ? "الأولوية" : "Priority"}</label>
                 <select
                   className="modal-input"
                   value={taskData.priority}
                   onChange={(e) => setTaskData({ ...taskData, priority: e.target.value })}
-                  title="Priority"
-                  aria-label="Priority"
+                  title={isRtl ? "الأولوية" : "Priority"}
+                  aria-label={isRtl ? "الأولوية" : "Priority"}
                 >
-                  <option value="High">High</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Low">Low</option>
+                  <option value="High">{isRtl ? "عالية" : "High"}</option>
+                  <option value="Medium">{isRtl ? "متوسطة" : "Medium"}</option>
+                  <option value="Low">{isRtl ? "منخفضة" : "Low"}</option>
                 </select>
               </div>
             </>
@@ -104,11 +106,11 @@ export default function EntityCreatorModal({ onClose }: EntityCreatorModalProps)
 
           <div className="modal-footer">
             <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
-              Cancel
+              {isRtl ? "إلغاء" : "Cancel"}
             </Button>
             <Button type="submit" disabled={isSubmitting} className="modal-submit-btn">
               {isSubmitting ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <Zap className="w-4 h-4 me-2" />}
-              Create Entity
+              {isRtl ? "إنشاء الكيان" : "Create Entity"}
             </Button>
           </div>
         </form>

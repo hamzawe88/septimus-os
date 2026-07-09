@@ -7,6 +7,7 @@ import TaskDetailsPanel from "./TaskDetailsPanel";
 import DynamicBoardRow from "./DynamicBoardRow";
 
 import { apiGet, apiPost, apiPut } from "@/lib/apiClient";
+import { useLocalization } from "@/contexts/LocalizationContext";
 import { Task, User } from "@/types";
 
 const getIndentLevel = (path?: string) => {
@@ -15,6 +16,7 @@ const getIndentLevel = (path?: string) => {
 };
 
 export default function DynamicBoard() {
+  const { isRtl } = useLocalization();
   const [treeData, setTreeData] = useState<Task[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -152,18 +154,18 @@ export default function DynamicBoard() {
 
   // Status definitions with curated vibrant palettes
   const statuses = [
-    { value: "todo", label: "To Do", bg: "bg-slate-100 text-slate-700 border-slate-200", dot: "bg-slate-400" },
-    { value: "in_progress", label: "In Progress", bg: "bg-brand-light text-brand-dark border-brand-light font-semibold", dot: "bg-[#dfb2e5]" },
-    { value: "review", label: "In Review", bg: "bg-amber-50 text-amber-800 border-amber-200 font-semibold", dot: "bg-amber-400" },
-    { value: "done", label: "Done", bg: "bg-emerald-50 text-emerald-800 border-emerald-200 font-semibold", dot: "bg-emerald-500" }
+    { value: "todo", label: isRtl ? "قيد الانتظار" : "To Do", bg: "bg-slate-100 text-slate-700 border-slate-200", dot: "bg-slate-400" },
+    { value: "in_progress", label: isRtl ? "قيد التنفيذ" : "In Progress", bg: "bg-brand-light text-brand-dark border-brand-light font-semibold", dot: "bg-[#dfb2e5]" },
+    { value: "review", label: isRtl ? "قيد المراجعة" : "In Review", bg: "bg-amber-50 text-amber-800 border-amber-200 font-semibold", dot: "bg-amber-400" },
+    { value: "done", label: isRtl ? "مكتملة" : "Done", bg: "bg-emerald-50 text-emerald-800 border-emerald-200 font-semibold", dot: "bg-emerald-500" }
   ];
 
   // Priority definitions
   const priorities = [
-    { value: 1, label: "P1 Urgent", badge: "text-red-700 bg-red-100 border-red-200 font-bold" },
-    { value: 2, label: "P2 High", badge: "text-orange-700 bg-orange-100 border-orange-200 font-semibold" },
-    { value: 3, label: "P3 Normal", badge: "text-brand bg-brand-light border-brand-light font-medium" },
-    { value: 0, label: "No Priority", badge: "text-slate-500 bg-slate-100 border-slate-200 font-normal" }
+    { value: 1, label: isRtl ? "P1 عاجلة" : "P1 Urgent", badge: "text-red-700 bg-red-100 border-red-200 font-bold" },
+    { value: 2, label: isRtl ? "P2 عالية" : "P2 High", badge: "text-orange-700 bg-orange-100 border-orange-200 font-semibold" },
+    { value: 3, label: isRtl ? "P3 عادية" : "P3 Normal", badge: "text-brand bg-brand-light border-brand-light font-medium" },
+    { value: 0, label: isRtl ? "بلا أولوية" : "No Priority", badge: "text-slate-500 bg-slate-100 border-slate-200 font-normal" }
   ];
 
   const totalTasks = treeData.length;
@@ -204,7 +206,7 @@ export default function DynamicBoard() {
       if (unassignedTasks.length > 0) {
         assignedGroups.push({
           key: "unassigned",
-          label: "Unassigned",
+          label: isRtl ? "غير مُسند" : "Unassigned",
           tasks: unassignedTasks,
           badge: "bg-slate-100 text-slate-600 border-slate-200"
         });
@@ -298,11 +300,11 @@ export default function DynamicBoard() {
                 <div className="text-[11px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">Toggle Custom Columns</div>
                 
                 <label className="flex items-center justify-between px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-medium text-slate-700">
-                  <span>Status</span>
+                  <span>{isRtl ? "الحالة" : "Status"}</span>
                   <input type="checkbox" checked={cols.status} onChange={(e) => updateCols({...cols, status: e.target.checked})} className="rounded text-brand focus:ring-brand"/>
                 </label>
                 <label className="flex items-center justify-between px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-medium text-slate-700">
-                  <span>Priority</span>
+                  <span>{isRtl ? "الأولوية" : "Priority"}</span>
                   <input type="checkbox" checked={cols.priority} onChange={(e) => updateCols({...cols, priority: e.target.checked})} className="rounded text-brand focus:ring-brand"/>
                 </label>
                 <label className="flex items-center justify-between px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-medium text-slate-700">
@@ -359,9 +361,9 @@ export default function DynamicBoard() {
                   <input 
                     type="text" 
                     autoFocus
-                    title="New task title"
-                    aria-label="New task title"
-                    placeholder="Enter task title and press Enter (Esc to cancel)..."
+                    title={isRtl ? "عنوان المهمة الجديدة" : "New task title"}
+                    aria-label={isRtl ? "عنوان المهمة الجديدة" : "New task title"}
+                    placeholder={isRtl ? "أدخل عنوان المهمة واضغط Enter (Esc للإلغاء)..." : "Enter task title and press Enter (Esc to cancel)..."}
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
                     onKeyDown={(e) => handleCreateNewTask(e)}
