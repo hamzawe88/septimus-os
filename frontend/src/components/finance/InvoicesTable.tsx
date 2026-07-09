@@ -41,12 +41,12 @@ export default function InvoicesTable() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        alert(`تم دفع التسوية إلى Odoo بنجاح (قيد رقم #${data.record_id}).`);
+        alert(`${t("integrations.odooSuccess", "Settlement pushed to Odoo successfully")} (#${data.record_id}).`);
       } else {
-        alert(data.error || "فشل دفع التسوية إلى Odoo.");
+        alert(data.error || t("integrations.odooFailed", "Failed to push settlement to Odoo."));
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "حدث خطأ غير متوقع.");
+      alert(err instanceof Error ? err.message : t("common.unexpectedError", "An unexpected error occurred."));
     } finally {
       setPushingId(null);
     }
@@ -231,7 +231,7 @@ export default function InvoicesTable() {
                             onClick={() => pushToOdoo(inv)}
                             disabled={pushingId === inv.ID}
                             className="p-2 text-slate-500 hover:text-brand hover:bg-brand/10 rounded-lg transition-colors disabled:opacity-50"
-                            title="دفع التسوية إلى Odoo"
+                            title={t("integrations.odooPushTitle", "Push settlement to Odoo")}
                             aria-label="Push settlement to Odoo"
                           >
                             <Landmark className="w-4 h-4" />

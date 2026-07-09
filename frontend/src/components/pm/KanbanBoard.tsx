@@ -6,9 +6,11 @@ import NewTaskModal from "./NewTaskModal";
 import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
 import { useAppStore } from "@/store/useAppStore";
 import { apiGet, apiPost, fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
+import { useLocalization } from "@/contexts/LocalizationContext";
 import { Task } from "@/types";
 
 export default function KanbanBoard() {
+  const { t } = useLocalization();
   const { tasks, setTasks, projectId, setProjectId } = useAppStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,10 +28,10 @@ export default function KanbanBoard() {
       if (res.ok && data.spreadsheet_url) {
         window.open(data.spreadsheet_url, "_blank", "noopener,noreferrer");
       } else {
-        alert(data.error || "فشل تصدير المهام إلى Google Sheets.");
+        alert(data.error || t("integrations.sheetsExportFailed", "Failed to export tasks to Google Sheets."));
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "حدث خطأ غير متوقع.");
+      alert(err instanceof Error ? err.message : t("common.unexpectedError", "An unexpected error occurred."));
     } finally {
       setIsExporting(false);
     }
@@ -147,7 +149,7 @@ export default function KanbanBoard() {
             onClick={exportToSheets}
             disabled={isExporting || !projectId}
             className="gap-2"
-            title="تصدير المهام إلى Google Sheets"
+            title={t("integrations.sheetsExportTitle", "Export tasks to Google Sheets")}
           >
             {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sheet className="w-4 h-4" />}
             Export to Sheets

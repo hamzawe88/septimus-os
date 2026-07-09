@@ -34,7 +34,6 @@
     "workflows": "مسارات العمل",
     "entityCreator": "منشئ الكيانات"
   },
-
   "dashboard": {
     "welcome": "مرحباً",
     "overview": "نظرة عامة على الأداء",
@@ -312,7 +311,11 @@
       "مباشر": "مباشر",
       "إحالة": "إحالة",
       "إعلانات": "إعلانات"
-    }
+    },
+    "c360Overview": "نظرة عامة",
+    "c360Timeline": "سجل التفاعلات",
+    "c360Invoices": "الفواتير والعروض",
+    "aiLeadScore": "تقييم الذكاء الاصطناعي"
   },
   "hr": {
     "title": "الموارد البشرية: طلبات الإجازة",
@@ -386,8 +389,8 @@
     "searchInvoicesPlaceholder": "ابحث برقم الفاتورة، اسم العميل، أو الشركة...",
     "invoiceNumberLabel": "رقم الفاتورة",
     "clientAndCompanyLabel": "العميل والمؤسسة",
-    "issueDateLabel": "تاريخ الإصدار",
-    "dueDateLabel": "تاريخ الاستحقاق",
+    "issueDateLabel": "تاريخ الإصدار:",
+    "dueDateLabel": "تاريخ الاستحقاق:",
     "totalDueLabel": "الإجمالي المستحق",
     "actionsAndPrintLabel": "إجراءات والطباعة",
     "unspecifiedClient": "عميل غير محدد",
@@ -515,8 +518,6 @@
     "taxIdVAT": "الرقم الضريبي (VAT):",
     "companyAddressValue": "طريق الملك فهد، الرياض، المملكة العربية السعودية",
     "taxInvoiceLabel": "فاتورة ضريبية / TAX INVOICE",
-    "issueDateLabel": "تاريخ الإصدار:",
-    "dueDateLabel": "تاريخ الاستحقاق:",
     "billToLabel": "بيانات العميل (Bill To):",
     "taxIdLabel": "الرقم الضريبي:",
     "emailLabel": "البريد:",
@@ -687,12 +688,34 @@
     "of": "من",
     "unknown": "غير معروف",
     "na": "غير متوفر",
-    "unknownError": "خطأ غير معروف"
+    "unknownError": "خطأ غير معروف",
+    "unexpectedError": "حدث خطأ غير متوقع."
   },
   "plugins": {
     "createEntityFailed": "فشل في إنشاء الكيان. راجع وحدة التحكم للتفاصيل.",
     "updateLeadFailed": "فشل في تحديث العميل. راجع وحدة التحكم للتفاصيل.",
     "updateLeaveFailed": "فشل في تحديث طلب الإجازة. راجع وحدة التحكم للتفاصيل.",
     "updateInvoiceFailed": "فشل في تحديث الفاتورة. راجع وحدة التحكم للتفاصيل."
+  },
+  "integrations": {
+    "waSend": "إرسال رسالة واتساب",
+    "waSending": "جارِ الإرسال...",
+    "waSendNow": "إرسال الآن",
+    "waPlaceholder": "اكتب رسالتك هنا...",
+    "waSuccess": "تم إرسال الرسالة بنجاح عبر واتساب!",
+    "waFailed": "فشل إرسال الرسالة.",
+    "waNoPhone": "لا يوجد رقم هاتف لهذا العميل",
+    "zendeskCreate": "إنشاء تذكرة Zendesk",
+    "zendeskCreating": "جارِ الإنشاء...",
+    "zendeskCreateBtn": "إنشاء التذكرة",
+    "zendeskSubjectPlaceholder": "عنوان التذكرة",
+    "zendeskDescPlaceholder": "وصف المشكلة أو الطلب...",
+    "zendeskSuccess": "تم إنشاء التذكرة في Zendesk",
+    "zendeskFailed": "فشل إنشاء التذكرة.",
+    "odooPushTitle": "دفع التسوية إلى Odoo",
+    "odooSuccess": "تم دفع التسوية إلى Odoo بنجاح",
+    "odooFailed": "فشل دفع التسوية إلى Odoo.",
+    "sheetsExportTitle": "تصدير المهام إلى Google Sheets",
+    "sheetsExportFailed": "فشل تصدير المهام إلى Google Sheets."
   }
 }

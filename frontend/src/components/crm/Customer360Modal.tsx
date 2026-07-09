@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { X, Mail, Phone, Building, Receipt, MessageSquare, Ticket, Sparkles, Send, LifeBuoy } from "lucide-react";
 import { apiPost, AI_BASE_URL, fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface Lead {
   id: string;
@@ -22,6 +23,7 @@ interface Customer360ModalProps {
 }
 
 export default function Customer360Modal({ lead, onClose }: Customer360ModalProps) {
+  const { t } = useLocalization();
   const [activeTab, setActiveTab] = useState<"overview" | "timeline" | "invoices">("overview");
   
   const [drafting, setDrafting] = useState(false);
@@ -56,13 +58,13 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setTicketResult({ ok: true, text: `تم إنشاء التذكرة رقم #${data.ticket_id} في Zendesk!` });
+        setTicketResult({ ok: true, text: `${t("integrations.zendeskSuccess", "Ticket created in Zendesk")} (#${data.ticket_id})` });
         setTicketDescription("");
       } else {
-        setTicketResult({ ok: false, text: data.error || "فشل إنشاء التذكرة." });
+        setTicketResult({ ok: false, text: data.error || t("integrations.zendeskFailed", "Failed to create ticket.") });
       }
     } catch (err) {
-      setTicketResult({ ok: false, text: err instanceof Error ? err.message : "حدث خطأ غير متوقع." });
+      setTicketResult({ ok: false, text: err instanceof Error ? err.message : t("common.unexpectedError", "An unexpected error occurred.") });
     } finally {
       setCreatingTicket(false);
     }
@@ -80,13 +82,13 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setWhatsAppResult({ ok: true, text: "تم إرسال الرسالة بنجاح عبر واتساب!" });
+        setWhatsAppResult({ ok: true, text: t("integrations.waSuccess", "Message sent successfully via WhatsApp!") });
         setWhatsAppMessage("");
       } else {
-        setWhatsAppResult({ ok: false, text: data.error || "فشل إرسال الرسالة." });
+        setWhatsAppResult({ ok: false, text: data.error || t("integrations.waFailed", "Failed to send message.") });
       }
     } catch (err) {
-      setWhatsAppResult({ ok: false, text: err instanceof Error ? err.message : "حدث خطأ غير متوقع." });
+      setWhatsAppResult({ ok: false, text: err instanceof Error ? err.message : t("common.unexpectedError", "An unexpected error occurred.") });
     } finally {
       setSendingWhatsApp(false);
     }
@@ -161,19 +163,19 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
             onClick={() => setActiveTab("overview")}
             className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === "overview" ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-800"}`}
           >
-            نظرة عامة
+            {t("crm.c360Overview", "Overview")}
           </button>
           <button 
             onClick={() => setActiveTab("timeline")}
             className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === "timeline" ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-800"}`}
           >
-            سجل التفاعلات (Timeline)
+            {t("crm.c360Timeline", "Timeline")}
           </button>
           <button 
             onClick={() => setActiveTab("invoices")}
             className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === "invoices" ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-800"}`}
           >
-            الفواتير والعروض
+            {t("crm.c360Invoices", "Invoices & Quotes")}
           </button>
         </div>
 
@@ -197,7 +199,7 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                       <div className="p-3 bg-slate-50 rounded-lg col-span-2">
                         <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
                           <Sparkles className="w-3 h-3 text-brand" />
-                          تقييم الذكاء الاصطناعي (AI Lead Score)
+                          {t("crm.aiLeadScore", "AI Lead Score")}
                         </p>
                         <progress 
                           value={lead.score} 
@@ -252,18 +254,18 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                   <button
                     onClick={() => { setShowWhatsAppComposer((prev) => !prev); setWhatsAppResult(null); }}
                     disabled={!lead.phone}
-                    title={!lead.phone ? "لا يوجد رقم هاتف لهذا العميل" : undefined}
+                    title={!lead.phone ? t("integrations.waNoPhone", "This customer has no phone number") : undefined}
                     className="w-full mt-2 bg-emerald-600 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send className="w-4 h-4" />
-                    إرسال رسالة واتساب
+                    {t("integrations.waSend", "Send WhatsApp Message")}
                   </button>
 
                   {showWhatsAppComposer && (
                     <div className="mt-3 text-end">
                       <textarea
                         aria-label="WhatsApp Message"
-                        placeholder="اكتب رسالتك هنا..."
+                        placeholder={t("integrations.waPlaceholder", "Type your message here...")}
                         className="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg text-sm text-slate-700 mb-2 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
                         value={whatsAppMessage}
                         onChange={(e) => setWhatsAppMessage(e.target.value)}
@@ -274,7 +276,7 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                         disabled={sendingWhatsApp || !whatsAppMessage.trim()}
                         className="text-xs font-medium flex items-center gap-1 w-full justify-center bg-emerald-50 text-emerald-700 py-2 rounded-lg hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Send className="w-3 h-3" /> {sendingWhatsApp ? "جارِ الإرسال..." : "إرسال الآن"}
+                        <Send className="w-3 h-3" /> {sendingWhatsApp ? t("integrations.waSending", "Sending...") : t("integrations.waSendNow", "Send Now")}
                       </button>
                       {whatsAppResult && (
                         <p className={`text-xs mt-2 ${whatsAppResult.ok ? "text-emerald-600" : "text-red-600"}`}>
@@ -289,7 +291,7 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                     className="w-full mt-2 bg-amber-500 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-amber-600 transition-colors"
                   >
                     <LifeBuoy className="w-4 h-4" />
-                    إنشاء تذكرة Zendesk
+                    {t("integrations.zendeskCreate", "Create Zendesk Ticket")}
                   </button>
 
                   {showTicketComposer && (
@@ -297,14 +299,14 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                       <input
                         aria-label="Ticket Subject"
                         type="text"
-                        placeholder="عنوان التذكرة"
+                        placeholder={t("integrations.zendeskSubjectPlaceholder", "Ticket subject")}
                         className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-sm text-slate-700 mb-2 focus:outline-none focus:ring-1 focus:ring-amber-500"
                         value={ticketSubject}
                         onChange={(e) => setTicketSubject(e.target.value)}
                       />
                       <textarea
                         aria-label="Ticket Description"
-                        placeholder="وصف المشكلة أو الطلب..."
+                        placeholder={t("integrations.zendeskDescPlaceholder", "Describe the issue or request...")}
                         className="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg text-sm text-slate-700 mb-2 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
                         value={ticketDescription}
                         onChange={(e) => setTicketDescription(e.target.value)}
@@ -315,7 +317,7 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                         disabled={creatingTicket || !ticketSubject.trim() || !ticketDescription.trim()}
                         className="text-xs font-medium flex items-center gap-1 w-full justify-center bg-amber-50 text-amber-700 py-2 rounded-lg hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Ticket className="w-3 h-3" /> {creatingTicket ? "جارِ الإنشاء..." : "إنشاء التذكرة"}
+                        <Ticket className="w-3 h-3" /> {creatingTicket ? t("integrations.zendeskCreating", "Creating...") : t("integrations.zendeskCreateBtn", "Create Ticket")}
                       </button>
                       {ticketResult && (
                         <p className={`text-xs mt-2 ${ticketResult.ok ? "text-emerald-600" : "text-red-600"}`}>

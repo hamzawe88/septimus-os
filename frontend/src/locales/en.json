@@ -311,7 +311,11 @@
       "مباشر": "Direct",
       "إحالة": "Referral",
       "إعلانات": "Ads"
-    }
+    },
+    "c360Overview": "Overview",
+    "c360Timeline": "Timeline",
+    "c360Invoices": "Invoices & Quotes",
+    "aiLeadScore": "AI Lead Score"
   },
   "hr": {
     "title": "HR: Leave Requests",
@@ -385,8 +389,8 @@
     "searchInvoicesPlaceholder": "Search by invoice number, client name, or company...",
     "invoiceNumberLabel": "Invoice Number",
     "clientAndCompanyLabel": "Client & Company",
-    "issueDateLabel": "Issue Date",
-    "dueDateLabel": "Due Date",
+    "issueDateLabel": "Issue Date:",
+    "dueDateLabel": "Due Date:",
     "totalDueLabel": "Total Due",
     "actionsAndPrintLabel": "Actions & Print",
     "unspecifiedClient": "Unspecified Client",
@@ -514,8 +518,6 @@
     "taxIdVAT": "Tax ID (VAT):",
     "companyAddressValue": "King Fahd Road, Riyadh, Saudi Arabia",
     "taxInvoiceLabel": "TAX INVOICE",
-    "issueDateLabel": "Issue Date:",
-    "dueDateLabel": "Due Date:",
     "billToLabel": "Bill To:",
     "taxIdLabel": "Tax ID:",
     "emailLabel": "Email:",
@@ -686,12 +688,34 @@
     "of": "of",
     "unknown": "Unknown",
     "na": "N/A",
-    "unknownError": "Unknown error"
+    "unknownError": "Unknown error",
+    "unexpectedError": "An unexpected error occurred."
   },
   "plugins": {
     "createEntityFailed": "Failed to create entity. Check console for details.",
     "updateLeadFailed": "Failed to update lead. Check console for details.",
     "updateLeaveFailed": "Failed to update leave request. Check console for details.",
     "updateInvoiceFailed": "Failed to update invoice. Check console for details."
+  },
+  "integrations": {
+    "waSend": "Send WhatsApp Message",
+    "waSending": "Sending...",
+    "waSendNow": "Send Now",
+    "waPlaceholder": "Type your message here...",
+    "waSuccess": "Message sent successfully via WhatsApp!",
+    "waFailed": "Failed to send message.",
+    "waNoPhone": "This customer has no phone number",
+    "zendeskCreate": "Create Zendesk Ticket",
+    "zendeskCreating": "Creating...",
+    "zendeskCreateBtn": "Create Ticket",
+    "zendeskSubjectPlaceholder": "Ticket subject",
+    "zendeskDescPlaceholder": "Describe the issue or request...",
+    "zendeskSuccess": "Ticket created in Zendesk",
+    "zendeskFailed": "Failed to create ticket.",
+    "odooPushTitle": "Push settlement to Odoo",
+    "odooSuccess": "Settlement pushed to Odoo successfully",
+    "odooFailed": "Failed to push settlement to Odoo.",
+    "sheetsExportTitle": "Export tasks to Google Sheets",
+    "sheetsExportFailed": "Failed to export tasks to Google Sheets."
   }
 }
