@@ -89,7 +89,7 @@ func SearchSemantic(c *fiber.Ctx) error {
 		}
 	}
 	if workspaceID == uuid.Nil {
-		workspaceID = uuid.MustParse("797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e")
+		workspaceID = resolveDefaultWorkspaceID()
 	}
 
 	query := c.Query("q")

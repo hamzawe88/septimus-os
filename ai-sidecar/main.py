@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from config import CORS_ALLOW_ORIGINS, DEFAULT_WORKSPACE_ID, INTERNAL_API_TOKEN
+from config import CORS_ALLOW_ORIGINS, INTERNAL_API_TOKEN, get_default_workspace_id
 from i18n import language_directive, resolve_lang
 from knowledge import retrieve_context
 from providers import get_active_llm
@@ -98,7 +98,7 @@ class VoiceSessionRequest(BaseModel):
 @app.post("/api/v1/ai/voice/session", dependencies=[Depends(verify_internal_token)])
 async def create_voice_session(req: VoiceSessionRequest):
     """Generate an ephemeral OpenAI Realtime session token for WebRTC / WebSocket low-latency voice chat."""
-    workspace_id = req.workspace_id or DEFAULT_WORKSPACE_ID
+    workspace_id = req.workspace_id or get_default_workspace_id()
     try:
         session_data = await create_realtime_session(
             workspace_id=workspace_id,
@@ -112,17 +112,21 @@ async def create_voice_session(req: VoiceSessionRequest):
 
 
 @app.websocket("/api/v1/ai/voice/ws")
-async def voice_websocket_endpoint(websocket: WebSocket, workspace_id: str = DEFAULT_WORKSPACE_ID, voice: str = "alloy"):
+async def voice_websocket_endpoint(websocket: WebSocket, workspace_id: str = "", voice: str = "alloy"):
     """Server-side bidirectional WebSocket proxy relay connecting client <-> OpenAI Realtime API with RAG tool execution."""
     await websocket.accept()
-    await realtime_voice_proxy(client_ws=websocket, workspace_id=workspace_id, voice=voice)
+    await realtime_voice_proxy(
+        client_ws=websocket,
+        workspace_id=workspace_id or get_default_workspace_id(),
+        voice=voice,
+    )
 
 
 @app.post("/api/v1/ai/query", dependencies=[Depends(verify_internal_token)])
 async def query_documents(req: QueryRequest):
     """RAG over the shared workspace knowledge base (Doc Chat), answered in the
     UI language and grounded in the retrieved context."""
-    workspace_id = req.workspace_id or DEFAULT_WORKSPACE_ID
+    workspace_id = req.workspace_id or get_default_workspace_id()
     lang = resolve_lang(req.lang)
 
     llm = await get_active_llm(workspace_id)
@@ -161,7 +165,7 @@ async def chat_with_agent(req: ChatRequest):
     lang = resolve_lang(req.context.get("lang"))
     # Ensure a workspace is always scoped for the tools.
     context = dict(req.context)
-    context.setdefault("workspace_id", DEFAULT_WORKSPACE_ID)
+    context.setdefault("workspace_id", get_default_workspace_id())
     try:
         reply = await run_chat_agent(
             agent_type=req.agent_type,
@@ -182,7 +186,7 @@ async def chat_with_agent(req: ChatRequest):
 
 @app.post("/api/v1/ai/plan-sprint", dependencies=[Depends(verify_internal_token)])
 async def plan_sprint(req: SprintPlanRequest):
-    llm = await get_active_llm(DEFAULT_WORKSPACE_ID)
+    llm = await get_active_llm(get_default_workspace_id())
     if not llm:
         # Deterministic greedy fallback.
         sorted_tasks = sorted(req.backlog, key=lambda x: (-x.get('Priority', 0), x.get('StoryPoints', 0)))
@@ -217,7 +221,7 @@ async def plan_sprint(req: SprintPlanRequest):
 @app.post("/api/v1/ai/generate-subtasks", dependencies=[Depends(verify_internal_token)])
 async def generate_subtasks(req: GenerateSubtasksRequest):
     lang = resolve_lang(req.lang)
-    llm = await get_active_llm(DEFAULT_WORKSPACE_ID, tier="fast")
+    llm = await get_active_llm(get_default_workspace_id(), tier="fast")
     if not llm:
         if lang == "ar":
             return {"subtasks": [

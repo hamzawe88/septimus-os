@@ -284,6 +284,7 @@ func main() {
 	// decrypted provider keys or mutate entities.
 	internal := app.Group("/internal", middleware.RequireInternalToken)
 	internal.Get("/settings/:key", handlers.GetSettingsInternal)
+	internal.Get("/workspaces/default", handlers.GetDefaultWorkspaceInternal)
 	internal.Get("/search/semantic", handlers.SearchSemantic)
 	internal.Post("/embeddings", handlers.IngestEmbeddings)
 	internal.Post("/pending-approvals", handlers.QueuePendingApproval)

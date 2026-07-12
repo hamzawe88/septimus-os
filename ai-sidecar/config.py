@@ -1,5 +1,6 @@
 """Central configuration and service-to-service auth for the AI sidecar."""
 import os
+from typing import Optional
 
 NATS_URL = os.getenv("NATS_URL", "nats://localhost:4222")
 DB_DSN = os.getenv("DB_DSN", "postgres://postgres:postgres@localhost:5432/septimus_db")
@@ -9,7 +10,44 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://backend-core:4000")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-DEFAULT_WORKSPACE_ID = os.getenv("DEFAULT_WORKSPACE_ID", "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e")
+# Optional explicit override; when unset, get_default_workspace_id() resolves
+# the oldest workspace from the backend at first use (no hardcoded tenant id).
+DEFAULT_WORKSPACE_ID = os.getenv("DEFAULT_WORKSPACE_ID", "")
+
+_resolved_default_workspace_id: Optional[str] = None
+
+
+def get_default_workspace_id() -> str:
+    """Single-tenant fallback workspace id for events that carry none.
+
+    Order: DEFAULT_WORKSPACE_ID env override → cached backend lookup
+    (/internal/workspaces/default) → "" when the backend is unreachable
+    (callers then simply match no tenant data instead of a wrong tenant's).
+    """
+    global _resolved_default_workspace_id
+    if DEFAULT_WORKSPACE_ID:
+        return DEFAULT_WORKSPACE_ID
+    if _resolved_default_workspace_id is None:
+        import requests
+
+        try:
+            res = requests.get(
+                f"{BACKEND_URL}/internal/workspaces/default",
+                headers=internal_headers(),
+                timeout=5,
+            )
+            _resolved_default_workspace_id = (
+                res.json().get("workspace_id", "") if res.status_code == 200 else ""
+            )
+        except Exception:
+            _resolved_default_workspace_id = ""
+        if not _resolved_default_workspace_id:
+            # Leave the cache unset so the next call retries (backend may
+            # simply not be up yet during stack boot).
+            result = ""
+            _resolved_default_workspace_id = None
+            return result
+    return _resolved_default_workspace_id
 
 # Centrifugo HTTP API — used to stream AI reply tokens to the browser as a
 # realtime side-channel (the HTTP response remains the authoritative final reply).

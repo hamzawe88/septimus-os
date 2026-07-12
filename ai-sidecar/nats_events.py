@@ -18,9 +18,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from config import (
     BACKEND_URL,
-    DEFAULT_WORKSPACE_ID,
     NATS_URL,
     OPENAI_API_KEY,
+    get_default_workspace_id,
     internal_headers,
 )
 from i18n import language_directive, resolve_lang
@@ -48,7 +48,7 @@ async def on_task_created(msg):
     task_id = data.get("task_id")
     title = data.get("title", "")
     description = data.get("description", "")
-    workspace_id = data.get("workspace_id") or DEFAULT_WORKSPACE_ID
+    workspace_id = data.get("workspace_id") or get_default_workspace_id()
 
     llm = await get_active_llm(workspace_id, tier="fast")
     if not llm:
@@ -90,7 +90,7 @@ async def on_message_created(msg):
     if not re.search(r"@ai\b", content, re.IGNORECASE):
         return
 
-    workspace_id = data.get("workspace_id") or DEFAULT_WORKSPACE_ID
+    workspace_id = data.get("workspace_id") or get_default_workspace_id()
     lang = resolve_lang(data.get("lang"))
 
     llm = await get_active_llm(workspace_id)
@@ -134,7 +134,7 @@ async def on_workflow_trigger(msg):
     prompt_template = data.get("prompt", "")
     context_data = data.get("context", {})
     thread_id = data.get("thread_id", "default-thread")
-    workspace_id = context_data.get("workspace_id") or DEFAULT_WORKSPACE_ID
+    workspace_id = context_data.get("workspace_id") or get_default_workspace_id()
 
     llm = await get_active_llm(workspace_id)
     if not llm:
@@ -200,7 +200,7 @@ async def on_document_uploaded(msg):
 
     file_path = data.get("file_path", "")
     document_id = data.get("document_id", "")
-    workspace_id = data.get("workspace_id") or DEFAULT_WORKSPACE_ID
+    workspace_id = data.get("workspace_id") or get_default_workspace_id()
     if not file_path:
         print("[document.uploaded] no file_path.")
         return
@@ -219,7 +219,7 @@ async def on_huddle_speak(msg):
     import os
 
     file_path = data.get("file_path", "")
-    workspace_id = data.get("workspace_id") or DEFAULT_WORKSPACE_ID
+    workspace_id = data.get("workspace_id") or get_default_workspace_id()
     lang = resolve_lang(data.get("lang"))
 
     if not os.path.isabs(file_path):
@@ -282,7 +282,7 @@ async def on_crm_lead_score(msg):
 
     lead_name = data.get("name", "")
     lead_value = data.get("value", 0)
-    workspace_id = data.get("workspace_id") or DEFAULT_WORKSPACE_ID
+    workspace_id = data.get("workspace_id") or get_default_workspace_id()
 
     llm = await get_active_llm(workspace_id, tier="fast")
     if not llm:
