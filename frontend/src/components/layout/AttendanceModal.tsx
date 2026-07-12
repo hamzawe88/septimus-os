@@ -134,7 +134,8 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
         setIsRemoteCheckIn(false);
       }, 0);
     }
-     
+    // Runs on open/close only; getLocation is intentionally not a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, token]);
 
   const distance = (userLat !== null && userLng !== null) ? getDistanceFromLatLonInM(userLat, userLng, officeLat, officeLng) : null;

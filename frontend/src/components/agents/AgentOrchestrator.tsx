@@ -107,6 +107,8 @@ export function AgentOrchestrator() {
       mounted = false;
       clearInterval(interval);
     };
+    // Mount-only polling loop; fetchStatus is intentionally not a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleKillSwitch = async (id: string, currentStatus: string) => {

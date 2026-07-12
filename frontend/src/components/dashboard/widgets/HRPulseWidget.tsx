@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Users, UserCheck, Calendar, Check, X, Clock, Award } from "lucide-react";
+import { UserCheck, Calendar, Check, X, Clock } from "lucide-react";
 import { useLocalization } from "@/contexts/LocalizationContext";
 
 export default function HRPulseWidget() {

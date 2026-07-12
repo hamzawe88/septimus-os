@@ -21,7 +21,7 @@ interface CatchUpMessage {
   };
 }
 
-export default function CatchUpModal({ isOpen, onClose }: { isOpen?: boolean; onClose: () => void }) {
+export default function CatchUpModal({ onClose }: { isOpen?: boolean; onClose: () => void }) {
   const { isRtl } = useLocalization();
   const [queue, setQueue] = useState<CatchUpMessage[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);

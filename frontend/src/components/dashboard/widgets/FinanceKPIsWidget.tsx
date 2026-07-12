@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Activity, DollarSign, Coins, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, Coins, CheckCircle2 } from "lucide-react";
 import { useLocalization } from "@/contexts/LocalizationContext";
 import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
 
