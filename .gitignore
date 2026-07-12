@@ -24,6 +24,9 @@ __pycache__/
 **/.next/
 dist/
 build/
+backend-core/tmp*
+*.tsbuildinfo
+eslint-report.json
 
 # OS / editor
 .DS_Store
