@@ -59,9 +59,10 @@ docker-compose up -d --build
 
 ### 3. Accessing the Application
 - **Frontend App**: [http://localhost:3000](http://localhost:3000)
-- **Default Admin Account**:
-  - **Email**: `admin@septimus.local`
-  - **Password**: `admin123`
+- **Admin Account**: there are no default credentials. Register the first
+  account from the login page — it bootstraps as **Admin** automatically;
+  every later registration starts as Member and must be promoted from the
+  admin panel.
 - **Backend API Docs / Health**: `http://localhost:4000/api/v1/system/health`
 
 ---

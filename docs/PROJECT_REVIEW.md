@@ -91,6 +91,36 @@
 
 ---
 
+## 4b. Hardening addendum — 2026-07-13 (verified)
+
+All work below is committed on `main` and pushed to the private remote
+(`github.com/hamzawe88/septimus-os`); CI green.
+
+- **Repo secured**: the 185-file uncommitted backlog became 6 logical commits;
+  history slimmed with `git filter-repo` (78MB → 1.3MB, five compiled binaries
+  stripped from all commits) before the first push.
+- **JWT fail-fast**: hardcoded fallback secret removed; `main.go` refuses to
+  boot without `JWT_SECRET`; compose requires it via `${JWT_SECRET:?}`.
+- **Production topology fixed**: `docker-compose.prod.yml` now declares all
+  seven runtime services (ai-sidecar, centrifugo, and yjs-server were missing);
+  Caddyfile.prod routes `/connection/*` and `/yjs`; yjs-server has a
+  Dockerfile; `NEXT_PUBLIC_YJS_URL` / `NEXT_PUBLIC_WS_URL` are build args.
+- **Workspace id**: the literal `797ec9d1-…` fallback is gone from runtime code
+  — `resolveDefaultWorkspaceID()` (Go) + `get_default_workspace_id()` (sidecar,
+  via new `/internal/workspaces/default`). `seed.go` keeps fixed UUIDs by
+  design (deterministic seed identity, not a fallback).
+- **Security-chain tests**: crypto roundtrip/tamper/fail-closed, JWT
+  forged/expired, internal-token gate, RBAC pre-DB rejection, AI-proxy header
+  contract (identity injected, browser `Authorization` stripped). CI runs
+  `go test ./...`.
+- **Hygiene**: repo debris purged (26 one-off scripts, ~155MB binaries,
+  vendored folders); dev compose binds db/redis/nats/centrifugo to
+  `127.0.0.1`; ESLint 0 errors 0 warnings; Makefile rewritten (`make up/test`);
+  README no longer documents fake `admin123` credentials (first registered
+  user bootstraps as Admin).
+
+---
+
 ## 5. MD documentation inventory
 
 | File | Status | Action |
