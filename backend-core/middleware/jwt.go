@@ -9,11 +9,8 @@ import (
 )
 
 func getJWTSecret() string {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		return "super_secret_septimus_key"
-	}
-	return secret
+	// main() refuses to start when JWT_SECRET is unset; no fallback here.
+	return os.Getenv("JWT_SECRET")
 }
 
 func JWTMiddleware() fiber.Handler {

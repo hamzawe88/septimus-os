@@ -25,6 +25,12 @@ func main() {
 	// Load .env file if it exists
 	godotenv.Load()
 
+	// A missing signing key must never silently fall back to a known value:
+	// every JWT would be forgeable and the provider-key encryption derivable.
+	if os.Getenv("JWT_SECRET") == "" {
+		log.Fatal("JWT_SECRET is not set — refusing to start without a signing key")
+	}
+
 	// Connect to Database
 	database.ConnectDB()
 	database.SeedDatabase()
