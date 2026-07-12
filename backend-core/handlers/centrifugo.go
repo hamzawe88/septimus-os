@@ -47,7 +47,7 @@ func GenerateCentrifugoToken(userID string) (string, error) {
 
 // HandleGetCentrifugoToken returns a token to the frontend
 func HandleGetCentrifugoToken(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 	token, err := GenerateCentrifugoToken(userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not generate token"})

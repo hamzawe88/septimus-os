@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type Workspace struct {
@@ -79,6 +80,7 @@ type Entity struct {
 	Data        datatypes.JSON `gorm:"type:jsonb;not null" json:"data"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 
 type WorkDoc struct {

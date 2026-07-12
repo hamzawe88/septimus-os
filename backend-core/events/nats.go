@@ -34,8 +34,11 @@ func ConnectNATS() {
 
 	JetStream = js
 
-	// Create streams if they do not exist
-	createStream("COMPANY_OS_EVENTS", "events.*")
+	// Create streams if they do not exist.
+	// "events.>" matches any depth (events.messages.created has 3 tokens);
+	// the old "events.*" only matched 2-token subjects, so every publish
+	// to events.messages.created / events.tasks.updated timed out.
+	createStream("COMPANY_OS_EVENTS", "events.>")
 }
 
 func createStream(streamName, subject string) {
@@ -50,6 +53,16 @@ func createStream(streamName, subject string) {
 			log.Printf("Error creating stream %s: %v", streamName, err)
 		} else {
 			log.Printf("Stream %s created successfully", streamName)
+		}
+	} else if len(stream.Config.Subjects) != 1 || stream.Config.Subjects[0] != subject {
+		// Stream exists with stale subjects (e.g. "events.*" from an older
+		// build) — update it in place so publishes stop timing out.
+		cfg := stream.Config
+		cfg.Subjects = []string{subject}
+		if _, err := JetStream.UpdateStream(&cfg); err != nil {
+			log.Printf("Error updating stream %s subjects: %v", streamName, err)
+		} else {
+			log.Printf("Stream %s subjects updated to %s", streamName, subject)
 		}
 	} else {
 		log.Printf("Stream %s already exists", stream.Config.Name)

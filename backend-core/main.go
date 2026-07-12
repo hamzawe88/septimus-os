@@ -42,13 +42,24 @@ func main() {
 	// Start Workflow Cron Manager
 	handlers.StartCronManager()
 
+	// Start the proactive project auditor (stuck-task detection)
+	handlers.StartProactiveAuditor()
+
+	// Migrate observability tables (AI message feedback)
+	database.DB.AutoMigrate(&handlers.MessageFeedback{})
+
 	// Initialize Fiber app
 	app := fiber.New()
 
 	app.Use(logger.New())
+	allowedOrigins := os.Getenv("CORS_ALLOW_ORIGINS")
+	if allowedOrigins == "" {
+		allowedOrigins = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080"
+	}
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowOrigins:     allowedOrigins,
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
+		AllowCredentials: true,
 	}))
 
 	// Serve static uploads
@@ -152,6 +163,11 @@ func main() {
 	protected.Post("/agents/kill/:name", handlers.KillAgent)
 	protected.Post("/agents/approve/:id", handlers.ApprovePendingAction)
 
+	// AI Sidecar proxy — browsers never reach the sidecar directly. Every
+	// /api/v1/ai/* call is JWT-authenticated here, then forwarded over the
+	// internal network with the shared service token.
+	protected.All("/ai/*", handlers.ProxyToAISidecar)
+
 	protected.Post("/channels", handlers.CreateChannel)
 	protected.Get("/channels", handlers.GetChannels)
 
@@ -166,6 +182,7 @@ func main() {
 	// Messages & Search
 	protected.Get("/search/messages", handlers.SearchMessages)
 	protected.Get("/messages/:id/replies", handlers.GetMessageReplies)
+	protected.Get("/channels/:id/threads", handlers.GetChannelThreads)
 	protected.Post("/messages/convert-to-task", handlers.ConvertMessageToTask)
 	protected.Put("/messages/:id", handlers.UpdateMessage)
 	protected.Delete("/messages/:id", handlers.DeleteMessage)
@@ -198,6 +215,16 @@ func main() {
 	protected.Put("/tasks/:id", handlers.UpdateTask)
 	protected.Post("/tasks/:id/transition", handlers.TransitionTask)
 
+	// My Orbit (Context-Aware Gamified Productivity Engine)
+	orbitGroup := protected.Group("/orbit")
+	orbitGroup.Get("/tasks", handlers.GetOrbitTasks)
+	orbitGroup.Post("/tasks", handlers.CreateOrbitTask)
+	orbitGroup.Put("/tasks/:id", handlers.UpdateOrbitTask)
+	orbitGroup.Delete("/tasks/:id", handlers.DeleteOrbitTask)
+	orbitGroup.Get("/profile", handlers.GetOrbitProfile)
+	orbitGroup.Put("/profile", handlers.UpdateOrbitProfile)
+	orbitGroup.Post("/harvest", handlers.GenerateWeeklyHarvest)
+
 	// Sprints
 	protected.Post("/sprints", handlers.CreateSprint)
 	protected.Get("/sprints", handlers.GetSprints)
@@ -214,6 +241,13 @@ func main() {
 	// Agents
 	protected.Get("/agents", handlers.GetAgents)
 	protected.Post("/agents", handlers.DeployAgent)
+	protected.Post("/agents/dispatch", handlers.DispatchAgentTask)
+	protected.Post("/agents/audit", handlers.TriggerProactiveAudit)
+	protected.Post("/agents/morning-brief", handlers.TriggerMorningBrief)
+
+	// AI message feedback (👍/👎) + MCP tool server
+	protected.Post("/messages/:id/feedback", handlers.SubmitMessageFeedback)
+	protected.Post("/mcp", handlers.HandleMCP)
 	protected.Put("/agents/:id/status", handlers.UpdateAgentStatus)
 
 	// Search & RAG
@@ -239,10 +273,14 @@ func main() {
 	app.Post("/api/public/v1/webhooks/zendesk", handlers.HandleZendeskWebhook)
 	app.Post("/api/v1/webhooks/zendesk", handlers.HandleZendeskWebhook)
 
-	// Internal APIs (for sidecars, strictly within VPC/Docker network)
-	internal := app.Group("/internal")
-	internal.Get("/settings/:key", handlers.GetSettings)
+	// Internal APIs (for sidecars, strictly within VPC/Docker network).
+	// Gated by the shared INTERNAL_API_TOKEN so only trusted services can read
+	// decrypted provider keys or mutate entities.
+	internal := app.Group("/internal", middleware.RequireInternalToken)
+	internal.Get("/settings/:key", handlers.GetSettingsInternal)
 	internal.Get("/search/semantic", handlers.SearchSemantic)
+	internal.Post("/embeddings", handlers.IngestEmbeddings)
+	internal.Post("/pending-approvals", handlers.QueuePendingApproval)
 	internal.Post("/entities", handlers.CreateEntity)
 	internal.Get("/entities", handlers.GetEntities)
 	internal.Put("/entities/:id", handlers.UpdateEntity)

@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -9,28 +11,38 @@ import (
 	"github.com/septimus-os/backend-core/events"
 	"github.com/septimus-os/backend-core/models"
 	"github.com/septimus-os/backend-core/services"
+	"github.com/xeipuuv/gojsonschema"
 	"gorm.io/datatypes"
 )
 
 // allowedEntityTypes is the complete list of valid entity types.
 // To add a new module, append here — no schema migration needed.
 var allowedEntityTypes = map[string]bool{
-	"task":            true,
-	"document":        true,
-	"meeting":         true,
-	"issue":           true,
-	"lead":            true,
-	"deal":            true,
-	"invoice":         true,
-	"expense":         true,
-	"finance_invoice": true,
-	"finance_expense": true,
-	"ticket":          true,
-	"leave_request":   true,
-	"evaluation":      true,
-	"hr_employee":     true,
-	"ai_agent":        true,
-	"schema":          true,
+	"task":             true,
+	"document":         true,
+	"meeting":          true,
+	"issue":            true,
+	"lead":             true,
+	"deal":             true,
+	"crm_deal":         true,
+	"invoice":          true,
+	"expense":          true,
+	"finance_invoice":  true,
+	"finance_expense":  true,
+	"ticket":           true,
+	"leave_request":    true,
+	"evaluation":       true,
+	"hr_employee":      true,
+	"hr_attendance":    true,
+	"hr_leave":         true,
+	"hr_leave_request": true,
+	"hr_job":           true,
+	"hr_policy":        true,
+	"crm_quote":        true,
+	"ai_agent":           true,
+	"schema":             true,
+	"user_orbit_task":    true,
+	"user_orbit_profile": true,
 }
 
 type CreateEntityRequest struct {
@@ -40,6 +52,65 @@ type CreateEntityRequest struct {
 	Data        map[string]interface{} `json:"data"`
 }
 
+// createEntityRecord validates the type, persists the entity, and publishes the
+// created event. Shared by the HTTP CreateEntity handler and the human-approval
+// executor so agent-proposed writes go through the same path once approved.
+func createEntityRecord(workspaceID uuid.UUID, entityType string, data map[string]interface{}) (models.Entity, error) {
+	if entityType == "" {
+		return models.Entity{}, fmt.Errorf("entity_type is required")
+	}
+	if !allowedEntityTypes[entityType] {
+		var schemaEntity models.Entity
+		err := database.DB.Where("workspace_id = ? AND entity_type = ? AND data->>'name' = ?", workspaceID, "schema", entityType).First(&schemaEntity).Error
+		if err != nil {
+			return models.Entity{}, fmt.Errorf("invalid entity_type: %s (schema not found)", entityType)
+		}
+
+		var schemaMap map[string]interface{}
+		if err := json.Unmarshal(schemaEntity.Data, &schemaMap); err == nil {
+			if schemaObj, ok := schemaMap["schema"]; ok && schemaObj != nil {
+				schemaBytes, _ := json.Marshal(schemaObj)
+				schemaLoader := gojsonschema.NewBytesLoader(schemaBytes)
+				docLoader := gojsonschema.NewGoLoader(data)
+				result, valErr := gojsonschema.Validate(schemaLoader, docLoader)
+				if valErr != nil {
+					return models.Entity{}, fmt.Errorf("schema validation check error: %v", valErr)
+				}
+				if !result.Valid() {
+					var errMsgs []string
+					for _, desc := range result.Errors() {
+						errMsgs = append(errMsgs, desc.String())
+					}
+					return models.Entity{}, fmt.Errorf("payload does not conform to schema %s: %s", entityType, strings.Join(errMsgs, "; "))
+				}
+			}
+		}
+	}
+
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return models.Entity{}, err
+	}
+
+	entity := models.Entity{
+		WorkspaceID: workspaceID,
+		EntityType:  entityType,
+		Data:        datatypes.JSON(dataBytes),
+	}
+	if err := database.DB.Create(&entity).Error; err != nil {
+		return models.Entity{}, err
+	}
+
+	eventPayload, _ := json.Marshal(map[string]interface{}{
+		"event":     "entity.created",
+		"entity_id": entity.ID.String(),
+		"type":      entity.EntityType,
+	})
+	events.PublishEvent("events.entities.created", eventPayload)
+
+	return entity, nil
+}
+
 func CreateEntity(c *fiber.Ctx) error {
 	var req CreateEntityRequest
 
@@ -47,7 +118,13 @@ func CreateEntity(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	workspaceID, err := uuid.Parse(req.WorkspaceID)
+	// The frontend (like GetEntities/UpdateEntity/DeleteEntity) passes workspace_id
+	// as a query param; fall back to the body for backward compatibility.
+	workspaceIDStr := c.Query("workspace_id")
+	if workspaceIDStr == "" {
+		workspaceIDStr = req.WorkspaceID
+	}
+	workspaceID, err := uuid.Parse(workspaceIDStr)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid Workspace ID"})
 	}
@@ -56,7 +133,7 @@ func CreateEntity(c *fiber.Ctx) error {
 	if req.EntityType == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "entity_type is required"})
 	}
-	
+
 	isValidType := allowedEntityTypes[req.EntityType]
 	if !isValidType {
 		// Check if it's a dynamic schema created by the user

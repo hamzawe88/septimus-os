@@ -6,15 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// AIConfig stores the configuration for the active AI provider
-type AIConfig struct {
-	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	Provider  string    `gorm:"size:50;not null;default:'openai'" json:"provider"` // 'openai', 'gemini', 'anthropic'
-	Model     string    `gorm:"size:100;not null;default:'gpt-4o-mini'" json:"model"`
-	APIKey    string    `gorm:"type:text;not null" json:"-"` // Hidden from JSON responses
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
-}
 
 // AgentState tracks the running/killed state of each specialized agent
 type AgentState struct {

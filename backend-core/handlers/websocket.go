@@ -226,7 +226,7 @@ type WSMessage struct {
 // ─── WebSocket Connection Handler ─────────────────────────────────────────────
 
 func WebsocketHandler(c *websocket.Conn) {
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 
 	client := &Client{
 		hub:    WSHub,

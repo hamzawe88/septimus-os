@@ -123,6 +123,7 @@ func GetAIReport(c *fiber.Ctx) error {
 		"workflow_stats":   workflowStats,
 		"success_rate":     successRate,
 		"daily_trend":      dailyAIUsage,
+		"feedback":         aiFeedbackSummary(),
 	})
 }
 

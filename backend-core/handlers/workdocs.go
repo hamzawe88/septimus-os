@@ -101,7 +101,7 @@ func DeleteWorkDoc(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 	}
 
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 	role := c.Locals("role")
 	if doc.CreatedBy.String() != userID && role != "ADMIN" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not have permission to delete this document"})
@@ -133,7 +133,7 @@ func UpdateWorkDoc(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 	}
 
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 	role := c.Locals("role")
 	if doc.CreatedBy.String() != userID && role != "ADMIN" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not have permission to edit this document"})

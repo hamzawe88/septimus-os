@@ -56,7 +56,7 @@ func UploadDocument(c *fiber.Ctx) error {
 		WorkspaceID: workspace.ID,
 		ProjectID:   &project.ID,
 		EntityType:  "document",
-		Data:        datatypes.JSON([]byte(fmt.Sprintf(`{"name": "%s", "url": "/uploads/documents/%s", "size": %d, "uploader_id": "%s", "channel_id": "%s", "status": "processing"}`, file.Filename, filename, file.Size, userID, channelID))),
+		Data:        datatypes.JSON(fmt.Appendf(nil, `{"name": "%s", "url": "/uploads/documents/%s", "size": %d, "uploader_id": "%s", "channel_id": "%s", "status": "processing"}`, file.Filename, filename, file.Size, userID, channelID)),
 	}
 
 	if err := database.DB.Create(&docEntity).Error; err != nil {
@@ -78,6 +78,8 @@ func UploadDocument(c *fiber.Ctx) error {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: Failed to publish document.uploaded event: %v\n", err)
 	}
+
+	go ExecuteWorkflowsByTrigger("document.uploaded", eventPayload)
 
 	return c.JSON(fiber.Map{
 		"message": "Document uploaded successfully and queued for AI processing",

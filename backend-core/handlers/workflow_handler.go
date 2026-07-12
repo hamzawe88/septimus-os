@@ -130,6 +130,9 @@ func SaveWorkflow(c *fiber.Ctx) error {
 
 	logWorkflowEvent(c, "workflow.save", workflow.ID.String(), map[string]interface{}{"name": workflow.Name, "is_active": workflow.IsActive, "is_update": isUpdate})
 
+	// Reload cron schedules so any new/updated cron triggers take effect immediately
+	ReloadCronManager()
+
 	return c.Status(201).JSON(fiber.Map{
 		"message": "Workflow saved successfully",
 		"workflow": workflow,
@@ -230,6 +233,9 @@ func PatchWorkflow(c *fiber.Ctx) error {
 	}
 
 	logWorkflowEvent(c, "workflow.patch", workflowIDStr, req)
+
+	// Reload cron schedules in case active state changed
+	ReloadCronManager()
 
 	return c.JSON(wf)
 }

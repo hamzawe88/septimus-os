@@ -44,15 +44,15 @@ func GenerateEmbedding(text string, apiKey string) ([]float32, error) {
 
 // StoreEmbedding generates an embedding and saves it to pgvector.
 func StoreEmbedding(workspaceID uuid.UUID, entityType string, entityID uuid.UUID, content string) error {
-	// 1. Get Active Gemini API Key from Workspace AIConfig
-	var config models.AIConfig
-	if err := database.DB.Where("workspace_id = ? AND provider = ? AND is_active = ?", workspaceID, "gemini", true).First(&config).Error; err != nil {
-		log.Printf("Gemini not active for workspace %s: %v", workspaceID, err)
-		return errors.New("no active gemini configuration found")
+	// 1. Get the Gemini key from the unified `ai_providers` workspace settings.
+	apiKey, err := GetProviderKey(workspaceID, "gemini")
+	if err != nil {
+		log.Printf("Gemini key unavailable for workspace %s: %v", workspaceID, err)
+		return errors.New("no gemini api key configured")
 	}
 
 	// 2. Generate embedding
-	vector, err := GenerateEmbedding(content, config.APIKey)
+	vector, err := GenerateEmbedding(content, apiKey)
 	if err != nil {
 		return fmt.Errorf("failed to generate embedding: %w", err)
 	}
@@ -71,14 +71,14 @@ func StoreEmbedding(workspaceID uuid.UUID, entityType string, entityID uuid.UUID
 
 // SearchSimilar performs a semantic search using cosine distance
 func SearchSimilar(workspaceID uuid.UUID, query string, limit int) ([]models.DocumentEmbedding, error) {
-	// 1. Get Gemini Key
-	var config models.AIConfig
-	if err := database.DB.Where("workspace_id = ? AND provider = ? AND is_active = ?", workspaceID, "gemini", true).First(&config).Error; err != nil {
-		return nil, errors.New("no active gemini configuration found")
+	// 1. Get the Gemini key from the unified `ai_providers` workspace settings.
+	apiKey, err := GetProviderKey(workspaceID, "gemini")
+	if err != nil {
+		return nil, errors.New("no gemini api key configured")
 	}
 
 	// 2. Embed Query
-	queryVector, err := GenerateEmbedding(query, config.APIKey)
+	queryVector, err := GenerateEmbedding(query, apiKey)
 	if err != nil {
 		return nil, err
 	}

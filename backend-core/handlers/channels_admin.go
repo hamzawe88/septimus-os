@@ -15,7 +15,7 @@ type UpdateChannelRequest struct {
 // UpdateChannel allows channel owners or admins to modify channel settings
 func UpdateChannel(c *fiber.Ctx) error {
 	channelID := c.Params("id")
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 
 	// Check permissions
 	var member models.ChannelMember
@@ -59,7 +59,7 @@ func UpdateChannel(c *fiber.Ctx) error {
 // DeleteChannel allows channel owners to completely delete a channel
 func DeleteChannel(c *fiber.Ctx) error {
 	channelID := c.Params("id")
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 
 	var channel models.Channel
 	if err := database.DB.First(&channel, "id = ?", channelID).Error; err != nil {

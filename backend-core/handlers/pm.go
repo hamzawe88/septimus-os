@@ -68,8 +68,10 @@ func CreateProject(c *fiber.Ctx) error {
 		settings = b
 	}
 
-	workspaceID, _ := uuid.Parse(c.Locals("workspace_id").(string))
-	userID, _ := uuid.Parse(c.Locals("user_id").(string))
+	workspaceIDStr, _ := c.Locals("workspace_id").(string)
+	userIDStr, _ := c.Locals("user_id").(string)
+	workspaceID, _ := uuid.Parse(workspaceIDStr)
+	userID, _ := uuid.Parse(userIDStr)
 
 	project := models.Project{
 		ID:          uuid.New(),
@@ -108,7 +110,7 @@ func CreateProject(c *fiber.Ctx) error {
 }
 
 func GetProjects(c *fiber.Ctx) error {
-	workspaceID := c.Locals("workspace_id").(string)
+	workspaceID, _ := c.Locals("workspace_id").(string)
 	var projects []models.Project
 	if err := database.DB.Where("workspace_id = ?", workspaceID).Order("created_at desc").Find(&projects).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
@@ -141,7 +143,7 @@ func UpdateProject(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found"})
 	}
 
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 	role := c.Locals("role")
 	if project.CreatedBy.String() != userID && role != "ADMIN" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not have permission to edit this project"})
@@ -177,7 +179,7 @@ func DeleteProject(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found"})
 	}
 
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 	role := c.Locals("role")
 	if project.CreatedBy.String() != userID && role != "ADMIN" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not have permission to delete this project"})
@@ -285,9 +287,14 @@ func CreateTask(c *fiber.Ctx) error {
 		"title":        task.Title,
 		"description":  task.Description,
 		"story_points": task.StoryPoints,
+		"status":       task.Status,
+		"priority":     task.Priority,
 	}
 	eventData, _ := json.Marshal(eventDataMap)
 	events.PublishEvent("events.tasks.created", eventData)
+
+	// Trigger any active Workflows listening for task creation
+	go ExecuteWorkflowsByTrigger("task.created", eventDataMap)
 
 	// Dispatch Webhook
 	if wsID, ok := c.Locals("workspace_id").(string); ok && wsID != "" {

@@ -1,12 +1,13 @@
 package handlers
 
 import (
-	"log"
 	"encoding/json"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/septimus-os/backend-core/database"
+	"github.com/septimus-os/backend-core/events"
 	"github.com/septimus-os/backend-core/models"
 )
 
@@ -50,6 +51,46 @@ func DeployAgent(c *fiber.Ctx) error {
 	return c.Status(201).JSON(fiber.Map{
 		"message": "Agent deployed successfully",
 		"agent":   agent,
+	})
+}
+
+// DispatchAgentTask hands a task to one of the specialized agents (crm | task |
+// comm) by publishing to `agents.<type>`. This is the real entry point that
+// drives the agent runners (which read live workspace data), replacing the
+// removed dead LLM router. Returns the session id for tracking in the logs.
+func DispatchAgentTask(c *fiber.Ctx) error {
+	var input struct {
+		AgentType string `json:"agent_type"` // "crm" | "task" | "comm"
+		Task      string `json:"task"`
+	}
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid JSON payload"})
+	}
+
+	switch input.AgentType {
+	case "crm", "task", "comm":
+		// ok
+	default:
+		return c.Status(400).JSON(fiber.Map{"error": "agent_type must be one of: crm, task, comm"})
+	}
+
+	workspaceID, _ := c.Locals("workspace_id").(string)
+	sessionID := uuid.New()
+
+	payload, _ := json.Marshal(map[string]string{
+		"session_id":   sessionID.String(),
+		"task":         input.Task,
+		"workspace_id": workspaceID,
+	})
+
+	if err := events.NatsConn.Publish("agents."+input.AgentType, payload); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to dispatch agent task"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message":    "Agent task dispatched",
+		"session_id": sessionID,
+		"agent_type": input.AgentType,
 	})
 }
 

@@ -231,7 +231,7 @@ func CreateUserAdmin(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 	}
 
-	workspaceIDStr := c.Locals("workspace_id").(string)
+	workspaceIDStr, _ := c.Locals("workspace_id").(string)
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -322,7 +322,7 @@ func DeleteUserAdmin(c *fiber.Ctx) error {
 	id := c.Params("id")
 
 	// Prevent user from deleting themselves
-	currentUserID := c.Locals("user_id").(string)
+	currentUserID, _ := c.Locals("user_id").(string)
 	if id == currentUserID {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Cannot delete your own account"})
 	}

@@ -38,7 +38,7 @@ type CheckInRequest struct {
 }
 
 func CheckIn(c *fiber.Ctx) error {
-	userIDStr := c.Locals("user_id").(string)
+	userIDStr, _ := c.Locals("user_id").(string)
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
@@ -59,14 +59,26 @@ func CheckIn(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "Office not found"})
 	}
 
+	// Prevent duplicate check-ins: a user who is already checked in (an
+	// attendance record with no check-out yet) must check out before checking
+	// in again. Without this the same account could log in 2nd, 3rd, 4th time.
+	var openLog models.AttendanceLog
+	if err := database.DB.Where("user_id = ? AND check_out_time IS NULL", userID).
+		Order("check_in_time desc").First(&openLog).Error; err == nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": "You are already checked in. Please check out first.",
+			"log":   openLog,
+		})
+	}
+
 	distance := haversine(office.Latitude, office.Longitude, req.Latitude, req.Longitude)
 
-	// if distance > float64(office.RadiusMeters) {
-	// 	return c.Status(403).JSON(fiber.Map{
-	// 		"error": "You are out of the office boundaries.",
-	// 		"distance_meters": distance,
-	// 	})
-	// }
+	if distance > float64(office.RadiusMeters) {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error":           "You are out of the office boundaries.",
+			"distance_meters": distance,
+		})
+	}
 
 	now := time.Now()
 	log := models.AttendanceLog{
@@ -83,7 +95,7 @@ func CheckIn(c *fiber.Ctx) error {
 	}
 
 	// Webhook for n8n/Google Sheets sync
-	workspaceIDStr := c.Locals("workspace_id").(string)
+	workspaceIDStr, _ := c.Locals("workspace_id").(string)
 	workspaceID, _ := uuid.Parse(workspaceIDStr)
 	if _, active := GetActiveIntegration(workspaceID, "google_sheets"); active {
 		utils.DispatchWebhook("http://localhost:5678/webhook/attendance", "CheckIn", fiber.Map{
@@ -156,7 +168,7 @@ func GetAttendanceLogs(c *fiber.Ctx) error {
 }
 
 func CheckOut(c *fiber.Ctx) error {
-	userIDStr := c.Locals("user_id").(string)
+	userIDStr, _ := c.Locals("user_id").(string)
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
@@ -200,7 +212,7 @@ func CheckOut(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to check out"})
 	}
 
-	workspaceIDStr := c.Locals("workspace_id").(string)
+	workspaceIDStr, _ := c.Locals("workspace_id").(string)
 	workspaceID, _ := uuid.Parse(workspaceIDStr)
 	
 	if integration, active := GetActiveIntegration(workspaceID, "google_sheets"); active {

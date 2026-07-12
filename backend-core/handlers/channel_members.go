@@ -19,7 +19,7 @@ type MuteMemberRequest struct {
 // UpdateMemberRole allows OWNER or ADMIN to change someone's role
 func UpdateMemberRole(c *fiber.Ctx) error {
 	channelID := c.Params("id")
-	adminID := c.Locals("user_id").(string)
+	adminID, _ := c.Locals("user_id").(string)
 
 	var req UpdateMemberRoleRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -62,7 +62,7 @@ func UpdateMemberRole(c *fiber.Ctx) error {
 // MuteMember allows OWNER, ADMIN, or MODERATOR to mute/unmute a MEMBER
 func MuteMember(c *fiber.Ctx) error {
 	channelID := c.Params("id")
-	adminID := c.Locals("user_id").(string)
+	adminID, _ := c.Locals("user_id").(string)
 
 	var req MuteMemberRequest
 	if err := c.BodyParser(&req); err != nil {

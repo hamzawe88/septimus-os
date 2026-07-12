@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/models"
+	"gorm.io/gorm/clause"
 )
 
 // SearchMessages searches across all messages in channels the user has access to
@@ -13,8 +14,8 @@ func SearchMessages(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Query parameter 'q' is required"})
 	}
 
-	userID := c.Locals("user_id").(string)
-	workspaceID := c.Locals("workspace_id").(string)
+	userID, _ := c.Locals("user_id").(string)
+	workspaceID, _ := c.Locals("workspace_id").(string)
 
 	var messages []models.Message
 
@@ -26,7 +27,10 @@ func SearchMessages(c *fiber.Ctx) error {
 		Where("channels.workspace_id = ?", workspaceID).
 		Where("(channels.type = 'PUBLIC' OR channel_members.user_id = ?)", userID).
 		Where("messages.tsv @@ plainto_tsquery('english', ?)", query).
-		Order("ts_rank(messages.tsv, plainto_tsquery('english', '" + query + "')) DESC").
+		Order(clause.Expr{
+			SQL:  "ts_rank(messages.tsv, plainto_tsquery('english', ?)) DESC",
+			Vars: []interface{}{query},
+		}).
 		Preload("User").
 		Preload("Channel").
 		Limit(50).

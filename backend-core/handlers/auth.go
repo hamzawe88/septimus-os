@@ -145,7 +145,7 @@ type UpdateProfileRequest struct {
 
 // UpdateProfile allows a user to update their own profile (avatar and/or password)
 func UpdateProfile(c *fiber.Ctx) error {
-	userIdStr := c.Locals("user_id").(string)
+	userIdStr, _ := c.Locals("user_id").(string)
 	if userIdStr == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
 	}

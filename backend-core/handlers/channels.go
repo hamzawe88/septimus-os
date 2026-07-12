@@ -22,8 +22,8 @@ type CreateChannelRequest struct {
 
 // CreateChannel creates a new Channel or DM
 func CreateChannel(c *fiber.Ctx) error {
-	workspaceID := c.Locals("workspace_id").(string)
-	userID := c.Locals("user_id").(string)
+	workspaceID, _ := c.Locals("workspace_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 
 	var req CreateChannelRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -77,8 +77,8 @@ func CreateChannel(c *fiber.Ctx) error {
 
 // GetChannels returns channels the user is part of
 func GetChannels(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(string)
-	workspaceID := c.Locals("workspace_id").(string)
+	userID, _ := c.Locals("user_id").(string)
+	workspaceID, _ := c.Locals("workspace_id").(string)
 
 	var channels []models.Channel
 
@@ -100,7 +100,7 @@ func GetChannels(c *fiber.Ctx) error {
 // Query params: ?limit=50&before=<message_id> (cursor-based pagination)
 func GetMessages(c *fiber.Ctx) error {
 	channelID := c.Params("id")
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 
 	// Check membership
 	var memberCount int64
@@ -171,7 +171,7 @@ type SendMessageRequest struct {
 // SendMessage handles HTTP POST for sending a chat message, saves it, and pushes to Centrifugo
 func SendMessage(c *fiber.Ctx) error {
 	channelID := c.Params("id")
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 
 	var req SendMessageRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -234,6 +234,13 @@ func SendMessage(c *fiber.Ctx) error {
 		events.PublishEvent("events.messages.created", natsPayload)
 	}
 
+	go ExecuteWorkflowsByTrigger("message.created", map[string]interface{}{
+		"message_id": dbMsg.ID.String(),
+		"channel_id": dbMsg.ChannelID.String(),
+		"content":    dbMsg.Content,
+		"sender_id":  dbMsg.SenderID.String(),
+	})
+
 	return c.Status(fiber.StatusCreated).JSON(dbMsg)
 }
 
@@ -244,7 +251,7 @@ type UpdateMessageRequest struct {
 // UpdateMessage handles HTTP PUT for editing an existing chat message
 func UpdateMessage(c *fiber.Ctx) error {
 	messageID := c.Params("id")
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 
 	var req UpdateMessageRequest
 	if err := c.BodyParser(&req); err != nil || strings.TrimSpace(req.Content) == "" {
@@ -286,7 +293,7 @@ func UpdateMessage(c *fiber.Ctx) error {
 // DeleteMessage handles HTTP DELETE for removing an existing chat message
 func DeleteMessage(c *fiber.Ctx) error {
 	messageID := c.Params("id")
-	userID := c.Locals("user_id").(string)
+	userID, _ := c.Locals("user_id").(string)
 
 	var dbMsg models.Message
 	if err := database.DB.First(&dbMsg, "id = ?", messageID).Error; err != nil {

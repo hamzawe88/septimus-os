@@ -63,8 +63,8 @@ func RecapChannel(c *fiber.Ctx) error {
 
 // GetCatchUpFeed retrieves unread or recent messages for the Tinder Swipe Catch Up experience
 func GetCatchUpFeed(c *fiber.Ctx) error {
-	userIDStr := c.Locals("user_id").(string)
-	workspaceIDStr := c.Locals("workspace_id").(string)
+	userIDStr, _ := c.Locals("user_id").(string)
+	workspaceIDStr, _ := c.Locals("workspace_id").(string)
 
 	var messages []models.Message
 	err := database.DB.

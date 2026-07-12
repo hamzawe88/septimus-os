@@ -14,6 +14,7 @@ import (
 type HuddleRequestPayload struct {
 	FilePath    string `json:"file_path"`
 	WorkspaceID string `json:"workspace_id"`
+	ImageBase64 string `json:"image_base64,omitempty"`
 }
 
 type HuddleResponsePayload struct {
@@ -29,7 +30,11 @@ func HandleHuddleSpeak(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "No audio file provided"})
 	}
 
-	workspaceID := c.FormValue("workspace_id", "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e")
+	workspaceID, ok := c.Locals("workspace_id").(string)
+	if !ok || workspaceID == "" {
+		workspaceID = c.FormValue("workspace_id")
+	}
+	imageBase64 := c.FormValue("image_base64", "")
 
 	// Ensure upload directory exists
 	uploadDir := "./uploads/huddle"
@@ -52,6 +57,7 @@ func HandleHuddleSpeak(c *fiber.Ctx) error {
 	reqData := HuddleRequestPayload{
 		FilePath:    savePath,
 		WorkspaceID: workspaceID,
+		ImageBase64: imageBase64,
 	}
 	reqBytes, _ := json.Marshal(reqData)
 

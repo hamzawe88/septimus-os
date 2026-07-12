@@ -61,7 +61,6 @@ func ConnectDB() {
 		&models.AuditLog{},
 		&models.APIKey{},
 		&models.WorkDoc{},
-		&models.AIConfig{},
 		&models.AgentState{},
 		&models.AgentCollaborationLog{},
 		&models.PendingApproval{},
@@ -89,9 +88,17 @@ func ConnectDB() {
 	`)
 	db.Exec(`
 		DROP TRIGGER IF EXISTS tsvectorupdate ON messages;
-		CREATE TRIGGER tsvectorupdate BEFORE INSERT OR UPDATE
-		ON messages FOR EACH ROW EXECUTE FUNCTION messages_tsvector_trigger();
+		CREATE TRIGGER tsvectorupdate BEFORE INSERT OR UPDATE ON messages
+		FOR EACH ROW EXECUTE PROCEDURE messages_tsvector_trigger();
 	`)
+
+	// Setup GIN index on entities.data for ultra-fast JSONB queries
+	db.Exec(`CREATE INDEX IF NOT EXISTS idx_entities_data_gin ON entities USING GIN (data);`)
+	// Setup expression index for high-velocity CRM stages
+	db.Exec(`CREATE INDEX IF NOT EXISTS idx_entities_crm_stage ON entities ((data->>'stage')) WHERE entity_type = 'crm_deal';`)
+	// Setup BRIN indexes on time-series heavy tables to prepare for range partitioning & archiving
+	db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_created_at_brin ON messages USING BRIN (created_at);`)
+	db.Exec(`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at_brin ON audit_logs USING BRIN (created_at);`)
 
 	SeedRBAC(db)
 

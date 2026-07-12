@@ -3,14 +3,18 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/robfig/cron/v3"
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/events"
+	"github.com/septimus-os/backend-core/middleware"
 	"github.com/septimus-os/backend-core/models"
 	"gorm.io/datatypes"
 )
@@ -24,7 +28,8 @@ type WFNodeData struct {
 
 	// Trigger node config
 	TriggerEvent    string `json:"triggerEvent,omitempty"`    // "task.done", "document.uploaded", "message.created", "cron"
-	IntervalMinutes int    `json:"intervalMinutes,omitempty"` // for "cron" trigger, interval in minutes
+	IntervalMinutes int    `json:"intervalMinutes,omitempty"` // for "cron" trigger, interval in minutes (legacy/fallback)
+	CronExpression  string `json:"cronExpression,omitempty"`  // Standard cron expression
 
 	// Condition node config
 	Field    string `json:"field,omitempty"`    // "status", "priority", "content"
@@ -32,12 +37,28 @@ type WFNodeData struct {
 	Value    string `json:"value,omitempty"`    // expected value
 
 	// Action node config
-	ActionType    string            `json:"actionType,omitempty"`    // "http", "nats", "notify"
+	ActionType    string            `json:"actionType,omitempty"`    // "http", "nats", "notify", "trigger_ai_agent", "send_chat", "update_task_status", "send_email"
 	ActionURL     string            `json:"actionUrl,omitempty"`     // for "http" type
 	ActionMethod  string            `json:"actionMethod,omitempty"`  // "POST", "GET", "PUT", "DELETE"
 	ActionHeaders map[string]string `json:"actionHeaders,omitempty"` // custom headers
 	ActionBody    string            `json:"actionBody,omitempty"`    // template body with {{field}} substitution
 	NATSTopic     string            `json:"natsTopic,omitempty"`     // for "nats" type
+
+	// AI Agent node config
+	AgentType   string `json:"agentType,omitempty"`   // "general", "code", "support"
+	AgentPrompt string `json:"agentPrompt,omitempty"` // prompt template with {{field}}
+
+	// Send Chat / Notify config
+	ChannelID   string `json:"channelId,omitempty"`
+	MessageText string `json:"messageText,omitempty"`
+
+	// Update Task Status config
+	NewStatus string `json:"newStatus,omitempty"`
+
+	// Send Email / Slack config
+	EmailAddress    string `json:"emailAddress,omitempty"`
+	EmailSubject    string `json:"emailSubject,omitempty"`
+	SlackWebhookURL string `json:"slackWebhookUrl,omitempty"`
 }
 
 // WFNode represents a single node in the React Flow visual graph
@@ -127,6 +148,16 @@ func executeAction(node WFNode, ctx map[string]interface{}) error {
 		return executeNATSAction(node, ctx)
 	case "notify":
 		return executeNotifyAction(node, ctx)
+	case "trigger_ai_agent", "ai_agent":
+		return executeAIAgentAction(node, ctx)
+	case "send_chat":
+		return executeSendChatAction(node, ctx)
+	case "update_task_status":
+		return executeUpdateTaskStatusAction(node, ctx)
+	case "send_email":
+		return executeSendEmailAction(node, ctx)
+	case "send_slack", "slack":
+		return executeSlackAction(node, ctx)
 	default:
 		log.Printf("[WF] Unknown action type '%s' on node '%s' — skipping", node.Data.ActionType, node.Data.Label)
 		return nil
@@ -197,6 +228,236 @@ func executeNotifyAction(node WFNode, ctx map[string]interface{}) error {
 	}
 	defer resp.Body.Close()
 	log.Printf("[WF] Notify sent to channel %s", channelID)
+	return nil
+}
+
+// executeAIAgentAction invokes the internal AI Sidecar to process data or make automated decisions
+func executeAIAgentAction(node WFNode, ctx map[string]interface{}) error {
+	agentType := node.Data.AgentType
+	if agentType == "" {
+		agentType = "general"
+	}
+	prompt := node.Data.AgentPrompt
+	for k, v := range ctx {
+		prompt = strings.ReplaceAll(prompt, fmt.Sprintf("{{%s}}", k), fmt.Sprintf("%v", v))
+	}
+	if prompt == "" {
+		prompt = fmt.Sprintf("Analyze workflow event context: %v", ctx)
+	}
+
+	workspaceID, _ := ctx["workspace_id"].(string)
+	if workspaceID == "" {
+		var ws models.Workspace
+		if err := database.DB.First(&ws).Error; err == nil {
+			workspaceID = ws.ID.String()
+		}
+	}
+
+	sidecarURL := os.Getenv("AI_SIDECAR_URL")
+	if sidecarURL == "" {
+		sidecarURL = "http://ai-sidecar:8000"
+	}
+	targetURL := strings.TrimRight(sidecarURL, "/") + "/api/v1/ai/chat"
+
+	reqBody, err := json.Marshal(map[string]interface{}{
+		"agent_type": agentType,
+		"message":    prompt,
+		"context":    ctx,
+		"thread_id":  fmt.Sprintf("workflow-%s", uuid.New().String()),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to marshal AI agent request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", targetURL, strings.NewReader(string(reqBody)))
+	if err != nil {
+		return fmt.Errorf("failed to create request for AI sidecar: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token := os.Getenv("INTERNAL_API_TOKEN"); token != "" {
+		req.Header.Set(middleware.InternalTokenName, token)
+	}
+	req.Header.Set("X-Workspace-Id", workspaceID)
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("request to AI sidecar failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("AI sidecar returned status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var resData struct {
+		Reply string `json:"reply"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&resData); err != nil {
+		return fmt.Errorf("failed to decode AI reply: %w", err)
+	}
+
+	log.Printf("[WF] AI Agent (%s) replied: %s", agentType, resData.Reply)
+	ctx["ai_reply"] = resData.Reply
+	ctx["last_ai_agent_reply"] = resData.Reply
+
+	// Send to channel if configured
+	channelID := node.Data.ChannelID
+	if channelID == "" {
+		if cid, ok := ctx["channel_id"].(string); ok {
+			channelID = cid
+		}
+	}
+	if channelID != "" && channelID != "00000000-0000-0000-0000-000000000000" {
+		msg := fmt.Sprintf("🤖 **Workflow AI (%s):**\n%s", agentType, resData.Reply)
+		payload, _ := json.Marshal(map[string]interface{}{
+			"channel_id":      channelID,
+			"content":         msg,
+			"is_ai_generated": true,
+			"ai_agent_role":   "Workflow AI Node",
+		})
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "4000"
+		}
+		http.Post(fmt.Sprintf("http://localhost:%s/api/v1/system/messages", port), "application/json", strings.NewReader(string(payload)))
+	}
+
+	// Publish to NATS for observability
+	eventPayload, _ := json.Marshal(map[string]interface{}{
+		"node_label": node.Data.Label,
+		"agent_type": agentType,
+		"prompt":     prompt,
+		"reply":      resData.Reply,
+		"timestamp":  time.Now().Format(time.RFC3339),
+	})
+	events.PublishEvent("workflow.ai.completed", eventPayload)
+
+	return nil
+}
+
+// executeSendChatAction posts a message to a channel
+func executeSendChatAction(node WFNode, ctx map[string]interface{}) error {
+	channelID := node.Data.ChannelID
+	if channelID == "" {
+		if cid, ok := ctx["channel_id"].(string); ok {
+			channelID = cid
+		} else {
+			return fmt.Errorf("send_chat action missing channelId on node '%s'", node.Data.Label)
+		}
+	}
+	body := node.Data.MessageText
+	for k, v := range ctx {
+		body = strings.ReplaceAll(body, fmt.Sprintf("{{%s}}", k), fmt.Sprintf("%v", v))
+	}
+	payload, _ := json.Marshal(map[string]interface{}{
+		"channel_id":      channelID,
+		"content":         body,
+		"is_ai_generated": true,
+		"ai_agent_role":   "Workflow Engine",
+	})
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "4000"
+	}
+	resp, err := http.Post(fmt.Sprintf("http://localhost:%s/api/v1/system/messages", port), "application/json", strings.NewReader(string(payload)))
+	if err != nil {
+		return fmt.Errorf("send_chat action failed: %w", err)
+	}
+	defer resp.Body.Close()
+	log.Printf("[WF] send_chat action sent to channel %s", channelID)
+	return nil
+}
+
+// executeUpdateTaskStatusAction modifies a task status directly
+func executeUpdateTaskStatusAction(node WFNode, ctx map[string]interface{}) error {
+	newStatus := node.Data.NewStatus
+	if newStatus == "" {
+		return fmt.Errorf("update_task_status missing newStatus on node '%s'", node.Data.Label)
+	}
+	var taskIDStr string
+	if tid, ok := ctx["task_id"].(string); ok {
+		taskIDStr = tid
+	} else if id, ok := ctx["id"].(string); ok {
+		taskIDStr = id
+	}
+	if taskIDStr == "" {
+		return fmt.Errorf("update_task_status: no task_id or id in context")
+	}
+	taskUUID, err := uuid.Parse(taskIDStr)
+	if err != nil {
+		return fmt.Errorf("update_task_status: invalid task uuid %s: %w", taskIDStr, err)
+	}
+	if err := database.DB.Model(&models.Task{}).Where("id = ?", taskUUID).Update("status", newStatus).Error; err != nil {
+		return fmt.Errorf("update_task_status DB error: %w", err)
+	}
+	log.Printf("[WF] update_task_status: task %s -> %s", taskIDStr, newStatus)
+	return nil
+}
+
+// executeSendEmailAction sends an email/notification payload via NATS or external SMTP
+func executeSendEmailAction(node WFNode, ctx map[string]interface{}) error {
+	to := node.Data.EmailAddress
+	subj := node.Data.EmailSubject
+	body := node.Data.ActionBody
+	for k, v := range ctx {
+		body = strings.ReplaceAll(body, fmt.Sprintf("{{%s}}", k), fmt.Sprintf("%v", v))
+		subj = strings.ReplaceAll(subj, fmt.Sprintf("{{%s}}", k), fmt.Sprintf("%v", v))
+	}
+	payload, _ := json.Marshal(map[string]interface{}{
+		"to":        to,
+		"subject":   subj,
+		"body":      body,
+		"timestamp": time.Now().Format(time.RFC3339),
+	})
+	events.PublishEvent("workflow.action.send_email", payload)
+	log.Printf("[WF] send_email action dispatched: to=%s subject='%s'", to, subj)
+	return nil
+}
+
+// executeSlackAction posts a formatted message to an incoming Slack Webhook URL
+func executeSlackAction(node WFNode, ctx map[string]interface{}) error {
+	webhookURL := node.Data.SlackWebhookURL
+	if webhookURL == "" {
+		webhookURL = node.Data.ActionURL
+	}
+	if webhookURL == "" {
+		return fmt.Errorf("slack action missing webhook url on node '%s'", node.Data.Label)
+	}
+	text := node.Data.MessageText
+	if text == "" {
+		text = node.Data.ActionBody
+	}
+	for k, v := range ctx {
+		text = strings.ReplaceAll(text, fmt.Sprintf("{{%s}}", k), fmt.Sprintf("%v", v))
+	}
+	if text == "" {
+		text = fmt.Sprintf("⚡️ **Workflow Alert (%s):** %s", node.Data.Label, node.Data.Description)
+	}
+
+	payload, _ := json.Marshal(map[string]string{
+		"text": text,
+	})
+
+	req, err := http.NewRequest("POST", webhookURL, strings.NewReader(string(payload)))
+	if err != nil {
+		return fmt.Errorf("failed creating slack request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("slack webhook post failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("slack webhook returned status %d", resp.StatusCode)
+	}
+
+	log.Printf("[WF] slack action sent to %s successfully", webhookURL)
 	return nil
 }
 
@@ -335,24 +596,37 @@ func StoreWorkflowRun(workflowID uuid.UUID, trigger, status string, ctx map[stri
 
 // ─── Cron & Scheduled Workflows Manager ───────────────────────────────────────
 
-// StartCronManager starts a background ticker that checks for scheduled workflows every minute
+var cronManager *cron.Cron
+
+// StartCronManager starts the robfig/cron manager
 func StartCronManager() {
 	log.Println("[WF] Starting Cron/Interval Workflow Manager...")
-	ticker := time.NewTicker(1 * time.Minute)
-	go func() {
-		for range ticker.C {
-			checkAndRunScheduledWorkflows()
-		}
-	}()
+	if cronManager != nil {
+		cronManager.Stop()
+	}
+	cronManager = cron.New()
+	cronManager.Start()
+	ReloadCronManager()
 }
 
-func checkAndRunScheduledWorkflows() {
+// ReloadCronManager clears existing scheduled jobs and re-registers them from active workflows
+func ReloadCronManager() {
+	if cronManager == nil {
+		return
+	}
+	
+	// Remove all existing jobs
+	for _, entry := range cronManager.Entries() {
+		cronManager.Remove(entry.ID)
+	}
+
 	var workflows []models.Workflow
 	if err := database.DB.Where("is_active = ?", true).Find(&workflows).Error; err != nil {
+		log.Printf("[WF] ReloadCronManager error fetching workflows: %v", err)
 		return
 	}
 
-	now := time.Now()
+	jobCount := 0
 	for _, wf := range workflows {
 		var nodes []WFNode
 		if err := json.Unmarshal(wf.Nodes, &nodes); err != nil {
@@ -361,19 +635,40 @@ func checkAndRunScheduledWorkflows() {
 		triggers := findTriggerNodes(nodes)
 		for _, trigger := range triggers {
 			if trigger.Data.TriggerEvent == "cron" || trigger.Data.TriggerEvent == "interval" {
-				interval := trigger.Data.IntervalMinutes
-				if interval <= 0 {
-					interval = 60 // default 1 hour if unspecified
+				var expr string
+				if trigger.Data.CronExpression != "" {
+					expr = trigger.Data.CronExpression
+				} else {
+					// Fallback to interval minutes
+					interval := trigger.Data.IntervalMinutes
+					if interval <= 0 {
+						interval = 60 // default 1 hour if unspecified
+					}
+					// Convert minutes to standard cron expression if possible
+					if interval < 60 {
+						expr = fmt.Sprintf("*/%d * * * *", interval)
+					} else {
+						// e.g., 60 mins -> 0 * * * *
+						expr = fmt.Sprintf("0 */%d * * *", interval/60)
+					}
 				}
-				// Check if current minute is a multiple of interval
-				if now.Minute()%interval == 0 {
-					log.Printf("[WF] ⏰ Scheduled execution for workflow '%s' (interval: %d mins)", wf.Name, interval)
-					go runWorkflow(wf, "cron", map[string]interface{}{
-						"timestamp": now.Format(time.RFC3339),
+				
+				w := wf
+				_, err := cronManager.AddFunc(expr, func() {
+					log.Printf("[WF] ⏰ Scheduled execution for workflow '%s' (cron: %s)", w.Name, expr)
+					runWorkflow(w, "cron", map[string]interface{}{
+						"timestamp": time.Now().Format(time.RFC3339),
 						"trigger":   "cron",
 					})
+				})
+				
+				if err != nil {
+					log.Printf("[WF] Failed to schedule cron for workflow '%s' with expr '%s': %v", w.Name, expr, err)
+				} else {
+					jobCount++
 				}
 			}
 		}
 	}
+	log.Printf("[WF] Scheduled %d cron jobs successfully", jobCount)
 }

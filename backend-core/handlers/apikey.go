@@ -29,7 +29,7 @@ func generateRandomString(n int) (string, error) {
 }
 
 func CreateAPIKey(c *fiber.Ctx) error {
-	workspaceIDStr := c.Locals("workspace_id").(string)
+	workspaceIDStr, _ := c.Locals("workspace_id").(string)
 	workspaceID, err := uuid.Parse(workspaceIDStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid workspace ID"})
@@ -79,7 +79,7 @@ func CreateAPIKey(c *fiber.Ctx) error {
 }
 
 func GetAPIKeys(c *fiber.Ctx) error {
-	workspaceIDStr := c.Locals("workspace_id").(string)
+	workspaceIDStr, _ := c.Locals("workspace_id").(string)
 	workspaceID, err := uuid.Parse(workspaceIDStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid workspace ID"})
@@ -95,7 +95,7 @@ func GetAPIKeys(c *fiber.Ctx) error {
 
 func RevokeAPIKey(c *fiber.Ctx) error {
 	idStr := c.Params("id")
-	workspaceIDStr := c.Locals("workspace_id").(string)
+	workspaceIDStr, _ := c.Locals("workspace_id").(string)
 
 	if err := database.DB.Model(&models.APIKey{}).
 		Where("id = ? AND workspace_id = ?", idStr, workspaceIDStr).

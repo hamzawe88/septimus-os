@@ -7,7 +7,7 @@ import (
 )
 
 func SearchUsers(c *fiber.Ctx) error {
-	workspaceID := c.Locals("workspace_id").(string)
+	workspaceID, _ := c.Locals("workspace_id").(string)
 	query := c.Query("q")
 
 	var users []models.User
