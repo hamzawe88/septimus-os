@@ -25,6 +25,8 @@ __pycache__/
 dist/
 build/
 backend-core/tmp*
+backend-core/server
+backend-core/backend-core
 *.tsbuildinfo
 eslint-report.json
 
