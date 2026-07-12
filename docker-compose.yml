@@ -5,21 +5,23 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: septimus_db
+    # Data stores bind to loopback only: reachable from this machine for local
+    # tooling, but never exposed if this compose file ever runs on a server.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
   redis:
     image: redis:alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   nats:
     image: nats:alpine
     ports:
-      - "4222:4222"
-      - "8222:8222"
+      - "127.0.0.1:4222:4222"
+      - "127.0.0.1:8222:8222"
     command: ["-js", "-m", "8222"]
 
   backend-core:
@@ -105,7 +107,7 @@ services:
       - ./centrifugo:/centrifugo
     command: centrifugo -c config.json
     ports:
-      - "8002:8000"
+      - "127.0.0.1:8002:8000"
     depends_on:
       - redis
 
