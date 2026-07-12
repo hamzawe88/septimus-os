@@ -2,79 +2,64 @@
 
 ## Overview
 
-This development plan outlines the strategic roadmap for scaling Septimus OS from its current foundation (Core Messaging, PM, and Base Infrastructure) into a fully-fledged Enterprise Operating System.
-
-## Phase 1: Core Administration & RBAC (Immediate Next Steps)
-
-**Objective**: Build a robust permissions system and organizational hierarchy.
-
-### 1. Security & RBAC Maturity
-
-- **Strict Middleware Integration** (Implemented ✅): `middleware.CheckPermission` is enforced on the `/admin` group, attendance office management (`attendance.manage`), project deletion (`projects.delete`), API-key create/revoke (`apikeys.manage`), and workflow create/execute/patch (`workflows.manage`). Registration no longer trusts a client-supplied role — the first user becomes Admin (bootstrap), everyone else starts as Member. Note: finance mutations flow through the shared generic `/entities` endpoint (also used by CRM/HR), so they cannot be gated at route level without breaking those modules; they are covered by audit logging on `entity.delete` instead. A future refinement could check permissions by `entity_type` inside the handler.
-- **Audit Logs** (Implemented ✅): `AuditLogs` table + `services.LogEvent` tracking auth logins/registrations, settings, workflows, integrations, and entity deletions; exposed at `/admin/audit-logs`.
-- **WebSocket Security** (Implemented ✅): Centrifugo connections use short-lived (5-minute) JWTs from `/chat/token`; the frontend passes `getToken` to centrifuge-js so tokens refresh transparently and the socket stays alive.
-
-### 2. Frontend Implementation (Next.js)
-
-- **Admin Dashboard (`/admin`)**: A new protected route featuring:
-  - User Directory: Table of employees with their Departments and Roles.
-  - Org Chart: Visual tree of departments.
-  - Permissions Matrix: Interactive table to assign permissions to roles.
-- **Attendance Module**: Finalize the Map Leaflet logic to restrict the "Check In" button based on distance from the target office location.
+This development plan outlines the strategic roadmap for scaling **Septimus OS** from its current hybrid architecture (`Go Fiber Monolith` + `Python LangGraph Sidecar` + `Next.js 15 UI`) into a high-scale, AI-first Enterprise Operating System.
 
 ---
 
-## Phase 2: Workflow Engine Expansion & Enterprise AI
+## Phase 1: Core Administration, RBAC & Database Foundation (Immediate Next Steps)
 
-**Objective**: Take the newly built React Flow workflow builder and AI agents to the next tier of autonomy.
+**Objective**: Strengthen core security, enforce data integrity, and optimize relational + JSONB performance.
 
-### 1. Workflow Builder Enhancements
+### 1. Database Architecture & Optimization Roadmap (Priority 1)
+As detailed in [`database_architecture_and_patterns.md`](file:///Users/hamzwe/Desktop/LPC-BRAIN%20CORE/septimus-os/docs/deep_analysis/database_architecture_and_patterns.md), the system employs a hybrid database design. To support high-scale multi-tenant enterprise growth, the following 4 engineering upgrades are prioritized:
+- **GIN Indexing on `entities.data`**: Add generalized inverted indexes (`GIN(data)`) and expression indexes (e.g., `((data->>'stage'))`) to eliminate sequential scans when searching inside custom JSONB payloads.
+- **JSON Schema Validation Engine**: Integrate `gojsonschema` into `createEntityRecord` (`backend-core/handlers/entities.go`) to dynamically validate incoming payloads against custom entity schemas before persisting them.
+- **Audit & Soft Deletes (`DeletedAt`)**: Add `gorm.DeletedAt` to the `entities` table to preserve historical records for AI audit reports and regulatory compliance.
+- **Time-Series Table Partitioning**: Implement PostgreSQL Range Partitioning (monthly/quarterly) on high-growth tables (`messages`, `audit_logs`, `agent_collaboration_logs`) to prevent index bloat and ensure fast query execution.
 
-- **Cron Jobs Manager**: Allow backend to execute scheduled workflows based on time triggers (e.g., end-of-day reports) using `robfig/cron`.
-- **Webhooks Outbound**: Add native nodes in the React Flow builder that fire outbound HTTP requests to connect with external ERPs or Payment Gateways.
-
-### 2. Document Intelligence (RAG)
-
-- Integrate a Vector Database: pgvector (implemented — see `backend-core/handlers/rag_handlers.go` and `ai-sidecar/main.py`).
-- Allow users to upload PDFs and Docs to `WorkDocs` or Channels.
-- Connect the Python AI sidecar to process these files, extract text, generate embeddings, and answer queries based on internal company knowledge.
-- **Voice & Huddles**: Activate the `handlers.HandleHuddleSpeak` for Whisper Voice-to-Text to let AI immediately summarize active meetings.
-
----
-
-## Phase 3: External Integrations & Marketplace (In Progress)
-
-**Objective**: Connect Septimus OS to the outside world.
-
-### 1. Open API & Webhooks (Implemented)
-
-- Expose a public REST API for Septimus OS. ✅
-- Allow users to generate API Keys with specific scopes. (Backend and Frontend UI completed) ✅
-- Add incoming and outgoing webhooks to channels. (Webhooks UI completed) ✅
-
-### 1.5 Outbound Actions on Connected Integrations (New)
-
-- The App Store hub previously only stored credentials and tested connectivity — nothing actually *did* anything with a connected integration outside of the existing Google Drive/Calendar/Sheets auto-sync hooks.
-- **WhatsApp send (Implemented ✅)**: `POST /integrations/whatsapp/send` (`backend-core/services/whatsapp_service.go` + `handlers.SendWhatsAppMessage`) sends a real message via the Meta Graph API using the workspace's connected `phone_number_id`/access token. Wired into the CRM `Customer360Modal` as an "Send WhatsApp" quick action next to the AI email-draft button. Verified live: blocked with a clear error when not connected, and correctly rejected by Meta's real API when given an invalid token (502, ~580ms round-trip — proof it is a live network call, not a stub).
-- **Zendesk ticket create (Implemented ✅)**: `POST /integrations/zendesk/ticket` (`services/zendesk_service.go`) creates a real ticket via the Zendesk Tickets API (Basic auth `{email}/token:{api_token}`). Wired into the CRM `Customer360Modal` as a "Create Zendesk ticket" action using the lead's name/email as requester. Verified live: reaches Zendesk's real API (404 for an unknown subdomain, ~0.4s round-trip).
-- **Odoo settlement push (Implemented ✅)**: `POST /integrations/odoo/settlement` (`services/odoo_service.go`) authenticates over JSON-RPC and creates a draft `account.move` journal entry carrying the settlement reference. Wired into the Finance `InvoicesTable` per-row as a "Push to Odoo" action. Verified live: reaches the real Odoo JSON-RPC endpoint (~0.4s round-trip).
-- **Google Sheets Kanban export (Implemented ✅)**: `POST /integrations/google/export-tasks?project_id=...` (`handlers.ExportTasksToSheet`) loads a project's tasks, creates a fresh spreadsheet via the connected Google account (OAuth, direct Sheets API — same path as the attendance export), writes a header + one row per task, and returns the sheet URL. Wired into the Kanban board header as an "Export to Sheets" button that opens the new sheet. This is the on-demand counterpart to the existing per-task completion sync (which routes through n8n). Verified live: guards + validation return clear errors, and with a fake token the export reaches Google's real Sheets API (genuine 401 Invalid Credentials, ~1.4s) — proving a live call, not a stub. Note: real use requires GOOGLE_CLIENT_ID/SECRET env vars (placeholders in dev) so a user can complete the OAuth consent.
-- Google Drive (project folders) / Calendar (sprint & deadline sync) already fire automatically on domain events when connected; the auto-sync hooks live in pm.go, sprint.go, attendance.go, pm_update.go.
-- Remaining outbound actions to wire the same way: Slack-style notifications.
-
-### 2. Enterprise Plugins (Partially Implemented)
-
-- Using the `Entity` JSONB model, build native plugins:
-  - **CRM**: Track leads, deals, and clients. (Dashboard and Create Modals UI completed) ✅
-  - **HR**: Payroll summaries, leave requests, and evaluations. (Dashboard and Create Modals UI completed) ✅
-  - **Finance**: Invoices, expenses, and budget tracking. (Dashboard and Create Modals UI completed) ✅
+### 2. Security & RBAC Maturity (Implemented ✅)
+- **Strict Middleware Enforcement**: `middleware.CheckPermission` secures critical routes (`/admin/*`, `attendance.manage`, `projects.delete`, `apikeys.manage`, and `workflows.manage`).
+- **Comprehensive Audit Logging**: `AuditLogs` table + `services.LogEvent` record all sensitive mutations, exposed via `/admin/audit-logs`.
+- **Short-Lived WebSocket Tokens**: Centrifugo connections use 5-minute JWTs refreshed automatically by the frontend store (`useAppStore.ts`).
 
 ---
 
-## Development Standards (Professional Workflow)
+## Phase 2: Workflow Engine Expansion & Enterprise AI Sidecar
 
-1. **Always use the "JSONB Entity Pattern"** for new modules to keep the backend lightweight and flexible.
-2. **Never write to DB from Python**. All state mutations must go through Golang HTTP APIs or NATS.
-3. **Use the `septimus-os-developer` Skill** as the ultimate source of truth for architectural constraints.
-4. **Enforce Accessibility (a11y)**: All UI components must have `aria-label` or equivalent titles.
-5. **Typesafety**: Ensure `any` is strictly avoided in TypeScript, utilizing generic interfaces.
+**Objective**: Elevate AI autonomy and automate complex multi-department workflows.
+
+### 1. Workflow Builder & Automation Engine
+- **Native AI Agent Nodes (Implemented ✅)**: The React Flow canvas (`WorkflowCanvas.tsx` + `CustomNodes.tsx`) supports native `ai_agent` and `send_slack` nodes executed by `backend-core/handlers/workflow_executor.go`.
+- **Proactive Morning Briefing Cron (Implemented ✅)**: Automated cron schedule triggering agent evaluation and morning brief reports via `POST /api/v1/ai/proactive/morning-brief`.
+- **Advanced Action Library**: Add outbound webhook nodes (`HTTP Request Node`), email dispatch nodes, and conditional branching (`IF/ELSE JSONB Path Evaluator`).
+
+### 2. Document Intelligence & Real-Time RAG
+- **pgvector Vector Database (Implemented ✅)**: Storing 768-dimensional embeddings in `document_embeddings` (`backend-core/models/embeddings.go`) for instant semantic retrieval.
+- **Real-Time Voice & Huddles (Implemented ✅)**: Live voice rooms via `voice_realtime.py` and `huddle.go`, allowing real-time AI transcription and action-item synthesis during team meetings.
+
+---
+
+## Phase 3: External Integrations & Marketplace
+
+**Objective**: Connect Septimus OS to the broader enterprise software ecosystem.
+
+### 1. Connected Integration Actions (Implemented ✅)
+- **WhatsApp Send**: Live API integration via Meta Graph API (`POST /integrations/whatsapp/send`).
+- **Zendesk Ticket Creation**: Automated ticket generation (`POST /integrations/zendesk/ticket`).
+- **Odoo Journal Settlements**: Financial settlement sync (`POST /integrations/odoo/settlement`).
+- **Google Sheets Kanban Export**: Instant export of project tasks to Google Sheets (`POST /integrations/google/export-tasks`).
+- **Geofenced HR Attendance**: Real-time GPS validation (`Haversine distance calculation`) against registered office locations with dynamic simulation tools (`AttendanceView.tsx`).
+
+### 2. Native Business Modules (`JSONB Entity Pattern`)
+- **CRM Module**: Tracking leads, deals, and AI-drafted replies (`CRMDashboard.tsx`, `ChatPanel.tsx` with 👍/👎 feedback).
+- **HR & ERP Module**: Employee 360 views (`Employee360Modal.tsx`), attendance logs, and leave requests.
+- **Finance Module**: Dynamic invoice and expense management (`FinanceView.tsx`, `InvoicesList.tsx`).
+
+---
+
+## Development Standards & Architectural Constraints
+
+1. **JSONB Entity Pattern First**: Always utilize the `entities` table (`id, workspace_id, entity_type, data`) for new business objects (`CRM Deal`, `Invoice`, `Leave Request`) instead of adding rigid schema migrations.
+2. **Single Source of Truth (`Go Monolith`)**: The Python `ai-sidecar` must NEVER connect directly to mutate databases. All state changes flow strictly through Go HTTP endpoints or NATS JetStream events (`task.created`, `chat.message_sent`).
+3. **Accessibility (`a11y`) & Type Safety**: All UI elements must maintain strict ARIA attributes and full TypeScript interface definitions (no `any`).
+4. **Docker Rebuild Rule**: Any changes to `frontend/src/...` or `backend-core/...` require rebuilding the corresponding Docker containers (`docker-compose up -d --build`).

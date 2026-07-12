@@ -31,7 +31,15 @@ services:
       - DB_DSN=postgres://postgres:postgres@db:5432/septimus_db?sslmode=disable
       - REDIS_URL=redis:6379
       - NATS_URL=nats://nats:4222
-      - JWT_SECRET=supersecretkey
+      - JWT_SECRET=${JWT_SECRET:-supersecretkey}
+      # Encrypts provider API keys at rest (falls back to JWT_SECRET if unset).
+      - SETTINGS_ENC_KEY=${SETTINGS_ENC_KEY:-supersecretkey}
+      # Shared secret for the AI sidecar proxy + /internal routes.
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-dev-internal-token}
+      - CENTRIFUGO_SECRET=${CENTRIFUGO_SECRET:-supersecretcentrifugokey}
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-supersecretapikey}
+      - CENTRIFUGO_API_URL=http://centrifugo:8000/api
+      - AI_SIDECAR_URL=http://ai-sidecar:8000
     depends_on:
       - db
       - redis
@@ -52,14 +60,22 @@ services:
   ai-sidecar:
     build:
       context: ./ai-sidecar
-    ports:
-      - "8000:8000"
+    # No published host port: the sidecar is reachable only from within the
+    # Docker network, via the JWT-protected /api/v1/ai/* proxy in backend-core.
+    expose:
+      - "8000"
     environment:
       - DB_DSN=postgres://postgres:postgres@db:5432/septimus_db
       - NATS_URL=nats://nats:4222
+      - BACKEND_URL=http://backend-core:4000
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-dev-internal-token}
+      - CENTRIFUGO_API_URL=http://centrifugo:8000/api
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-supersecretapikey}
     depends_on:
       - db
       - nats
+      - backend-core
+      - centrifugo
 
   caddy:
     image: caddy:alpine

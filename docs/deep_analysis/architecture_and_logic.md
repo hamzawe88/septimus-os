@@ -1,61 +1,71 @@
 # Septimus OS - Deep Architecture & Logic Analysis
 
-## 1. Backend Core (`/backend-core`)
-
-The backend is written in Golang using the Fiber framework, designed as an event-driven monolith. It serves as the primary source of truth.
-
-### Key Modules & Files
-
-- **`main.go`**: The entry point. Initializes Fiber, connects to PostgreSQL via GORM, sets up NATS JetStream, and registers all HTTP routes (Auth, PM, Chat, AI).
-- **`database/database.go`**: Handles PostgreSQL connections and auto-migrations. Key logical operation: mapping Go structs (`User`, `Entity`, `Message`) to SQL tables.
-- **`models/models.go`**: Contains the core Data Transfer Objects (DTOs) and ORM models. Uses the **"JSONB Entity Pattern"** where a generic `Entity` struct holds dynamic business data (e.g., tasks, invoices, POS data) inside a JSONB column, avoiding rigid table schemas. Added models for `Role`, `Department`, `Permission`, `AttendanceLog`, `OfficeLocation`, `Workflow`, and `WorkflowRun`.
-- **`events/nats.go`**: The event bus layer. Uses NATS JetStream to publish domain events (`entity.created`, `chat.message_sent`) and subscribe to AI responses.
-- **`middleware/jwt.go`**: Extracts and validates JWT tokens from the `Authorization` header, injecting the `userID` into the Fiber context.
-
-### Handlers (`/handlers`)
-
-- **`auth.go`**: Handles user Registration, Login (generates JWT tokens), and Profile management.
-- **`pm.go`**: Project Management endpoints. Creates Agile projects, Kanban columns, and Tasks. Translates tasks into the generic `Entity` model.
-- **`channels.go` / `threads.go`**: Chat system. Channels act as rooms, Messages belong to channels, and Threads are nested replies.
-- **`entities.go`**: Generic CRUD for `Entity` model (JSONB data).
-- **`search.go`**: Implements global search across messages and entities.
-- **`workflow_handler.go`**: Manages CRUD and execution logic for node-based automation workflows using a custom DAG algorithm.
-- **`system.go`**: Handles system configuration and health checks.
+نظام **Septimus OS** هو نظام تشغيل مؤسسي شامل ومعزز بالذكاء الاصطناعي (`AI-First Enterprise OS`)، يعتمد على معمارية الخدمات المصغرة الهجينة (`Event-Driven Monolith + Asynchronous AI Sidecar + Real-time WebSockets`).
 
 ---
 
-## 2. AI Agent Layer (`/ai-agents`)
+## 1. محرك الواجهة الخلفية (`/backend-core` - Golang Fiber)
 
-Written in Python, utilizing `LangGraph` and `FastAPI` (or pure NATS listener). It acts as an asynchronous sidecar to the Golang backend.
+تم بناء النواة بلغة **Golang** باستخدام إطار **Fiber** العالي الأداء، وتعمل كمصدر الحقيقة المعتمد (`Single Source of Truth`).
 
-### Backend Key Modules
+### أبرز المكونات الهيكلية:
+- **`main.go`**: نقطة تهيئة إطار Fiber، الاتصال بـ PostgreSQL عبر GORM، إعداد حافلة NATS JetStream، وتسجيل جميع المسارات والوساطات.
+- **`database/database.go`**: إدارة اتصال قاعدة البيانات وتشغيل `AutoMigrate` لـ 29 كياناً، مع تفعيل امتدادات `ltree` و `vector` و `tsvector`، وزرع أدوار وصلاحيات الـ RBAC الابتدائية.
+- **`middleware/*`**: حزمة الحماية الشاملة (`jwt.go` للتحقق من الهوية، `rbac.go` للتحقق من الصلاحيات الدقيقة، `internal.go` لحماية اتصال الـ Sidecar عبر `X-Internal-Token`، و `apikey.go`).
 
-- **`main.py`**: Initializes the AI environment, loading OpenAI/Anthropic keys.
-- **`agents/orchestrator.py`**: The LangGraph state graph. Defines a team of agents (e.g., Strategy, Analyst, Executive) that collaborate to solve complex queries or analyze chat messages.
-- **`events/nats_listener.py`**: Subscribes to the NATS JetStream server. Listens to `chat.message_sent` or `ai.task_requested`. When triggered, invokes the `orchestrator`, then publishes the result back to NATS (e.g., `events.chat.ai_proposal`).
+### معالجات النطاقات الميدانية (`/handlers`):
+1. **نطاق التوثيق والحسابات (`Auth & RBAC`)**: التسجيل، تسجيل الدخول، تسجيل دخول Google OAuth، إدارة الحسابات، وصلاحيات ومجموعات الأقسام (`org_chart.go`, `admin.go`).
+2. **نطاق إدارة المشاريع الأجايل (`Agile PM`)**: إدارة المشاريع، السكروم (`Sprint`)، المهام الشجرية باستخدام `ltree`، وسجل التعديلات (`pm.go`, `pm_update.go`, `sprint.go`, `workdocs.go`).
+3. **نطاق التعاون والمحادثات اللحظية (`Chat & Real-time`)**: الغرف، سلاسل الردود (`Threads`)، البحث الكامل الفوري (`tsvector`)، إدارة جلسات الويب سوكت (`websocket.go`) والغرف الصوتية (`huddle.go`).
+4. **نطاق الحضور والموارد البشرية (`HR Attendance & Geofencing`)**: إدارة الفروع والإحداثيات، تسجيل الحضور وحساب المسافات الجغرافي (`haversine distance`) مع محاكي فحص النطاق (`attendance.go`).
+5. **نطاق الأتمتة وسير العمل (`Workflows & Integrations`)**: محرك تنفيذ المخططات (`DAG Executor`) الداعم للعقد المخصصة (`ai_agent`, `send_slack`, `send_email`) مع مشغلات ناتجة عن أحداث النظام (`workflow_executor.go`).
+6. **نطاق الكيانات الديناميكية (`Entities - JSONB Engine`)**: معالجة الكيانات المرنة (`entities.go`) مثل الفواتير، صفقات الـ CRM، وطلبات الإجازات بمرونة دون الحاجة لـ Migrations.
 
 ---
 
-## 3. Frontend Application (`/frontend`)
+## 2. خدمة الذكاء الاصطناعي (`/ai-sidecar` - Python FastAPI & LangGraph)
 
-Written in Next.js 15 (App Router), styled with Tailwind CSS v4, and utilizing `shadcn/ui`.
+تعمل خدمة **`ai-sidecar`** بلغة **Python** وتعتمد على **FastAPI** و **LangGraph** كعقل تحليلي وإبداعي مستقل يتصل بالواجهة الخلفية عبر الـ HTTP و NATS.
 
-### Frontend Key Modules
+### هيكلة الطبقة التحليلية:
+- **`main.py` & `providers.py`**: استقبال الطلبات المؤمنة بـ `X-Internal-Token` وتمريرها لنماذج الذكاء الاصطناعي (Gemini 3.1 Pro, OpenAI, Anthropic).
+- **`agents_chat.py`**: محرك LangGraph المسؤول عن تخطيط الوكلاء المتعددين والرد على الاستفسارات المعقدة.
+- **`nats_events.py`**: مستمع أحداث NATS JetStream (`chat.message_sent`, `task.created`) وتحليلها لنشر اقتراحات استباقية أو تشغيل مهام أتمتة.
+- **`knowledge.py`**: محرك الـ RAG المتصل بمتجهات `pgvector` للبحث الدلالي.
+- **`voice_realtime.py`**: إدارة الجلسات الصوتية التفاعلية الحية.
 
-- **`app/layout.tsx` & `app/globals.css`**: The root layout. Configures `next-themes` for Dark/Light mode using Tailwind v4's `@variant dark`.
-- **`store/useAppStore.ts`**: Zustand state management. Holds current user, active channel, channels list, and websocket connection.
-- **`store/useThemeStore.ts`**: Zustand state management for advanced UI customization (Sidebar bg, Topbar bg, Text colors).
-- **`components/automations/WorkflowBuilder.tsx`**: Uses `React Flow` to provide a drag-and-drop interface for enterprise automation rules.
-- **`components/layout/Sidebar.tsx`**: The main navigation sidebar (Slack-style). Lists DM channels, System channels, and Apps.
-- **`components/layout/TopBar.tsx`**: Global search, notifications, attendance trigger, and user profile/settings.
-- **`components/shared/MessageInput.tsx`**: A highly interactive Rich Text input for sending messages, uploading files, and triggering AI commands (`/ai`).
-- **`components/pm/KanbanBoard.tsx` & `TaskCard.tsx`**: The agile project management view, featuring drag-and-drop powered by `@hello-pangea/dnd`.
+---
 
-### Logic Flow (Frontend -> Backend)
+## 3. الواجهة الأمامية (`/frontend` - Next.js 15 & Tailwind v4)
 
-1. User types message in `MessageInput.tsx` and hits Send.
-2. Frontend sends POST request to `/api/v1/channels/:id/messages`.
-3. Golang backend saves message to PostgreSQL and publishes `chat.message_sent` to NATS.
-4. Python AI listener catches event (if mentioned or relevant), processes via LangGraph, and publishes `chat.ai_proposal`.
-5. Golang catches proposal, saves as a special message, and broadcasts via WebSocket.
-6. Frontend updates Zustand store and displays the AI proposal card.
+مبنية بإطار **Next.js 15 (App Router)**، مع أنظمة تصميم `Tailwind CSS v4` و `shadcn/ui` و `Zustand`.
+
+### أبرز اللوحات والمكونات:
+- **التعاون والمشاريع:** لوحة كانبان التفاعلية (`KanbanBoard.tsx`) وشريط المحادثات المتشعب (`ThreadSidebar.tsx`).
+- **الموارد البشرية المتقدمة:** واجهة الحضور والضبط الجغرافي الديناميكي (`AttendanceView.tsx`) مع زر اعتماد الموقع ومحاكي الـ GPS.
+- **إدارة علاقات العملاء والمالية:** لوحة الـ CRM التفاعلية (`ChatPanel.tsx` و `AIMetricsCard.tsx`) مع تقييمات 👍/👎 لردود الذكاء الاصطناعي، ولوحة الإدارة المالية (`FinanceView.tsx`).
+- **منصات الأتمتة والإضافات:** منشئ سير العمل التفاعلي (`WorkflowCanvas.tsx` و `CustomNodes.tsx`) ومتجر الإضافات (`PluginsStore.tsx`).
+
+---
+
+## 4. تدفق البيانات التفاعلي الموزع (`End-to-End Data Flow`)
+
+```mermaid
+sequenceDiagram
+    participant U as Frontend (Next.js)
+    participant B as Backend Core (Golang)
+    participant DB as PostgreSQL / Redis
+    participant N as NATS JetStream
+    participant AI as AI Sidecar (Python LangGraph)
+
+    U->>B: 1. POST Request (e.g. Create Task / Message)
+    B->>DB: 2. Save Relational/JSONB Record
+    B->>N: 3. Publish Event (e.g. task.created / chat.message_sent)
+    B->>U: 4. Return HTTP 201 Success
+    N->>AI: 5. Consumer picks event asynchronously
+    AI->>AI: 6. LangGraph Agent analyzes & queries RAG (if needed)
+    AI->>N: 7. Publish AI Proposal / Execution Result
+    N->>B: 8. Backend picks AI response
+    B->>DB: 9. Store Proposal / Trigger Workflow Node
+    B->>U: 10. Broadcast via WebSocket to Frontend Store
+```

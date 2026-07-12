@@ -1,28 +1,45 @@
 # Septimus Company OS - Development Roadmap
 
-## Phase 1: Foundation (Completed)
+> [!NOTE]
+> للاطلاع على خطة التطوير المفصلة هندسياً مع تحليل التوافق وقواعد قاعدة البيانات الهجينة (`JSONB Entity Pattern`)، يرجى مراجعة:  
+> **[development_plan.md](file:///Users/hamzwe/Desktop/LPC-BRAIN%20CORE/septimus-os/docs/deep_analysis/development_plan.md)** و **[database_architecture_and_patterns.md](file:///Users/hamzwe/Desktop/LPC-BRAIN%20CORE/septimus-os/docs/deep_analysis/database_architecture_and_patterns.md)**.
 
-- Monorepo setup (Go, Python, Next.js).
-- Docker infrastructure (Postgres with pgvector, NATS, Redis, Centrifugo).
-- Dynamic JSONB Entity schema in Go.
-- NATS Event streaming.
-- Next.js UI Slack clone.
-- LangGraph Python Agent Orchestrator.
+---
 
-## Phase 2: Core Workflows (Next)
+## Phase 1: Foundation & Core Architecture (Completed ✅)
 
-- **Authentication**: JWT integration in Go API and Next.js Auth.
-- **WebSocket Chat**: Real-time messaging implementation using Centrifugo.
-- **AI Memory**: Pushing entity data into pgvector for semantic search.
+- **Monorepo Setup**: Golang (`backend-core`), Python (`ai-sidecar`), and Next.js 15 (`frontend`).
+- **Distributed Infrastructure**: Docker Compose with PostgreSQL 16 (`pgvector + ltree + tsvector`), NATS JetStream, Redis, and Centrifugo v5.
+- **Dynamic JSONB Entity Pattern**: Core flexible storage engine (`entities` table) allowing instant deployment of new business units without schema migrations.
+- **Event-Driven Messaging**: NATS JetStream event propagation (`entity.created`, `chat.message_sent`, `task.created`).
+- **AI Sidecar Integration**: LangGraph multi-agent orchestrator connecting via `X-Internal-Token` and NATS events.
 
-## Phase 3: Business Modules (In Progress)
+---
 
-- **API Keys & Integrations**: Secure API Key generation UI and `/api/public/v1` routes to ingest external data. (Completed)
-- **CRM Module**: Ingesting customer tickets and feedback. AI Agent specialized in drafting email replies. Plugins Dashboard UI implemented.
-- **ERP/HR Module**: Ingesting employee records and leave requests. AI Agent specialized in company policy compliance. Plugins Dashboard UI implemented.
+## Phase 2: Database Optimizations & Enterprise Security (Active Phase 🚀)
 
-## Phase 4: Production
+- **Database Performance Upgrades**:
+  - GIN Index creation on `entities.data` (`idx_entities_data_gin`).
+  - Schema validation engine (`gojsonschema`) for dynamic entity verification.
+  - Soft Delete (`DeletedAt`) implementation on entities for audit trail persistence.
+  - Range Partitioning for high-velocity logs (`messages`, `audit_logs`).
+- **Strict RBAC & Audit Trails**: Granular permission checks across `/admin/*`, `attendance.manage`, and `workflows.manage`.
+- **WebSocket Security**: 5-minute short-lived Centrifugo JWTs with automated refresh.
 
-- K3s (Kubernetes) deployment manifests.
-- CI/CD Pipelines (GitHub Actions).
-- End-to-end security audits.
+---
+
+## Phase 3: Advanced Business Modules & AI Proactivity (In Progress ⚡)
+
+- **CRM Domain**: Leads & Deals Kanban, AI-drafted email replies, and 👍/👎 AI evaluation metrics (`CRMDashboard.tsx`, `ChatPanel.tsx`).
+- **HR & Geofenced Attendance**: GPS distance verification using Haversine formulas against registered office radii (`AttendanceView.tsx`).
+- **Realtime Audio & Voice Huddles**: Live meetings (`voice_realtime.py` + `huddle.go`) for voice transcription and action-item extraction.
+- **Workflow Automation Engine**: Visual React Flow canvas (`WorkflowCanvas.tsx`) with custom `ai_agent` and `send_slack` nodes triggered by system events.
+- **Proactive Morning Briefing Cron**: Automated schedule generating company-wide morning AI reports (`POST /api/v1/ai/proactive/morning-brief`).
+
+---
+
+## Phase 4: Production & Scale
+
+- K3s (Kubernetes) deployment manifests and Helm charts.
+- CI/CD Pipelines (GitHub Actions) with automated Docker multi-stage builds.
+- End-to-end SAIF and security audits.
