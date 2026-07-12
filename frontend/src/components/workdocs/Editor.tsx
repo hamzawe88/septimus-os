@@ -35,7 +35,7 @@ export default function WorkDocsEditor({ documentId, projectId, templateType = '
 
   useEffect(() => {
     const hpProvider = new HocuspocusProvider({
-      url: 'ws://localhost:1234',
+      url: process.env.NEXT_PUBLIC_YJS_URL || 'ws://localhost:1234',
       name: documentId,
       document: ydoc,
     });

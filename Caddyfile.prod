@@ -10,7 +10,17 @@ yourdomain.com {
     handle /api/* {
         reverse_proxy backend-core:4000
     }
-    
+
+    # Centrifugo realtime websocket (NEXT_PUBLIC_WS_URL=wss://yourdomain.com/connection/websocket)
+    handle /connection/* {
+        reverse_proxy centrifugo:8000
+    }
+
+    # Yjs collaborative editing websocket (NEXT_PUBLIC_YJS_URL=wss://yourdomain.com/yjs)
+    handle_path /yjs* {
+        reverse_proxy yjs-server:1234
+    }
+
     handle {
         reverse_proxy frontend:3000
     }

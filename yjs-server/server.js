@@ -1,12 +1,14 @@
 import { Server } from '@hocuspocus/server';
 
+const port = Number(process.env.PORT || 1234);
+
 const server = new Server({
-  port: 1234,
+  port,
   async onConnect(data) {
     console.log(`Client connected: ${data.documentName}`);
   },
 });
 
 server.listen().then(() => {
-  console.log('Hocuspocus Server listening on ws://localhost:1234');
+  console.log(`Hocuspocus Server listening on ws://0.0.0.0:${port}`);
 });

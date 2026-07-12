@@ -1,13 +1,16 @@
-version: "3.8"
+# Production stack. All services that the app depends on at runtime are
+# declared here — ai-sidecar, centrifugo, and yjs-server included — so the
+# production topology matches what the frontend and backend actually call.
+# Required secrets use ${VAR:?} and abort `docker compose up` when missing.
 
 services:
   db:
     image: ankane/pgvector:v0.5.0
     restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -30,10 +33,17 @@ services:
     image: myregistry.com/septimus-os-backend-core:latest
     restart: always
     environment:
-      - DB_DSN=${DB_DSN}
-      - REDIS_URL=${REDIS_URL}
-      - NATS_URL=${NATS_URL}
-      - JWT_SECRET=${JWT_SECRET}
+      - DB_DSN=${DB_DSN:?}
+      - REDIS_URL=${REDIS_URL:-redis:6379}
+      - NATS_URL=${NATS_URL:-nats://nats:4222}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - SETTINGS_ENC_KEY=${SETTINGS_ENC_KEY:?SETTINGS_ENC_KEY is required}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN is required}
+      - CENTRIFUGO_SECRET=${CENTRIFUGO_SECRET:?CENTRIFUGO_SECRET is required}
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:?CENTRIFUGO_API_KEY is required}
+      - CENTRIFUGO_API_URL=http://centrifugo:8000/api
+      - AI_SIDECAR_URL=http://ai-sidecar:8000
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:?set to your public frontend origin(s)}
     depends_on:
       - db
       - redis
@@ -41,13 +51,65 @@ services:
     networks:
       - septimus_net
 
+  ai-sidecar:
+    image: myregistry.com/septimus-os-ai-sidecar:latest
+    restart: always
+    # Internal only: reachable solely through the JWT-protected
+    # /api/v1/ai/* proxy in backend-core.
+    expose:
+      - "8000"
+    environment:
+      - DB_DSN=${DB_DSN:?}
+      - NATS_URL=${NATS_URL:-nats://nats:4222}
+      - BACKEND_URL=http://backend-core:4000
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:?}
+      - CENTRIFUGO_API_URL=http://centrifugo:8000/api
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:?}
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:?}
+    depends_on:
+      - db
+      - nats
+      - backend-core
+      - centrifugo
+    networks:
+      - septimus_net
+
+  centrifugo:
+    image: centrifugo/centrifugo:v5
+    restart: always
+    # Env vars override the checked-in dev config.json, so production
+    # secrets never live in the repo.
+    volumes:
+      - ./centrifugo:/centrifugo
+    command: centrifugo -c config.json
+    environment:
+      - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_SECRET:?}
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:?}
+      - CENTRIFUGO_ADMIN_PASSWORD=${CENTRIFUGO_ADMIN_PASSWORD:?}
+      - CENTRIFUGO_ADMIN_SECRET=${CENTRIFUGO_ADMIN_SECRET:?}
+      - CENTRIFUGO_ALLOWED_ORIGINS=${CORS_ALLOW_ORIGINS:?}
+    depends_on:
+      - redis
+    networks:
+      - septimus_net
+
+  yjs-server:
+    image: myregistry.com/septimus-os-yjs-server:latest
+    restart: always
+    expose:
+      - "1234"
+    networks:
+      - septimus_net
+
   frontend:
     image: myregistry.com/septimus-os-frontend:latest
     restart: always
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:?}
+      - NEXT_PUBLIC_YJS_URL=${NEXT_PUBLIC_YJS_URL:?e.g. wss://yourdomain/yjs}
     depends_on:
       - backend-core
+      - yjs-server
     networks:
       - septimus_net
 
@@ -58,7 +120,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
