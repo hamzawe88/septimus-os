@@ -1,5 +1,7 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-export const AI_BASE_URL = process.env.NEXT_PUBLIC_AI_URL || 'http://localhost:8000/api/v1';
+// AI calls now go through the JWT-protected /api/v1/ai/* proxy in backend-core
+// (same origin as the rest of the API), never directly to the sidecar port.
+export const AI_BASE_URL = process.env.NEXT_PUBLIC_AI_URL || API_BASE_URL;
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8002/connection/websocket';
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
@@ -75,3 +77,9 @@ export async function apiDelete<T>(endpoint: string, base: string = API_BASE_URL
   if (!res.ok) throw new Error(`DELETE ${endpoint} failed`);
   return res.json();
 }
+
+export function getCurrentWorkspaceId(): string {
+  if (typeof window === 'undefined') return "";
+  return localStorage.getItem('currentWorkspaceId') || "";
+}
+

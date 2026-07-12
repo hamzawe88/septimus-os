@@ -85,7 +85,7 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
     e.preventDefault();
     try {
       setLoading(true);
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       await apiPost(`/entities?workspace_id=${workspaceId}`, {
         type: "finance_invoice",
         name: `${t("finance.invoiceLabel")} - ${formData.clientName || formData.clientCompany} (${formData.invoiceNumber})`,

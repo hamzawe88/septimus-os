@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { apiGet, apiPost, apiPut } from '@/lib/apiClient';
 import AISettings from '../settings/AISettings';
-import { Activity, Cpu, Zap, ShieldCheck } from 'lucide-react';
+import { Activity, Cpu, Zap, ShieldCheck, Play, Loader2 } from 'lucide-react';
 import { useLocalization } from '@/contexts/LocalizationContext';
+
+// The strong-tier model the sidecar actually routes to per provider (see
+// ai-sidecar/providers.py MODEL_TIERS). Keeps the "Active Provider" display honest.
+const STRONG_MODEL: Record<string, string> = { openai: 'gpt-5', gemini: 'gemini-2.5-pro' };
+
+interface ProviderSetting { provider: string; isActive?: boolean; hasApiKey?: boolean; apiKey?: string; }
 
 interface AgentState {
   id: string;
@@ -56,16 +62,37 @@ export function AgentOrchestrator() {
       setStates(agentsRes || []);
       setLogs(res.logs || []);
       setPending(res.pending || []);
-      try {
-        const saved = localStorage.getItem("septimus_ai_models");
-        if (saved) {
-          const parsed: { name?: string; isActive?: boolean }[] = JSON.parse(saved);
-          const active = parsed.find((m) => m.isActive);
-          if (active && active.name) setActiveModelName(active.name);
-        }
-      } catch {}
+
+      // Active provider from the REAL source (ai_providers settings), showing
+      // the model the sidecar actually routes to — not a stale hardcoded label.
+      const wsId = (typeof window !== 'undefined' && localStorage.getItem('currentWorkspaceId')) || '';
+      const providers = await apiGet<ProviderSetting[]>(`/settings/ai_providers?workspace_id=${wsId}`).catch(() => [] as ProviderSetting[]);
+      const active = Array.isArray(providers) ? providers.find(p => p.isActive) : undefined;
+      if (active) {
+        const configured = active.hasApiKey || (active.apiKey ? active.apiKey.length > 0 : false);
+        const model = STRONG_MODEL[active.provider] || 'auto';
+        setActiveModelName(configured ? `${active.provider} · ${model}` : `${active.provider} · ${isRtl ? 'غير مُعَد' : 'not configured'}`);
+      } else {
+        setActiveModelName(isRtl ? 'لا مزوّد نشط' : 'No active provider');
+      }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const [dispatching, setDispatching] = useState<string | null>(null);
+  const dispatchAgent = async (type: 'crm' | 'task' | 'comm') => {
+    setDispatching(type);
+    try {
+      await apiPost('/agents/dispatch', {
+        agent_type: type,
+        task: isRtl ? 'تحليل الحالة الحالية للقسم' : 'Analyze current department state',
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      // The Go runner does ~2s of real work; refresh after it lands.
+      setTimeout(() => { fetchStatus(); setDispatching(null); }, 2600);
     }
   };
 
@@ -138,43 +165,43 @@ export function AgentOrchestrator() {
         </header>
 
         {/* ── Live Telemetry Bar ── */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-2xl text-white shadow-xl border border-slate-800">
-          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-slate-800/80 pb-4 md:pb-0 md:pe-4">
-            <div className="w-12 h-12 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-slate-200 pb-4 md:pb-0 md:pe-4">
+            <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
               <Activity className="w-6 h-6 animate-pulse" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{isRtl ? "الوكلاء النشطون" : "Active Agents"}</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{isRtl ? "الوكلاء النشطون" : "Active Agents"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-black text-white">{states.filter(s => s.status !== 'killed').length}</span>
-                <span className="text-xs text-green-400 font-bold flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-ping" /> {isRtl ? "متصل" : "Online"}
+                <span className="text-2xl font-black text-slate-900">{states.filter(s => s.status !== 'killed').length}</span>
+                <span className="text-xs text-green-600 font-bold flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" /> {isRtl ? "متصل" : "Online"}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-slate-800/80 pb-4 md:pb-0 md:pe-4">
-            <div className="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0">
+          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-slate-200 pb-4 md:pb-0 md:pe-4">
+            <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shrink-0">
               <Zap className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{isRtl ? "إجمالي الدورات" : "Total Loops"}</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{isRtl ? "إجمالي الدورات" : "Total Loops"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-black text-white">{states.reduce((acc, s) => acc + (s.loop_count || 0), 0)}</span>
-                <span className="text-xs text-purple-300">{isRtl ? "الدورات المنفّذة" : "Cycles Executed"}</span>
+                <span className="text-2xl font-black text-slate-900">{states.reduce((acc, s) => acc + (s.loop_count || 0), 0)}</span>
+                <span className="text-xs text-purple-500">{isRtl ? "الدورات المنفّذة" : "Cycles Executed"}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-slate-800/80 pb-4 md:pb-0 md:pe-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-slate-200 pb-4 md:pb-0 md:pe-4">
+            <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
               <Cpu className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{isRtl ? "المزوّد النشط" : "Active Provider"}</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{isRtl ? "المزوّد النشط" : "Active Provider"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-lg font-bold text-white truncate max-w-[140px]" title={activeModelName}>
+                <span className="text-lg font-bold text-slate-900 truncate max-w-[140px]" title={activeModelName}>
                   {activeModelName}
                 </span>
               </div>
@@ -182,14 +209,14 @@ export function AgentOrchestrator() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{isRtl ? "حالة النظام" : "System Status"}</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{isRtl ? "حالة النظام" : "System Status"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-lg font-bold text-emerald-400">{isRtl ? "مستقل" : "Autonomous"}</span>
-                <span className="text-xs text-slate-400">{isRtl ? "الفرز نشط" : "Triage Active"}</span>
+                <span className="text-lg font-bold text-emerald-600">{isRtl ? "مستقل" : "Autonomous"}</span>
+                <span className="text-xs text-slate-500">{isRtl ? "الفرز نشط" : "Triage Active"}</span>
               </div>
             </div>
           </div>
@@ -210,6 +237,25 @@ export function AgentOrchestrator() {
           <button onClick={() => setShowDeployModal(true)} className="px-6 py-2 bg-brand text-white rounded-xl font-bold hover:bg-brand/90 transition-colors shadow-md">
             + Deploy New Agent
           </button>
+        </div>
+
+        {/* Quick-run: dispatch a real task to a specialized agent. The Go runner
+            reads live workspace data, so counters and the stream populate. */}
+        <div className="flex flex-wrap items-center gap-3 mb-6 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <span className="text-sm font-semibold text-slate-600">{isRtl ? "تشغيل سريع لوكيل:" : "Quick-run an agent:"}</span>
+          {(['crm', 'task', 'comm'] as const).map((type) => (
+            <button
+              key={type}
+              onClick={() => dispatchAgent(type)}
+              disabled={dispatching !== null}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-brand/10 text-brand border border-brand/20 hover:bg-brand/20 transition-colors disabled:opacity-50"
+            >
+              {dispatching === type ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {isRtl
+                ? (type === 'crm' ? 'وكيل CRM' : type === 'task' ? 'وكيل المهام' : 'وكيل التواصل')
+                : (type === 'crm' ? 'CRM Agent' : type === 'task' ? 'Task Agent' : 'Comm Agent')}
+            </button>
+          ))}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {states.map(state => {

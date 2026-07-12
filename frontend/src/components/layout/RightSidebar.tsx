@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAppStore } from "@/store/useAppStore";
 import MessageInput from "@/components/shared/MessageInput";
-import { fetchWithAuth,     API_BASE_URL } from '@/lib/apiClient';
+import { fetchWithAuth, API_BASE_URL, AI_BASE_URL } from '@/lib/apiClient';
 
 export function RightSidebar() {
   const { isRtl } = useLocalization();
@@ -111,10 +111,10 @@ export function RightSidebar() {
     setIsRagLoading(true);
     
     try {
-      const res = await fetch("http://localhost:8000/api/v1/ai/query", {
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
+      const res = await fetchWithAuth(`${AI_BASE_URL}/ai/query`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: text })
+        body: JSON.stringify({ query: text, workspace_id: workspaceId, lang: isRtl ? 'ar' : 'en' })
       });
       const data = await res.json();
       if (res.ok) {

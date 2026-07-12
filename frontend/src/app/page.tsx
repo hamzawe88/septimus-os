@@ -31,6 +31,7 @@ import { useAppStore } from "@/store/useAppStore";
 import ThreadsListSidebar from "@/components/chat/ThreadsListSidebar";
 import FullPageChat from "@/components/chat/FullPageChat";
 import AppStoreHub from "@/components/plugins/AppStoreHub";
+import MyOrbitPage from "@/components/orbit/MyOrbitPage";
 
 import { fetchWithAuth, API_BASE_URL, WS_URL } from "@/lib/apiClient";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
@@ -69,6 +70,23 @@ export default function Home() {
     if (!isLoggedIn) return;
     const token = localStorage.getItem("septimus_token");
     if (!token) return;
+
+    const savedUserStr = localStorage.getItem("septimus_user");
+    const savedAvatar = localStorage.getItem("septimus_avatar");
+    const savedName = localStorage.getItem("septimus_display_name");
+    if (savedUserStr || savedAvatar || savedName) {
+      try {
+        const parsed = savedUserStr ? JSON.parse(savedUserStr) : {};
+        const { currentUser, setCurrentUser } = useAppStore.getState();
+        setCurrentUser({
+          ...parsed,
+          id: parsed.id || currentUser?.id || "current-user",
+          name: savedName || parsed.name || currentUser?.name || "Admin",
+          email: parsed.email || currentUser?.email || "admin@septimus.local",
+          avatarUrl: savedAvatar || parsed.avatarUrl || currentUser?.avatarUrl,
+        } as unknown as Parameters<typeof setCurrentUser>[0]);
+      } catch { }
+    }
 
     // Fetch channels to get the first one active
     fetchWithAuth(`${API_BASE_URL}/channels`)
@@ -251,6 +269,12 @@ export default function Home() {
           </div>
         ) : currentView === "plugins" ? (
           <AppStoreHub />
+        ) : currentView === "orbit" ? (
+          <div className="flex-1 overflow-hidden bg-slate-950">
+            <ErrorBoundary name="My Orbit">
+              <MyOrbitPage />
+            </ErrorBoundary>
+          </div>
         ) : (
           <div className="flex-1 overflow-hidden bg-white flex items-center justify-center text-slate-400">
             Select an item from the sidebar

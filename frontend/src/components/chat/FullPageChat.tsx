@@ -208,7 +208,7 @@ export default function FullPageChat() {
         </div>
         
         <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-slate-800 rounded-full px-3 py-1.5 shadow-sm text-sm text-slate-500 dark:text-slate-400 transition-colors">
+          <div className="hidden lg:flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 shadow-sm text-sm text-slate-500 dark:text-slate-300 transition-colors">
              <LiveDateTime />
           </div>
           <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-2 hidden lg:block transition-colors" />
@@ -219,7 +219,7 @@ export default function FullPageChat() {
           <Button variant="ghost" size="sm" className="h-10 px-4 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-all" onClick={() => { setIsThreadsListOpen(!isThreadsListOpen); setActiveThread(null); setIsRagSidebarOpen(false); }}>
             <MessageSquare className="w-4 h-4 me-2" /> {t("chat.threadsBtn")}
           </Button>
-          <Button variant="default" size="sm" className="h-10 px-4 rounded-xl font-bold bg-brand hover:bg-brand-dark shadow-md shadow-brand/20 transition-all" onClick={handleTriggerRecap}>
+          <Button variant="default" size="sm" className="h-10 px-4 rounded-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 hover:opacity-95 text-white shadow-md shadow-purple-500/25 border border-purple-400/30 transition-all flex items-center" onClick={handleTriggerRecap}>
             <Sparkles className="w-4 h-4 me-2 text-amber-300 animate-pulse" /> {t("chat.aiRecap")}
           </Button>
         </div>
@@ -231,7 +231,7 @@ export default function FullPageChat() {
           <ChannelWelcome channelName={activeChannel.name} />
 
           <div className="flex items-center justify-center my-8">
-            <div className="bg-white/60 dark:bg-[#1a1a1a]/60 backdrop-blur-sm border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-xs font-bold px-4 py-1.5 rounded-full shadow-sm transition-colors">
+            <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 text-xs font-bold px-4 py-1.5 rounded-full shadow-sm transition-colors">
               {t("chat.today")}
             </div>
           </div>

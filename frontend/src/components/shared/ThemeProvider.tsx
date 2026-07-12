@@ -21,18 +21,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return;
 
-    // Sync Zustand mode with next-themes mode
-    setNextTheme(mode);
+    // Resolve the effective appearance: 'system' follows the OS preference.
+    const isDark = mode === 'dark' ||
+      (mode === 'system' && typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches);
+    setNextTheme(isDark ? 'dark' : 'light');
 
     const root = document.documentElement;
+    root.classList.toggle('dark', isDark);
+    root.classList.toggle('light', !isDark);
     
     // ── Primary / Brand Colors ──
-    if (primaryColor) {
-      root.style.setProperty('--primary-hex', primaryColor);
-      root.style.setProperty('--blue', primaryColor);
-      root.style.setProperty('--sb-active-bg', primaryColor);
-      root.style.setProperty('--blue-dark', primaryColor);
-    }
+    const effectivePrimary = primaryColor || '#1164A3';
+    root.style.setProperty('--primary-hex', effectivePrimary);
+    root.style.setProperty('--blue', effectivePrimary);
+    root.style.setProperty('--sb-active-bg', effectivePrimary);
+    root.style.setProperty('--blue-dark', effectivePrimary);
+    root.style.setProperty('--primary', effectivePrimary);
+    root.style.setProperty('--primary-foreground', '#ffffff');
 
     // ── Advanced Customization vs Preset Colors ──
     if (isAdvancedMode) {
@@ -43,37 +49,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.style.setProperty('--chat-bg', customAppBg, 'important');
     } else {
       // ── Sidebar & Topbar Colors (Presets) ──
-      if (mode === 'dark' || resolvedTheme === 'dark') {
-        root.style.removeProperty('--sb-bg');
-        root.style.removeProperty('--tb-bg');
-        root.style.removeProperty('--sb-hover');
-        root.style.removeProperty('--sb-text');
-        root.style.removeProperty('--sb-text-muted');
-        root.style.removeProperty('--sb-text-active');
-        root.style.removeProperty('--sb-divider');
-        root.style.removeProperty('--bg-primary');
-        root.style.removeProperty('--chat-bg');
-      } else {
-        if (sidebarBg) {
-          root.style.setProperty('--sb-bg', sidebarBg);
-          root.style.setProperty('--tb-bg', sidebarBg);
-        }
-        if (sidebarHover) {
-          root.style.setProperty('--sb-hover', sidebarHover);
-        }
-        if (textColor) {
-          root.style.setProperty('--sb-text', textColor);
-        }
-        if (textMuted) {
-          root.style.setProperty('--sb-text-muted', textMuted);
-        }
-        if (textActive) {
-          root.style.setProperty('--sb-text-active', textActive);
-        }
-        if (dividerColor) {
-          root.style.setProperty('--sb-divider', dividerColor);
-        }
+      if (sidebarBg) {
+        root.style.setProperty('--sb-bg', sidebarBg);
+        root.style.setProperty('--tb-bg', sidebarBg);
       }
+      if (sidebarHover) {
+        root.style.setProperty('--sb-hover', sidebarHover);
+      }
+      if (textColor) {
+        root.style.setProperty('--sb-text', textColor);
+      }
+      if (textMuted) {
+        root.style.setProperty('--sb-text-muted', textMuted);
+      }
+      if (textActive) {
+        root.style.setProperty('--sb-text-active', textActive);
+      }
+      if (dividerColor) {
+        root.style.setProperty('--sb-divider', dividerColor);
+      }
+      root.style.setProperty('--bg-primary', '#FFFFFF');
+      root.style.setProperty('--chat-bg', '#FFFFFF');
     }
 
     // ── Font Family ──
@@ -98,7 +94,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   return (
-    <NextThemesProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <NextThemesProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
       <ThemeProvider>
         {children}
       </ThemeProvider>

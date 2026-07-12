@@ -90,7 +90,7 @@ export default function CatchUpModal({ isOpen, onClose }: { isOpen?: boolean; on
         </div>
 
         {toastMsg && (
-          <div className="absolute top-20 start-1/2 -translate-x-1/2 bg-[var(--blue)] text-white text-xs px-4 py-2 rounded-full shadow-xl z-50 animate-in fade-in slide-in-from-top-3 flex items-center gap-2">
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-[var(--blue)] text-white text-xs px-4 py-2 rounded-full shadow-xl z-50 animate-in fade-in slide-in-from-top-3 flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5" /> {toastMsg}
           </div>
         )}

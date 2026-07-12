@@ -16,8 +16,9 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Save, Loader2, Play, LayoutGrid, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import { apiPost } from '@/lib/apiClient';
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 import Sidebar from './Sidebar';
 import PropertiesPanel from './PropertiesPanel';
@@ -39,6 +40,7 @@ interface WorkflowBuilderProps {
 }
 
 function BuilderFlow({ onBack, initialWorkflow }: WorkflowBuilderProps) {
+  const { isRtl } = useLocalization();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   
   // Parse initial nodes/edges if provided
@@ -94,7 +96,7 @@ function BuilderFlow({ onBack, initialWorkflow }: WorkflowBuilderProps) {
         for (const nodeId of Object.keys(adj)) {
           if (!visited[nodeId]) {
             if (hasCycle(nodeId)) {
-              alert("⚠️ Circular dependency detected! Infinite loops are not allowed in workflows.");
+              alert(isRtl ? "⚠️ تم اكتشاف تبعية دائرية! الحلقات اللانهائية غير مسموحة." : "⚠️ Circular dependency detected! Infinite loops are not allowed in workflows.");
               return eds; // Return unchanged edges
             }
           }
@@ -104,7 +106,7 @@ function BuilderFlow({ onBack, initialWorkflow }: WorkflowBuilderProps) {
         return addEdge(params, eds);
       });
     },
-    [setEdges, nodes]
+    [setEdges, nodes, isRtl]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -164,8 +166,7 @@ function BuilderFlow({ onBack, initialWorkflow }: WorkflowBuilderProps) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Use a dummy workspace ID for MVP if not available globally
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e"; 
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || ""; 
       
       const payload = {
         id: initialWorkflow?.ID,
@@ -175,16 +176,16 @@ function BuilderFlow({ onBack, initialWorkflow }: WorkflowBuilderProps) {
         edges: edges,
       };
 
-      const data = await apiPost(`/workflows?workspace_id=${workspaceId}`, payload) as { error?: string };
+      const res = await apiPost(`/workflows?workspace_id=${workspaceId}`, payload) as Record<string, unknown>;
 
-      if (!data?.error) {
-        alert("Workflow saved successfully!");
+      if (res && !res.error) {
+        alert(isRtl ? "تم حفظ مسار العمل بنجاح!" : "Workflow saved successfully!");
       } else {
-        alert(`Error saving workflow: ${data.error}`);
+        alert(isRtl ? `خطأ في حفظ المسار: ${res?.error}` : `Error saving workflow: ${res?.error}`);
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to connect to the server.");
+      alert(isRtl ? "فشل الاتصال بالخادم." : "Failed to connect to the server.");
     } finally {
       setIsSaving(false);
     }
@@ -192,7 +193,6 @@ function BuilderFlow({ onBack, initialWorkflow }: WorkflowBuilderProps) {
 
   const handleTestRun = () => {
     setIsRunning(true);
-    // Simulate execution flow
     setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'running' } })));
     setTimeout(() => {
       setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: Math.random() > 0.2 ? 'success' : 'error' } })));
@@ -201,7 +201,7 @@ function BuilderFlow({ onBack, initialWorkflow }: WorkflowBuilderProps) {
   };
 
   return (
-    <div className="flex h-full w-full bg-[#f8fafc] dark:bg-slate-900 relative overflow-hidden" dir="rtl">
+    <div className="flex h-full w-full bg-[#f8fafc] dark:bg-slate-900 relative overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
       <Sidebar />
       <div 
         className="flex-1 flex flex-col h-full relative overflow-hidden" 
@@ -212,7 +212,7 @@ function BuilderFlow({ onBack, initialWorkflow }: WorkflowBuilderProps) {
       >
         
         {/* Header toolbar */}
-        <div className="absolute top-4 start-4 end-4 z-10 flex justify-between items-center bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-slate-200/60 dark:border-slate-800/60" dir="rtl">
+        <div className="absolute top-4 start-4 end-4 z-10 flex justify-between items-center bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-slate-200/60 dark:border-slate-800/60">
           <div className="flex items-center gap-3">
             {onBack && (
               <Button onClick={onBack} variant="ghost" size="icon" className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
@@ -227,8 +227,9 @@ function BuilderFlow({ onBack, initialWorkflow }: WorkflowBuilderProps) {
               value={workflowName}
               onChange={(e) => setWorkflowName(e.target.value)}
               className="font-extrabold text-xl text-slate-800 dark:text-white bg-transparent outline-none focus:border-b-2 border-brand transition-all w-64"
-              title="اسم المسار"
-              aria-label="اسم المسار"
+              placeholder={isRtl ? "اسم مسار العمل..." : "Workflow Name..."}
+              title={isRtl ? "اسم المسار" : "Workflow Name"}
+              aria-label={isRtl ? "اسم المسار" : "Workflow Name"}
             />
           </div>
           <div className="flex items-center gap-3">
@@ -236,36 +237,35 @@ function BuilderFlow({ onBack, initialWorkflow }: WorkflowBuilderProps) {
               className="px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-brand/50 text-slate-700 dark:text-slate-300"
               onChange={(e) => {
                 if (e.target.value === 'welcome') {
-                  setWorkflowName('رسالة ترحيب بالأعضاء الجدد');
+                  setWorkflowName(isRtl ? 'رسالة ترحيب بالأعضاء الجدد' : 'Welcome message for new members');
                   setNodes([
-                    { id: 'node_welcome_1', type: 'trigger', position: { x: 250, y: 150 }, data: { label: 'عند إنشاء مستخدم', triggerEvent: 'user.created' } },
-                    { id: 'node_welcome_2', type: 'action', position: { x: 550, y: 150 }, data: { label: 'إرسال رسالة ترحيب', actionType: 'send_chat', messageText: 'مرحباً {{email}}! أهلاً بك في الفريق.' } }
+                    { id: 'node_welcome_1', type: 'trigger', position: { x: 250, y: 150 }, data: { label: isRtl ? 'عند إنشاء مستخدم' : 'When user is created', triggerEvent: 'user.created' } },
+                    { id: 'node_welcome_2', type: 'action', position: { x: 550, y: 150 }, data: { label: isRtl ? 'إرسال رسالة ترحيب' : 'Send welcome message', actionType: 'send_chat', messageText: isRtl ? 'مرحباً {{email}}! أهلاً بك في الفريق.' : 'Hello {{email}}! Welcome to the team.' } }
                   ]);
                   setEdges([{ id: 'edge_welcome', source: 'node_welcome_1', target: 'node_welcome_2', type: 'smoothstep', animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } }]);
                 } else if (e.target.value === 'task_done') {
-                  setWorkflowName('إغلاق المهام آلياً');
+                  setWorkflowName(isRtl ? 'إغلاق المهام آلياً' : 'Close tasks automatically');
                   setNodes([
-                    { id: 'node_task_1', type: 'trigger', position: { x: 250, y: 150 }, data: { label: 'عند إنشاء مهمة', triggerEvent: 'task.created' } },
-                    { id: 'node_task_2', type: 'action', position: { x: 550, y: 150 }, data: { label: 'تغيير الحالة إلى منجز', actionType: 'update_task_status', newStatus: 'done' } }
+                    { id: 'node_task_1', type: 'trigger', position: { x: 250, y: 150 }, data: { label: isRtl ? 'عند إنشاء مهمة' : 'When task is created', triggerEvent: 'task.created' } },
+                    { id: 'node_task_2', type: 'action', position: { x: 550, y: 150 }, data: { label: isRtl ? 'تغيير الحالة إلى منجز' : 'Change status to done', actionType: 'update_task_status', newStatus: 'done' } }
                   ]);
                   setEdges([{ id: 'edge_task', source: 'node_task_1', target: 'node_task_2', type: 'smoothstep', animated: true, style: { stroke: '#10b981', strokeWidth: 2 } }]);
                 }
-                e.target.value = ''; // Reset select
               }}
-              title="القوالب الجاهزة"
-              aria-label="القوالب الجاهزة"
+              title={isRtl ? "القوالب الجاهزة" : "Templates"}
+              aria-label={isRtl ? "القوالب الجاهزة" : "Templates"}
             >
-              <option value="">+ تحميل قالب جاهز</option>
-              <option value="welcome">رسالة ترحيب بالأعضاء الجدد</option>
-              <option value="task_done">إغلاق المهام آلياً</option>
+              <option value="">{isRtl ? "+ تحميل قالب جاهز" : "+ Load Template"}</option>
+              <option value="welcome">{isRtl ? "رسالة ترحيب بالأعضاء الجدد" : "Welcome message for new members"}</option>
+              <option value="task_done">{isRtl ? "إغلاق المهام آلياً" : "Close tasks automatically"}</option>
             </select>
             <Button onClick={handleTestRun} disabled={isRunning} variant="outline" className="gap-2 border-brand text-brand hover:bg-brand/10 dark:hover:bg-brand/20 px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm shadow-brand/10">
-              {isRunning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
-              {isRunning ? 'جاري التشغيل...' : 'تشغيل تجريبي'}
+              {isRunning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-4 h-4 me-1.5" />}
+              {isRunning ? (isRtl ? 'جاري التشغيل...' : 'Running...') : (isRtl ? 'تشغيل تجريبي' : 'Test Run')}
             </Button>
             <Button onClick={handleSave} disabled={isSaving} className="gap-2 bg-brand hover:bg-brand/90 px-6 py-2.5 rounded-xl shadow-[0_0_15px_rgba(var(--brand-rgb),0.3)] hover:shadow-[0_0_25px_rgba(var(--brand-rgb),0.5)] font-bold text-white transition-all">
               {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-              {isSaving ? 'جاري النشر...' : 'حفظ ونشر'}
+              {isSaving ? (isRtl ? 'جاري النشر...' : 'Publishing...') : (isRtl ? 'حفظ ونشر' : 'Save and Publish')}
             </Button>
           </div>
         </div>

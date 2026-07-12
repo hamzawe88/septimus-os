@@ -23,7 +23,7 @@ interface Customer360ModalProps {
 }
 
 export default function Customer360Modal({ lead, onClose }: Customer360ModalProps) {
-  const { t } = useLocalization();
+  const { t, isRtl } = useLocalization();
   const [activeTab, setActiveTab] = useState<"overview" | "timeline" | "invoices">("overview");
   
   const [drafting, setDrafting] = useState(false);
@@ -98,16 +98,16 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
     setDrafting(true);
     setEmailDraft(null);
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const response = await apiPost<{reply: string}>('/ai/chat', {
         agent_type: 'crm',
         message: `Please generate a professional sales email draft for the lead "${lead.name}" from company "${lead.company}". Current deal stage: ${lead.status}. Write the email so it's ready to copy and send.`,
-        context: { workspace_id: workspaceId, lead }
+        context: { workspace_id: workspaceId, lead, lang: isRtl ? 'ar' : 'en' }
       }, AI_BASE_URL);
       setEmailDraft(response.reply);
     } catch (err) {
       console.error(err);
-      setEmailDraft("Sorry, an error occurred while generating the draft.");
+      setEmailDraft(isRtl ? "عذراً، حدث خطأ أثناء إنشاء المسودة." : "Sorry, an error occurred while generating the draft.");
     } finally {
       setDrafting(false);
     }

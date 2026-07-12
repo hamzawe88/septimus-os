@@ -209,34 +209,34 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] bg-white border-slate-200 ">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-[var(--sb-bg)]" />
-            {isRtl ? "تسجيل الحضور / الانصراف" : "Attendance Check-In / Check-Out"}
+      <DialogContent className="sm:max-w-[500px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xl">
+        <DialogHeader className="text-center sm:text-center items-center justify-center flex flex-col gap-1.5">
+          <DialogTitle className="flex items-center justify-center gap-2 text-center w-full text-lg font-extrabold text-slate-900 dark:text-white">
+            <MapPin className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" />
+            <span>{isRtl ? "تسجيل الحضور / الانصراف" : "Attendance Check-In / Check-Out"}</span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-center max-w-sm mx-auto leading-relaxed text-xs font-medium text-slate-500 dark:text-slate-400">
             {isRtl ? `يرجى التأكد من وجودك ضمن نطاق الشركة (أقل من ${radiusMeters} متر) لتسجيل الحضور.` : `Please ensure you are within the company radius (less than ${radiusMeters} meters) to register attendance.`}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 py-4">
+        <div className="flex flex-col gap-4 py-2">
           {loadingLocation ? (
-            <div className="flex flex-col items-center justify-center py-10 space-y-4">
-              <Loader2 className="w-8 h-8 text-[var(--sb-bg)] animate-spin" />
-              <p className="text-sm text-neutral-500 ">{isRtl ? "جارِ تحديد الموقع..." : "Fetching location..."}</p>
+            <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
+              <Loader2 className="w-8 h-8 text-purple-600 dark:text-purple-400 animate-spin" />
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{isRtl ? "جارِ تحديد الموقع الجغرافي..." : "Fetching location..."}</p>
             </div>
           ) : locationError ? (
-            <div className="p-4 bg-red-50 text-red-600 rounded-md text-sm text-center">
+            <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-300 rounded-xl text-sm text-center font-medium">
               {locationError}
-              <Button variant="outline" size="sm" className="mt-4 w-full" onClick={getLocation}>
+              <Button variant="outline" size="sm" className="mt-3 w-full font-bold rounded-lg" onClick={getLocation}>
                 {isRtl ? "إعادة المحاولة" : "Retry"}
               </Button>
             </div>
           ) : userLat && userLng ? (
             <>
               {/* Map View */}
-              <div className="border border-slate-200 rounded-md overflow-hidden bg-white ">
+              <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-inner">
                 <MapComponent
                   userLat={userLat}
                   userLng={userLng}
@@ -247,33 +247,33 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
               </div>
 
               {/* Status & Action */}
-              <div className="flex flex-col gap-2 p-4 bg-white rounded-md border border-slate-200 ">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-[var(--sb-bg)]/80 [var(--sb-bg)]/70">{isRtl ? "المسافة من المقر:" : "Distance from HQ:"}</span>
-                  <span className="text-sm font-medium text-[var(--sb-bg)] [var(--sb-bg)]" dir="ltr">{distance?.toFixed(2)} {isRtl ? "متر" : "meters"}</span>
+              <div className="flex flex-col gap-2 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
+                <div className="flex justify-between items-center px-1">
+                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{isRtl ? "المسافة من المقر:" : "Distance from HQ:"}</span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white" dir="ltr">{distance?.toFixed(2)} {isRtl ? "متر" : "meters"}</span>
                 </div>
                 
                 {isWithinRadius ? (
-                  <div className="flex items-center gap-2 text-green-600 mt-2">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span className="text-sm font-medium">{isRtl ? "أنت ضمن نطاق الشركة." : "You are within the company radius."}</span>
+                  <div className="flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold mt-2 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-800/60">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span className="text-sm">{isRtl ? "أنت ضمن نطاق الشركة المعتمد." : "You are within the approved company radius."}</span>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 mt-2">
-                    <div className="flex items-center gap-2 text-red-600 ">
-                      <XCircle className="w-4 h-4" />
-                      <span className="text-sm font-medium">{isRtl ? "أنت خارج نطاق الشركة!" : "You are outside the company radius!"}</span>
+                    <div className="flex items-center justify-center gap-2 text-red-600 dark:text-red-400 font-bold py-1.5 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-200 dark:border-red-800/60">
+                      <XCircle className="w-4 h-4 shrink-0" />
+                      <span className="text-sm">{isRtl ? "أنت خارج نطاق الشركة!" : "You are outside the company radius!"}</span>
                     </div>
                     {allowRemote && (
-                      <div className="flex items-center gap-2 mt-2 p-2 bg-brand-light rounded border border-brand-light ">
+                      <div className="flex items-center justify-center gap-2 mt-1 p-2.5 bg-purple-50 dark:bg-purple-950/40 rounded-lg border border-purple-200 dark:border-purple-800/60">
                         <input 
                           type="checkbox" 
                           id="remote-checkin"
                           checked={isRemoteCheckIn}
                           onChange={(e) => setIsRemoteCheckIn(e.target.checked)}
-                          className="w-4 h-4 rounded text-brand focus:ring-brand"
+                          className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
                         />
-                        <label htmlFor="remote-checkin" className="text-sm text-brand font-medium cursor-pointer">
+                        <label htmlFor="remote-checkin" className="text-sm text-purple-700 dark:text-purple-300 font-bold cursor-pointer">
                           {isRtl ? "تسجيل الحضور عن بُعد (العمل عن بُعد)" : "Register Attendance Remotely (Remote Work)"}
                         </label>
                       </div>
@@ -282,14 +282,14 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
                 )}
               </div>
 
-              <div className="flex gap-2 justify-end mt-2">
-                <Button variant="outline" onClick={getLocation}>
+              <div className="flex items-center justify-center gap-3 mt-1 w-full">
+                <Button variant="outline" onClick={getLocation} className="flex-1 py-5 text-sm font-semibold rounded-xl">
                   {isRtl ? "تحديث الموقع" : "Refresh Location"}
                 </Button>
                 {isCheckedIn ? (
                   <Button 
                     onClick={handleCheckOut}
-                    className="bg-red-600 hover:bg-red-700 text-white"
+                    className="flex-1 py-5 text-sm font-bold rounded-xl bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/20"
                   >
                     {isRtl ? "تسجيل انصراف" : "Check Out"}
                   </Button>
@@ -297,7 +297,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
                   <Button 
                     onClick={handleCheckIn}
                     disabled={!canCheckIn}
-                    className={canCheckIn ? "bg-green-600 hover:bg-green-700 text-white" : "bg-slate-200 text-slate-400 [var(--sb-bg)]/70"}
+                    className={`flex-1 py-5 text-sm font-bold rounded-xl transition-all shadow-md ${canCheckIn ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20" : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 shadow-none"}`}
                   >
                     {isRtl ? "تسجيل حضور" : "Check In"}
                   </Button>

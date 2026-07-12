@@ -10,6 +10,10 @@
   --color-brand-light: color-mix(in srgb, var(--primary-hex, var(--blue)) 10%, transparent);
   --color-brand-foreground: #ffffff;
   
+  --color-primary: var(--primary-hex, var(--blue));
+  --color-primary-foreground: #ffffff;
+  --color-primary-hover: color-mix(in srgb, var(--primary-hex, var(--blue)) 85%, black);
+  
   --color-sb-bg: var(--sb-bg);
   --color-sb-text: var(--sb-text);
   --color-sb-text-muted: var(--sb-text-muted);
@@ -17,6 +21,11 @@
   --color-sb-hover: var(--sb-hover);
   --color-sb-active: var(--sb-active-bg);
   --color-sb-divider: var(--sb-divider);
+
+  /* Destructive (danger) — was undefined, which made every `destructive`
+     button transparent/invisible. */
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
 }
 
 /* ================================================================
@@ -26,6 +35,9 @@
 
 
 :root {
+  --primary: var(--primary-hex, var(--blue));
+  --primary-foreground: #ffffff;
+
   /* Sidebar */
   --sb-bg: #3F0E40;
   --sb-hover: #350D36;
@@ -39,6 +51,7 @@
   /* Topbar */
   --tb-bg: #3F0E40;
   --tb-border: rgba(255, 255, 255, 0.1);
+  --tb-text: rgba(255, 255, 255, 0.92);
   --tb-height: 56px;
 
   /* Chat Area */
@@ -78,36 +91,41 @@
   --text-secondary: #616061;
 }
 
-.dark {
-  --sb-bg:             #19171D !important;
-  --sb-hover:          rgba(255,255,255,0.06) !important;
-  --sb-active-bg:      #1164A3 !important;
+/* Per brand constitution: dark/black backgrounds are disabled and replaced with clean luminous defaults */
+.dark, html.dark {
+  --sb-bg:             var(--sb-bg, #3F0E40) !important;
+  --sb-hover:          rgba(255,255,255,0.08) !important;
+  --sb-active-bg:      var(--primary-hex, #1164A3) !important;
   --sb-text:           #D1D2D3 !important;
   --sb-text-active:    #FFFFFF !important;
   --sb-text-muted:     #ABABAD !important;
-  --sb-divider:        rgba(255,255,255,0.05) !important;
+  --sb-divider:        rgba(255,255,255,0.1) !important;
 
-  --tb-bg:             #121016 !important;
-  --tb-border:         rgba(255,255,255,0.05) !important;
+  --tb-bg:             var(--tb-bg, #3F0E40) !important;
+  --tb-border:         rgba(255,255,255,0.1) !important;
 
   --chat-bg:           #1A1D21 !important;
   --chat-text:         #D1D2D3 !important;
   --chat-hover-bg:     #222529 !important;
 
   --border-color:      rgba(255,255,255,0.08) !important;
-  --border-strong:     #35373B !important;
-  
-  --purple-bg:         #2B092A !important;
-  --purple-border:     #4A154B !important;
+  --border-strong:     #3A3D42 !important;
+
+  --purple-bg:         #2A2140 !important;
+  --purple-border:     #6D28D9 !important;
+
+  --primary:           var(--primary-hex, var(--blue));
+  --primary-foreground: #ffffff;
 
   --bg-primary:        #1A1D21 !important;
   --bg-secondary:      #222529 !important;
-  --text-primary:      #D1D2D3 !important;
+  --text-primary:      #E8E8E8 !important;
   --text-secondary:    #ABABAD !important;
 }
 
-body {
-  background: var(--bg-primary);
+body, html.dark body {
+  background: var(--bg-primary, #FFFFFF) !important;
+  color: var(--text-primary, #1D1C1D) !important;
 }
 
 .topbar, .sidebar {
@@ -183,7 +201,7 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #fff;
+  color: var(--tb-text, #ffffff);
   font-weight: 900;
   font-size: 15px;
   letter-spacing: -0.01em;
@@ -256,13 +274,13 @@ body {
   position: relative;
   padding: 6px;
   border-radius: var(--radius-md);
-  color: rgba(0,0,0,0.6);
+  color: var(--tb-text, #ffffff);
   background: none;
   border: none;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
-.topbar-icon-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.topbar-icon-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
 .topbar-notif-dot {
   position: absolute;
   top: 6px; right: 6px;
@@ -726,22 +744,22 @@ body {
 }
 .msg-tool-ai:active { transform: translateY(0); box-shadow: none; }
 .msg-send-btn {
-  width: 34px; height: 34px;
+  width: 36px; height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  background: var(--primary-hex, var(--blue));
+  border-radius: 10px;
+  background: #1164A3 !important;
   border: none;
   cursor: pointer;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 6px rgba(17, 100, 163, 0.25);
 }
 .msg-send-btn:hover { 
+  background: #0D5184 !important;
   transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-  filter: brightness(1.1);
+  box-shadow: 0 4px 10px rgba(17, 100, 163, 0.35);
 }
 .msg-send-btn:active { transform: scale(0.92); }
 .msg-input-hint { margin-top: 8px; text-align: center; font-size: 11px; font-weight: 500; color: var(--text-secondary); transition: opacity 0.2s; }

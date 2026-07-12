@@ -61,7 +61,22 @@ export const ActionNode = memo(({ data, selected }: NodeProps) => {
       case 'http': return <Webhook size={24} />;
       case 'trigger_ai_agent': return <Code size={24} />;
       case 'update_task_status': return <Database size={24} />;
+      case 'send_chat': return <Zap size={24} />;
+      case 'send_email': return <Zap size={24} />;
+      case 'send_slack': return <Webhook size={24} />;
       default: return <Zap size={24} />;
+    }
+  };
+
+  const getSubTitle = () => {
+    switch(data.actionType) {
+      case 'http': return `HTTP ${data.actionMethod || 'POST'}`;
+      case 'trigger_ai_agent': return data.agentType ? `AI (${data.agentType})` : 'AI Agent';
+      case 'send_chat': return 'Send Chat Message';
+      case 'update_task_status': return `Task Status → ${data.newStatus || '...'}`;
+      case 'send_email': return `Email → ${data.emailAddress || '...'}`;
+      case 'send_slack': return 'Slack Alert';
+      default: return data.actionType || 'Select Action...';
     }
   };
 
@@ -75,7 +90,7 @@ export const ActionNode = memo(({ data, selected }: NodeProps) => {
         <div className="flex-1">
           <div className="text-sm font-black text-slate-800">{data.label || 'Action'}</div>
           <div className="text-xs text-slate-500 font-medium mt-0.5">
-            {data.actionType === 'http' ? `HTTP ${data.actionMethod || 'POST'}` : (data.actionType || 'Select Action...')}
+            {getSubTitle()}
           </div>
         </div>
         {data.status === 'running' && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />}

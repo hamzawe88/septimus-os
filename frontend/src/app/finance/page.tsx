@@ -37,7 +37,7 @@ export default function FinancePage() {
     if (activeTab === "vat") {
       const fetchVATData = async () => {
         try {
-          const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+          const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
           // Fetch invoices for output VAT
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const invRes = await apiGet<{ data: any[] }>(`/entities?workspace_id=${workspaceId}&type=finance_invoice&limit=200`);

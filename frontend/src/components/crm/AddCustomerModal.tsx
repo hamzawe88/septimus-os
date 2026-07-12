@@ -28,7 +28,7 @@ export default function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCust
       setLoading(true);
       let workspaceId = localStorage.getItem("currentWorkspaceId");
       if (!workspaceId || workspaceId === "undefined" || workspaceId === "null") {
-        workspaceId = "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+        workspaceId = "";
       }
       await apiPost("/entities", {
         workspace_id: workspaceId,

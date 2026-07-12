@@ -57,6 +57,7 @@ export const THEME_PRESETS: Record<ThemePreset, ThemePresetData> = {
 interface ThemeState {
   mode: ThemeMode;
   theme: ThemePreset;
+  companyName: string;
   primaryColor: string;
   sidebarBg: string;
   sidebarHover: string;
@@ -64,7 +65,7 @@ interface ThemeState {
   textMuted: string;
   textActive: string;
   dividerColor: string;
-  fontFamily: FontFamily;
+  fontFamily: FontFamily | string;
   logoUrl: string | null;
 
   isAdvancedMode: boolean;
@@ -75,11 +76,13 @@ interface ThemeState {
 
   setMode: (mode: ThemeMode) => void;
   setTheme: (theme: ThemePreset) => void;
+  setCompanyName: (name: string) => void;
   setPrimaryColor: (color: string) => void;
   setSidebarBg: (color: string) => void;
   setTextColor: (color: string) => void;
-  setFontFamily: (font: FontFamily) => void;
+  setFontFamily: (font: FontFamily | string) => void;
   setLogoUrl: (url: string | null) => void;
+  setBrandIdentity: (companyName: string, logoUrl: string | null, primaryColor?: string, fontFamily?: FontFamily | string, sidebarBg?: string) => void;
 
   setIsAdvancedMode: (advanced: boolean) => void;
   setCustomTopbarBg: (bg: string) => void;
@@ -95,6 +98,7 @@ export const useThemeStore = create<ThemeState>()(
     (set) => ({
       mode: 'light',
       theme: 'theme-slack',
+      companyName: 'Septimus Workspace',
       primaryColor: defaultPreset.primaryColor,
       sidebarBg: defaultPreset.sidebarBg,
       sidebarHover: defaultPreset.sidebarHover,
@@ -125,11 +129,20 @@ export const useThemeStore = create<ThemeState>()(
           dividerColor: p.dividerColor,
         });
       },
+      setCompanyName: (companyName) => set({ companyName }),
       setPrimaryColor: (primaryColor) => set({ primaryColor }),
       setSidebarBg: (sidebarBg) => set({ sidebarBg }),
       setTextColor: (textColor) => set({ textColor }),
       setFontFamily: (fontFamily) => set({ fontFamily }),
       setLogoUrl: (logoUrl) => set({ logoUrl }),
+      setBrandIdentity: (companyName, logoUrl, primaryColor, fontFamily, sidebarBg) =>
+        set((state) => ({
+          companyName: companyName || state.companyName,
+          logoUrl: logoUrl !== undefined ? logoUrl : state.logoUrl,
+          ...(primaryColor ? { primaryColor } : {}),
+          ...(fontFamily ? { fontFamily } : {}),
+          ...(sidebarBg ? { sidebarBg } : {}),
+        })),
 
       setIsAdvancedMode: (isAdvancedMode) => set({ isAdvancedMode }),
       setCustomTopbarBg: (customTopbarBg) => set({ customTopbarBg }),

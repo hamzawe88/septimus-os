@@ -34,8 +34,8 @@ const LocalizationContext = createContext<LocalizationContextType | undefined>(u
 export function LocalizationProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>("ar");
   const [country, setCountryState] = useState("SA");
-  const [baseCurrency, setBaseCurrencyState] = useState("USD");
-  const [secondaryCurrency, setSecondaryCurrencyState] = useState("SAR");
+  const [baseCurrency, setBaseCurrencyState] = useState("SAR");
+  const [secondaryCurrency, setSecondaryCurrencyState] = useState("USD");
   const [numberFormat, setNumberFormatState] = useState<"comma" | "dot">("comma");
   const [dateFormat, setDateFormatState] = useState("DD/MM/YYYY");
 
@@ -49,7 +49,11 @@ export function LocalizationProvider({ children }: { children: React.ReactNode }
     if (savedCountry) setCountryState(savedCountry);
 
     const savedBaseCurr = localStorage.getItem("app_base_currency");
-    if (savedBaseCurr) setBaseCurrencyState(savedBaseCurr);
+    if (savedBaseCurr) {
+      setBaseCurrencyState(savedBaseCurr);
+    } else if (savedCountry === "SA" || !savedCountry) {
+      setBaseCurrencyState("SAR");
+    }
 
     const savedSecCurr = localStorage.getItem("app_sec_currency");
     if (savedSecCurr) setSecondaryCurrencyState(savedSecCurr);

@@ -22,7 +22,7 @@ export default function DeployAgentModal({ isOpen, onClose, onDeployed }: Deploy
     e.preventDefault();
     setIsLoading(true);
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       await apiPost(`/entities?workspace_id=${workspaceId}`, {
         entity_type: "ai_agent",
         data: {

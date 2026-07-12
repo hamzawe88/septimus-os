@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { Bot, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Bot, Zap, CheckCircle2, AlertCircle, ThumbsUp, ThumbsDown, Activity } from 'lucide-react';
 import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
 import { useLocalization } from '@/contexts/LocalizationContext';
 
@@ -21,17 +21,23 @@ interface AiData {
   workflow_stats: WorkflowStat[];
   success_rate: number;
   daily_trend: DailyTrend[];
+  feedback?: {
+    up: number;
+    down: number;
+    total: number;
+    score: number;
+  };
 }
 
 export default function AiReport() {
-  const { t } = useLocalization();
+  const { t, isRtl } = useLocalization();
   const [data, setData] = useState<AiData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchReport = async () => {
       try {
-                const res = await fetchWithAuth(`${API_BASE_URL}/reports/ai`);
+        const res = await fetchWithAuth(`${API_BASE_URL}/reports/ai`);
         if (res.ok) {
           const json = await res.json();
           setData(json);
@@ -64,12 +70,18 @@ export default function AiReport() {
     fill: w.status === 'success' ? '#10b981' : '#ef4444' // green for success, red for fail
   })) || [];
 
+  const feedbackScorePct = Math.round((data.feedback?.score || 0) * 100);
+  const upVotes = data.feedback?.up || 0;
+  const downVotes = data.feedback?.down || 0;
+  const totalVotes = data.feedback?.total || 0;
+
   return (
     <div className="flex flex-col gap-6">
       {/* Top Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard title={t("reports.ai.totalActions")} value={data.total_ai_actions.toString()} icon={<Bot className="w-5 h-5 text-brand" />} />
         <StatCard title={t("reports.ai.successRate")} value={`${Math.round(data.success_rate)}%`} icon={<CheckCircle2 className="w-5 h-5 text-emerald-500" />} />
+        <StatCard title={isRtl ? "رضا المستخدمين (👍)" : "User Satisfaction"} value={`${feedbackScorePct}%`} icon={<ThumbsUp className="w-5 h-5 text-brand-light" />} />
         <StatCard title={t("reports.ai.successfulAutomations")} value={data.workflow_stats?.find(s => s.status === 'success')?.count.toString() || "0"} icon={<Zap className="w-5 h-5 text-yellow-500" />} />
         <StatCard title={t("reports.ai.automationErrors")} value={data.workflow_stats?.find(s => s.status === 'failed')?.count.toString() || "0"} icon={<AlertCircle className="w-5 h-5 text-red-500" />} />
       </div>
@@ -120,6 +132,77 @@ export default function AiReport() {
             ) : (
               <div className="h-full flex items-center justify-center text-slate-400">{t("reports.ai.noAutomations")}</div>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* AI Observability & MessageFeedback Card */}
+      <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2.5 bg-brand/10 dark:bg-brand/20 text-brand rounded-lg">
+            <Activity className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              {isRtl ? "مراقبة جودة الذكاء الاصطناعي (AI Observability & Message Feedback)" : "AI Observability & Message Feedback"}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {isRtl ? "تحليل تقييمات ردود المساعد الذكي (👍 / 👎) من قبل المستخدمين في قنوات العمل" : "Live telemetry of AI response ratings (👍 / 👎) across team channels"}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#121212] border border-slate-200/60 dark:border-slate-800 flex flex-col justify-between">
+            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{isRtl ? "إجمالي التقييمات المسجلة" : "Total Rated Responses"}</span>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-slate-800 dark:text-slate-100">{totalVotes}</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand/10 text-brand">Signals</span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#121212] border border-slate-200/60 dark:border-slate-800 flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{isRtl ? "الردود الإيجابية المفيدة (👍)" : "Helpful / Positive (👍)"}</span>
+              <ThumbsUp className="w-4 h-4 text-emerald-500" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">{upVotes}</span>
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                ({totalVotes > 0 ? Math.round((upVotes / totalVotes) * 100) : 0}%)
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#121212] border border-slate-200/60 dark:border-slate-800 flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{isRtl ? "الردود السلبية / بحاجة لتحسين (👎)" : "Needs Improvement (👎)"}</span>
+              <ThumbsDown className="w-4 h-4 text-red-500" />
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-red-600 dark:text-red-400">{downVotes}</span>
+              <span className="text-xs font-semibold text-red-600 dark:text-red-400">
+                ({totalVotes > 0 ? Math.round((downVotes / totalVotes) * 100) : 0}%)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Progress Bar */}
+        <div className="mt-6">
+          <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">
+            <span>{isRtl ? "نسبة الرضا الدقيقة للنماذج الذكية" : "Overall Quality Index"}</span>
+            <span>{feedbackScorePct}% {isRtl ? "رضا" : "Satisfaction"}</span>
+          </div>
+          <div className="w-full bg-slate-200 dark:bg-slate-800 h-3 rounded-full overflow-hidden flex">
+            <div 
+              className="bg-emerald-500 transition-all duration-500" 
+              style={{ width: `${totalVotes > 0 ? (upVotes / totalVotes) * 100 : 100}%` }}
+            />
+            <div 
+              className="bg-red-500 transition-all duration-500" 
+              style={{ width: `${totalVotes > 0 ? (downVotes / totalVotes) * 100 : 0}%` }}
+            />
           </div>
         </div>
       </div>

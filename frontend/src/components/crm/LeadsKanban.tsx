@@ -48,7 +48,7 @@ export default function LeadsKanban() {
       setIsLoading(true);
       let workspaceId = localStorage.getItem("currentWorkspaceId");
       if (!workspaceId || workspaceId === "undefined" || workspaceId === "null") {
-        workspaceId = "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+        workspaceId = "";
       }
       const res = await apiGet<{data: any[]}>(`/entities?workspace_id=${workspaceId}&type=lead`, undefined, { limit: 500 });
       if (res.data) {
@@ -106,7 +106,7 @@ export default function LeadsKanban() {
     try {
       let workspaceId = localStorage.getItem("currentWorkspaceId");
       if (!workspaceId || workspaceId === "undefined" || workspaceId === "null") {
-        workspaceId = "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+        workspaceId = "";
       }
       const entity = leadToUpdate._originalEntity;
       if (entity) {

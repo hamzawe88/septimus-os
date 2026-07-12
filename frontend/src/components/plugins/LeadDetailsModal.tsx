@@ -30,7 +30,7 @@ export default function LeadDetailsModal({ lead, onClose, onSuccess }: LeadDetai
     setLoading(true);
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       
       const res = await fetchWithAuth(`${API_BASE_URL}/entities/${lead.id}?workspace_id=${workspaceId}`, {
         method: 'PUT',

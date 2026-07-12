@@ -9,6 +9,7 @@ import ChatDock from "./chat/ChatDock";
 
 import CatchUpModal from "./chat/CatchUpModal";
 import GlobalSearchModal from "./chat/GlobalSearchModal";
+import CopilotLauncher from "./ai/CopilotLauncher";
 import { ToastContainer } from "./shared/ToastContainer";
 
 export default function GlobalModals() {
@@ -50,6 +51,9 @@ export default function GlobalModals() {
 
       {/* Floating Chat System */}
       {isLoggedIn && <ChatDock />}
+
+      {/* Septimus Copilot (supervisor agent, ⌘I) */}
+      {isLoggedIn && <CopilotLauncher />}
 
       {/* Global Search */}
       <GlobalSearchModal />

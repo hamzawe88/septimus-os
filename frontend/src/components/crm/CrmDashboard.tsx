@@ -48,7 +48,7 @@ export default function CrmDashboard() {
       setIsLoading(true);
       let workspaceId = localStorage.getItem("currentWorkspaceId");
       if (!workspaceId || workspaceId === "undefined" || workspaceId === "null") {
-        workspaceId = "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+        workspaceId = "";
       }
       
       // Fetch CRM Leads
@@ -289,7 +289,7 @@ export default function CrmDashboard() {
               <tbody className="divide-y divide-slate-200 text-slate-700">
                 {(() => {
                   const filteredLeads = leads.filter((row: any) => {
-                    const leadName = String(row?.name || row?.data?.name || row?.data?.title || "بدون اسم");
+                    const leadName = String(row?.name || row?.data?.name || row?.data?.title || (isRtl ? "بدون اسم" : "Unnamed"));
                     const companyName = String(row?.data?.company || "");
                     const matchesSearch = leadName.toLowerCase().includes(searchQuery.toLowerCase()) || 
                                           companyName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -308,8 +308,8 @@ export default function CrmDashboard() {
                   }
 
                   return filteredLeads.map((row: any, index: number) => {
-                    const leadName = String(row?.name || row?.data?.name || row?.data?.title || "بدون اسم");
-                    const status = row?.data?.status || 'جديد';
+                    const leadName = String(row?.name || row?.data?.name || row?.data?.title || (isRtl ? "بدون اسم" : "Unnamed"));
+                    const status = row?.data?.status || (isRtl ? 'جديد' : 'New');
                     const company = row?.data?.company || '-';
                     const source = row?.data?.source || '-';
                     return (

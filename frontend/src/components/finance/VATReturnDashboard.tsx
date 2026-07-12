@@ -121,7 +121,7 @@ export default function VATReturnDashboard({ invoices, expenses }: VATReturnDash
         <button
           type="button"
           onClick={handleExportVAT}
-          className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 dark:bg-brand hover:bg-slate-800 dark:hover:bg-brand/90 text-white rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg"
+          className="flex items-center gap-2 px-5 py-2.5 bg-brand hover:bg-brand-dark text-white rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg"
         >
           <FileDown className="w-5 h-5" />
           {t("finance.exportVatReturn")}

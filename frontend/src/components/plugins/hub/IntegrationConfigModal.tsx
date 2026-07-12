@@ -300,7 +300,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               type="password"
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
-              placeholder={isRtl ? "AIzaSy... أو sk-..." : "AIzaSy... or sk-..."}
+              placeholder={isRtl ? "أدخل المفتاح هنا..." : "AIzaSy... or sk-..."}
               className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
             />
           </div>

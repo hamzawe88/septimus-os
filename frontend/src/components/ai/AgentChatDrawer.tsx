@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Bot, User, Sparkles, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import type { PublicationContext, Subscription } from 'centrifuge';
 import { apiPost, AI_BASE_URL } from '@/lib/apiClient';
 import { useLocalization } from '@/contexts/LocalizationContext';
+import { useAppStore } from '@/store/useAppStore';
 
-export type AgentType = 'crm' | 'hr' | 'finance' | 'general';
+export type AgentType = 'crm' | 'hr' | 'finance' | 'general' | 'supervisor';
 
 interface AgentChatDrawerProps {
   isOpen: boolean;
@@ -22,12 +24,21 @@ interface Message {
 export default function AgentChatDrawer({ isOpen, onClose, agentType, title, contextData }: AgentChatDrawerProps) {
   const { isRtl } = useLocalization();
   const getWelcomeMessage = () => {
+    if (isRtl) {
+      if (agentType === 'crm') return 'مرحباً! أنا مساعد الـ CRM. أستطيع مساعدتك في صياغة الردود، تلخيص التذاكر، أو تحليل بيانات العملاء. ماذا تحتاج؟';
+      if (agentType === 'hr') return 'مرحباً! أنا مساعد الموارد البشرية. أستطيع التحقق من أرصدة الإجازات، شرح سياسات الشركة، أو معالجة الطلبات. كيف أساعدك؟';
+      if (agentType === 'finance') return 'مرحباً! أنا المساعد المالي. أستطيع تلخيص المصروفات، إيجاد الفواتير غير المدفوعة، أو إنشاء التقارير. ماذا تريد أن تفعل؟';
+      if (agentType === 'supervisor') return 'مرحباً! أنا Septimus Copilot. أدير كل الأقسام (المهام، CRM، الموارد البشرية، المالية) وأنسّق بينها. اسألني أي شيء.';
+      return 'مرحباً! كيف أساعدك اليوم؟';
+    }
     if (agentType === 'crm') return 'Hello! I am your CRM Assistant. I can help you draft replies, summarize tickets, or analyze customer data. What do you need?';
     if (agentType === 'hr') return 'Hello! I am your HR Assistant. I can check leave balances, explain company policies, or process requests. How can I help?';
     if (agentType === 'finance') return 'Hello! I am your Finance Assistant. I can summarize expenses, find unpaid invoices, or generate reports. What would you like to do?';
+    if (agentType === 'supervisor') return 'Hi! I am Septimus Copilot. I coordinate every department (Tasks, CRM, HR, Finance). Ask me anything.';
     return 'Hello! How can I help you today?';
   };
 
+  const centrifuge = useAppStore((s) => s.centrifuge);
   const [messages, setMessages] = useState<Message[]>([{ id: '1', role: 'assistant', content: getWelcomeMessage() }]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -49,10 +60,55 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
     setInput('');
     setIsTyping(true);
 
+    // Live token streaming via Centrifugo: the sidecar publishes reply tokens to
+    // `ai_<streamId>` while generating; the HTTP response stays authoritative.
+    const assistantId = (Date.now() + 1).toString();
+    const streamId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    const streaming = !!centrifuge;
+    let streamed = '';
+    let sub: Subscription | null = null;
+
+    const setAssistant = (content: string) =>
+      setMessages(prev => prev.map(m => (m.id === assistantId ? { ...m, content } : m)));
+
+    const onPub = (ctx: PublicationContext) => {
+      const d = ctx.data as { type?: string; delta?: string; reply?: string } | undefined;
+      if (!d) return;
+      if (d.type === 'token' && typeof d.delta === 'string') {
+        streamed += d.delta;
+        setAssistant(streamed);
+      } else if (d.type === 'done' && typeof d.reply === 'string') {
+        setAssistant(d.reply);
+      }
+    };
+
+    const cleanup = () => {
+      if (sub) {
+        try { sub.off('publication', onPub); sub.unsubscribe(); } catch { /* noop */ }
+      }
+    };
+
     try {
-      const workspaceId = localStorage.getItem('currentWorkspaceId') || '797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e';
-      const ctx = contextData ? { ...contextData } : {};
+      const workspaceId = localStorage.getItem('currentWorkspaceId') || '';
+      const ctx: Record<string, unknown> = contextData ? { ...contextData } : {};
       ctx.workspace_id = workspaceId;
+      ctx.lang = isRtl ? 'ar' : 'en';
+
+      if (streaming && centrifuge) {
+        // Placeholder assistant bubble the stream fills in.
+        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '' }]);
+        const channel = `ai_${streamId}`; // unique per message
+        const existing = centrifuge.getSubscription(channel);
+        if (existing) {
+          sub = existing;
+        } else {
+          sub = centrifuge.newSubscription(channel);
+          sub.subscribe();
+        }
+        sub.on('publication', onPub);
+        ctx.stream_id = streamId;
+      }
 
       const response = await apiPost<{reply: string}>('/ai/chat', {
         agent_type: agentType,
@@ -61,11 +117,22 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
         thread_id: 'default-thread'
       }, AI_BASE_URL);
 
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: response.reply }]);
+      // HTTP reply is authoritative — reconcile the streamed text to it.
+      if (streaming) {
+        setAssistant(response.reply);
+      } else {
+        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: response.reply }]);
+      }
     } catch (err) {
       console.error("AI chat error", err);
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: isRtl ? "عذراً، حدث خطأ أثناء الاتصال بالذكاء الاصطناعي." : "Sorry, an error occurred while connecting to the AI." }]);
+      const errText = isRtl ? "عذراً، حدث خطأ أثناء الاتصال بالذكاء الاصطناعي." : "Sorry, an error occurred while connecting to the AI.";
+      if (streaming) {
+        setAssistant(errText);
+      } else {
+        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: errText }]);
+      }
     } finally {
+      cleanup();
       setIsTyping(false);
     }
   };
@@ -77,10 +144,11 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
     }
   };
 
-  const agentThemeColors = {
+  const agentThemeColors: Record<AgentType, string> = {
     crm: 'text-indigo-500 bg-indigo-50 border-indigo-200',
     hr: 'text-rose-500 bg-rose-50 border-rose-200',
     finance: 'text-emerald-500 bg-emerald-50 border-emerald-200',
+    supervisor: 'text-purple-500 bg-purple-50 border-purple-200',
     general: 'text-brand bg-brand-light border-brand/20'
   };
   const theme = agentThemeColors[agentType] || agentThemeColors.general;
@@ -129,10 +197,10 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
         <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-white dark:bg-slate-900">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-slate-800 text-white' : theme.replace('border', '')}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-brand text-white' : theme.replace('border', '')}`}>
                 {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
               </div>
-              <div className={`max-w-[80%] rounded-2xl p-4 ${msg.role === 'user' ? 'bg-slate-800 text-white rounded-se-none' : 'bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-ss-none'}`}>
+              <div className={`max-w-[80%] rounded-2xl p-4 ${msg.role === 'user' ? 'bg-brand text-white rounded-se-none' : 'bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-ss-none'}`}>
                 <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
               </div>
             </div>

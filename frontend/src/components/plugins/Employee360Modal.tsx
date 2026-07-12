@@ -119,7 +119,7 @@ export default function Employee360Modal({ employee, onClose, onSuccess }: Emplo
     setErrorMsg(null);
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const url = isEditing
         ? `${API_BASE_URL}/entities/${employee!.id}?workspace_id=${workspaceId}`
         : `${API_BASE_URL}/entities?workspace_id=${workspaceId}`;

@@ -7,16 +7,18 @@ import DiscoverTab from "./hub/DiscoverTab";
 import InstalledAppsTab from "./hub/InstalledAppsTab";
 import WebhooksTab from "./hub/WebhooksTab";
 import ApiKeysTab from "./hub/ApiKeysTab";
+import McpTab from "./hub/McpTab";
 
 export default function AppStoreHub() {
   const { isRtl } = useLocalization();
-  const [activeTab, setActiveTab] = useState<"discover" | "installed" | "webhooks" | "apikeys">("discover");
+  const [activeTab, setActiveTab] = useState<"discover" | "installed" | "webhooks" | "apikeys" | "mcp">("discover");
 
   const tabs = [
     { id: "discover", label: isRtl ? "متجر التطبيقات" : "Discover", icon: <LayoutGrid className="w-5 h-5" /> },
     { id: "installed", label: isRtl ? "التطبيقات المثبتة" : "Installed Apps", icon: <CheckCircle2 className="w-5 h-5" /> },
-    { id: "webhooks", label: isRtl ? "خطاطيف الويب (Webhooks)" : "Webhooks", icon: <Webhook className="w-5 h-5" /> },
-    { id: "apikeys", label: isRtl ? "مفاتيح API" : "API Keys", icon: <Key className="w-5 h-5" /> },
+    { id: "webhooks", label: isRtl ? "خطاطيف الويب" : "Webhooks", icon: <Webhook className="w-5 h-5" /> },
+    { id: "apikeys", label: isRtl ? "مفاتيح الربط البرمجي" : "API Keys", icon: <Key className="w-5 h-5" /> },
+    { id: "mcp", label: isRtl ? "خادم MCP (بروتوكول النموذج)" : "MCP Server (AI Tools)", icon: <Puzzle className="w-5 h-5 text-indigo-500" /> },
   ];
 
   return (
@@ -62,6 +64,7 @@ export default function AppStoreHub() {
           {activeTab === "installed" && <InstalledAppsTab />}
           {activeTab === "webhooks" && <WebhooksTab />}
           {activeTab === "apikeys" && <ApiKeysTab />}
+          {activeTab === "mcp" && <McpTab />}
         </div>
       </div>
     </div>

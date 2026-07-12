@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Sparkles, Activity, Cpu, ShieldAlert, Play, Square, Settings2 } from "lucide-react";
 import { apiGet, apiPut } from "@/lib/apiClient";
 import DeployAgentModal from "./DeployAgentModal";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface AgentEntityData {
   status?: string;
@@ -18,13 +19,14 @@ interface AgentEntity {
 }
 
 export default function AIOrchestratorView() {
+  const { isRtl } = useLocalization();
   const [agents, setAgents] = useState<AgentEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
 
   const fetchAgents = async () => {
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const res = await apiGet<{data: AgentEntity[]}>(`/entities?workspace_id=${workspaceId}&type=ai_agent`);
       if (res.data) {
         setAgents(res.data);
@@ -38,7 +40,7 @@ export default function AIOrchestratorView() {
 
   useEffect(() => {
     let cancelled = false;
-    const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+    const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
     apiGet<{data: AgentEntity[]}>(`/entities?workspace_id=${workspaceId}&type=ai_agent`)
       .then((res) => {
         if (!cancelled && res.data) setAgents(res.data);
@@ -54,7 +56,7 @@ export default function AIOrchestratorView() {
 
   const handleStopAgent = async (agentId: string) => {
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       await apiPut(`/entities/${agentId}?workspace_id=${workspaceId}`, {
         data: { status: "Idle" }
       });
@@ -74,11 +76,11 @@ export default function AIOrchestratorView() {
           </div>
           <div>
             <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              مركز الذكاء الاصطناعي 
+              {isRtl ? "مركز الذكاء الاصطناعي" : "AI Center"} 
               <span dir="ltr" className="text-slate-400 font-normal text-lg">(AI Orchestrator)</span>
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1">
-              إدارة، مراقبة، ونشر الوكلاء المستقلين (Agents) في مساحة العمل.
+              {isRtl ? "إدارة، مراقبة، ونشر الوكلاء المستقلين في مساحة العمل." : "Manage, monitor, and deploy autonomous agents in the workspace."}
             </p>
           </div>
         </div>
@@ -87,7 +89,7 @@ export default function AIOrchestratorView() {
           className="flex items-center gap-2 px-5 py-2.5 bg-brand hover:bg-brand/90 text-white rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(var(--brand-rgb),0.2)] hover:shadow-[0_0_25px_rgba(var(--brand-rgb),0.4)]"
         >
           <Play className="w-4 h-4 fill-current" />
-          نشر وكيل جديد (Deploy Agent)
+          {isRtl ? "نشر وكيل جديد" : "Deploy Agent"}
         </button>
       </div>
 
@@ -115,7 +117,7 @@ export default function AIOrchestratorView() {
 
         <div className="p-6 bg-white dark:bg-[#222529] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm group hover:border-rose-500/50 transition-colors">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-bold text-slate-500 dark:text-slate-400">الأخطاء (Errors)</span>
+            <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{isRtl ? "الأخطاء" : "Errors"}</span>
             <div className="p-2 bg-rose-500/10 rounded-lg group-hover:scale-110 transition-transform">
               <ShieldAlert className="w-5 h-5 text-rose-500" />
             </div>
@@ -125,7 +127,7 @@ export default function AIOrchestratorView() {
 
         <div className="p-6 bg-white dark:bg-[#222529] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm group hover:border-amber-500/50 transition-colors">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-bold text-slate-500 dark:text-slate-400">استهلاك الحوسبة</span>
+            <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{isRtl ? "استهلاك الحوسبة" : "Compute Usage"}</span>
             <div className="p-2 bg-amber-500/10 rounded-lg group-hover:scale-110 transition-transform">
               <Sparkles className="w-5 h-5 text-amber-500" />
             </div>
@@ -137,7 +139,7 @@ export default function AIOrchestratorView() {
       {/* Active Agents Table */}
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          قائمة الوكلاء
+          {isRtl ? "قائمة الوكلاء" : "Agent List"}
           <span dir="ltr" className="text-sm font-normal text-slate-400">(Deployed Agents)</span>
         </h2>
       </div>
@@ -147,11 +149,11 @@ export default function AIOrchestratorView() {
           <table className="w-full text-start text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">الوكيل (Agent)</th>
-                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">الحالة (Status)</th>
-                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">مدة التشغيل (Uptime)</th>
-                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">المهام النشطة</th>
-                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-end rtl:text-start">الإجراءات</th>
+                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">{isRtl ? "الوكيل" : "Agent"}</th>
+                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">{isRtl ? "الحالة" : "Status"}</th>
+                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">{isRtl ? "مدة التشغيل" : "Uptime"}</th>
+                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">{isRtl ? "المهام النشطة" : "Active Tasks"}</th>
+                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-end rtl:text-start">{isRtl ? "الإجراءات" : "Actions"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -183,9 +185,9 @@ export default function AIOrchestratorView() {
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button 
-                          onClick={() => alert(`إعدادات الوكيل ${name} ستتوفر في المرحلة القادمة.`)}
+                          onClick={() => alert(isRtl ? `إعدادات الوكيل ${name} ستتوفر في المرحلة القادمة.` : `Settings for agent ${name} will be available in the next phase.`)}
                           className="p-2 text-slate-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-colors" 
-                          title="الإعدادات"
+                          title={isRtl ? "الإعدادات" : "Settings"}
                         >
                           <Settings2 className="w-5 h-5" />
                         </button>
@@ -193,7 +195,7 @@ export default function AIOrchestratorView() {
                           <button 
                             onClick={() => handleStopAgent(agent.id)}
                             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" 
-                            title="إيقاف"
+                            title={isRtl ? "إيقاف" : "Stop"}
                           >
                             <Square className="w-5 h-5 fill-current" />
                           </button>
@@ -210,8 +212,8 @@ export default function AIOrchestratorView() {
                       <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
                         <Sparkles className="w-8 h-8 text-slate-300 dark:text-slate-600" />
                       </div>
-                      <p className="text-base font-bold text-slate-600 dark:text-slate-400">لا يوجد وكلاء حالياً</p>
-                      <p className="text-sm mt-1">انقر على &quot;نشر وكيل جديد&quot; للبدء في مساحة العمل.</p>
+                      <p className="text-base font-bold text-slate-600 dark:text-slate-400">{isRtl ? "لا يوجد وكلاء حالياً" : "No agents available"}</p>
+                      <p className="text-sm mt-1">{isRtl ? "انقر على \"نشر وكيل جديد\" للبدء في مساحة العمل." : "Click on \"Deploy Agent\" to get started in the workspace."}</p>
                     </div>
                   </td>
                 </tr>

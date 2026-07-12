@@ -67,7 +67,7 @@ export default function AddExpenseModal({ isOpen, onClose, onSuccess }: AddExpen
     setLoading(true);
     setErrorMsg(null);
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       await apiPost(`/entities?workspace_id=${workspaceId}`, {
         type: "finance_expense",
         name: `${expenseRef} - ${supplierName || "Expense"}`,

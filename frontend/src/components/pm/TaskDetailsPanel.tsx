@@ -81,7 +81,8 @@ export default function TaskDetailsPanel({ task, onClose }: TaskDetailsPanelProp
     try {
       const data = await apiPost(`/ai/generate-subtasks`, {
         title: task.Title,
-        description: editor?.getText() || ""
+        description: editor?.getText() || "",
+        lang: isRtl ? 'ar' : 'en'
       }, AI_BASE_URL) as unknown as { subtasks: string[] };
       if (data.subtasks && Array.isArray(data.subtasks) && data.subtasks.length > 0) {
         setGeneratedSubtasks(data.subtasks.map((t: string, idx: number) => ({

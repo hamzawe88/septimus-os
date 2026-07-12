@@ -3,7 +3,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { X, FileText, Play, Pause } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar } from "@/components/ui/avatar";
+import { getAvatarForUser } from "@/lib/avatarEngine";
 import MessageInput from "@/components/shared/MessageInput";
 import { useLocalization } from "@/contexts/LocalizationContext";
 
@@ -20,6 +21,10 @@ interface Message {
   time: string;
   type?: "text" | "voice" | "file";
   attachmentUrl?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: string;
+  voiceDuration?: string;
 }
 
 const formatTextWithTags = (text: string) => {
@@ -46,6 +51,25 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
+
+  const toggleVoicePlay = (id: string) => {
+    if (playingAudioId === id) {
+      setPlayingAudioId(null);
+    } else {
+      setPlayingAudioId(id);
+    }
+  };
+
+  useEffect(() => {
+    const loadAvatar = () => {
+      const saved = localStorage.getItem("septimus_avatar");
+      setUserAvatar(saved || null);
+    };
+    loadAvatar();
+    window.addEventListener("septimus_avatar_updated", loadAvatar);
+    return () => window.removeEventListener("septimus_avatar_updated", loadAvatar);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -57,7 +81,7 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
 
     if (playingAudioId) {
       const msg = messages.find(m => m.id === playingAudioId);
-      const audioUrl = msg?.attachmentUrl || 'https://actions.google.com/sounds/v1/water/water_drop.ogg';
+      const audioUrl = msg?.fileUrl || msg?.attachmentUrl || 'https://actions.google.com/sounds/v1/water/water_drop.ogg';
       
       if (audioUrl) {
         audio = new Audio(audioUrl);
@@ -72,7 +96,7 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
       }
       
       // Fallback timeout only if it's the very short beep
-      if (!msg?.attachmentUrl) {
+      if (!msg?.attachmentUrl && !msg?.fileUrl) {
         timeoutId = setTimeout(() => {
           setPlayingAudioId(null);
         }, 3000);
@@ -94,7 +118,11 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
       id: Date.now().toString(),
       text: content,
       type,
-      attachmentUrl,
+      attachmentUrl: attachmentUrl || (type === "voice" || type === "file" ? content : undefined),
+      fileUrl: attachmentUrl || (type === "voice" || type === "file" ? content : undefined),
+      fileName: type === "file" ? (content || "Attachment") : undefined,
+      fileSize: type === "file" ? "120 KB" : undefined,
+      voiceDuration: type === "voice" ? "0:14" : undefined,
       sender: "me",
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
@@ -115,46 +143,53 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
   };
 
   const renderMessageContent = (msg: Message) => {
-    if (msg.type === "voice") {
+    if (msg.type === "voice" && (msg.fileUrl || msg.attachmentUrl)) {
+      const isPlaying = playingAudioId === msg.id;
       return (
-        <div className="flex items-center gap-2 bg-brand-light text-brand-dark p-2 rounded-lg border border-brand-light min-w-[150px]">
+        <div className="flex items-center gap-2.5 py-1 min-w-[140px]">
           <button 
-            onClick={() => setPlayingAudioId(playingAudioId === msg.id ? null : msg.id)}
-            className="w-8 h-8 flex items-center justify-center bg-brand text-white rounded-full hover:bg-brand"
+            type="button"
+            onClick={() => toggleVoicePlay(msg.id)}
+            className="w-8 h-8 rounded-full bg-white/20 dark:bg-black/20 flex items-center justify-center text-current hover:scale-105 transition-transform"
           >
-            {playingAudioId === msg.id ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ms-1" />}
+            {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
           </button>
-          <div className="flex-1">
-            <div className="h-1.5 bg-indigo-200 rounded-full w-full overflow-hidden">
-              <div className={`h-full bg-brand rounded-full ${playingAudioId === msg.id ? 'w-full transition-all duration-[3000ms] ease-linear' : 'w-0'}`} />
+          <div className="flex-1 flex flex-col gap-1">
+            <div className="h-1.5 w-full bg-current/20 rounded-full overflow-hidden">
+              <div className={`h-full bg-current rounded-full transition-all duration-300 ${isPlaying ? 'w-full animate-pulse' : 'w-1/3'}`} />
             </div>
+            <span className="text-[10px] opacity-80">{msg.voiceDuration || "0:05"}</span>
           </div>
-          <span className="text-xs font-mono">{msg.text.match(/\((.*?)\)/)?.[1] || "0:05"}</span>
         </div>
       );
     }
-    
-    if (msg.type === "file") {
-      const isImage = msg.text.match(/\.(jpeg|jpg|gif|png)$/i);
+
+    if (msg.type === "file" && msg.fileUrl) {
+      const isImage = msg.fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
       if (isImage) {
         return (
-          <div className="flex flex-col gap-1">
-            <img src={msg.attachmentUrl} alt="attachment" className="rounded-lg max-w-[200px] border border-slate-200" />
-            <span className="text-sm">{msg.text}</span>
+          <div className="space-y-1">
+            <img src={msg.fileUrl} alt={msg.fileName} className="max-w-[200px] max-h-[150px] rounded-lg object-cover border border-white/10" />
+            {msg.text && <p className="text-sm mt-1">{msg.text}</p>}
           </div>
         );
       }
       return (
-        <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
-          <div className="w-8 h-8 flex items-center justify-center bg-brand-light text-brand rounded">
-            <FileText className="w-4 h-4" />
+        <a 
+          href={msg.fileUrl} 
+          download={msg.fileName}
+          className="flex items-center gap-2 p-2 rounded-lg bg-white/10 dark:bg-black/10 hover:bg-white/20 transition-colors"
+        >
+          <FileText className="w-5 h-5 shrink-0" />
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-medium truncate">{msg.fileName}</span>
+            <span className="text-[10px] opacity-75">{msg.fileSize}</span>
           </div>
-          <span className="text-sm font-medium underline underline-offset-2">{msg.text}</span>
         </a>
       );
     }
 
-    return <p className="text-sm whitespace-pre-wrap leading-relaxed">{formatTextWithTags(msg.text)}</p>;
+    return <p className="leading-relaxed whitespace-pre-wrap">{formatTextWithTags(msg.text)}</p>;
   };
 
   return (
@@ -165,8 +200,8 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
         onClick={onClose}
       >
         <div className="flex items-center gap-3 overflow-hidden relative z-10">
-          <Avatar className="w-8 h-8 border border-white/20 shadow-sm">
-            <AvatarFallback className="bg-brand text-white text-xs">{safeName.charAt(0).toUpperCase()}</AvatarFallback>
+          <Avatar className="w-8.5 h-8.5 rounded-lg border border-white/20 shadow-sm overflow-hidden">
+            <img src={getAvatarForUser(safeName, userAvatar)} alt={safeName} className="w-full h-full object-cover" />
           </Avatar>
           <div className="flex flex-col">
             <span className="font-semibold text-sm truncate">{safeName}</span>
@@ -183,10 +218,17 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-3 space-y-4 bg-[#f8fafc] dark:bg-[#121212]">
         {messages.map((msg) => {
-          const isMe = msg.sender === "me";
+          const m = msg as unknown as Record<string, unknown>;
+          const userObj = m.User as Record<string, unknown> | undefined;
+          const isMe = msg.sender === "me" || m.isMe === true || m.author === "Admin" || m.author === "admin@septimus.local" || m.author === (localStorage.getItem("septimus_display_name") || "Admin") || (userObj && (userObj.Email === "admin@septimus.local" || userObj.Email === (localStorage.getItem("septimus_display_name") || "")));
           return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex flex-col max-w-[80%] ${isMe ? 'items-end' : 'items-start'}`}>
+            <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
+              {!isMe && (
+                <Avatar className="w-7 h-7 rounded-lg border border-slate-200/80 shadow-sm shrink-0 mb-5 overflow-hidden">
+                  <img src={getAvatarForUser(safeName)} alt={safeName} className="w-full h-full object-cover" />
+                </Avatar>
+              )}
+              <div className={`flex flex-col max-w-[78%] ${isMe ? 'items-end' : 'items-start'}`}>
                 <div 
                   className={`px-4 py-2.5 max-w-[260px] text-[15px] ${
                     isMe 
@@ -198,6 +240,11 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
                 </div>
                 <span className="text-[10px] text-slate-400 mt-1 px-1">{msg.time}</span>
               </div>
+              {isMe && (
+                <Avatar className="w-7 h-7 rounded-lg border border-slate-200/80 shadow-sm shrink-0 mb-5 overflow-hidden">
+                  <img src={userAvatar || getAvatarForUser("Admin User")} alt="Me" className="w-full h-full rounded-lg object-cover" />
+                </Avatar>
+              )}
             </div>
           );
         })}

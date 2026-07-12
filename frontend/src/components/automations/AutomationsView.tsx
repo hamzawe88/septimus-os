@@ -157,7 +157,7 @@ export default function AutomationsView() {
 
   const fetchWorkflows = useCallback(async () => {
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const res = await fetchWithAuth(`${API_BASE_URL}/workflows?workspace_id=${workspaceId}`);
       if (res.ok) {
         const data = await res.json();
@@ -553,7 +553,7 @@ export default function AutomationsView() {
                 </div>
                 <Button 
                   onClick={() => setShowAddWebhook(true)} 
-                  className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold h-11 rounded-xl shadow-md relative z-10"
+                  className="w-full bg-brand hover:bg-brand-dark text-white font-bold h-11 rounded-xl shadow-md relative z-10"
                 >
                   <Plus className="w-4 h-4 me-2" /> Create New Webhook
                 </Button>
@@ -755,7 +755,7 @@ export default function AutomationsView() {
                 </div>
                 <div className="flex justify-end gap-3">
                   <Button variant="ghost" onClick={() => setShowAddApiKey(false)} className="font-bold">{isRtl ? "إلغاء" : "Cancel"}</Button>
-                  <Button onClick={handleAddApiKey} disabled={!newKeyName.trim()} className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-6 rounded-xl shadow-md">
+                  <Button onClick={handleAddApiKey} disabled={!newKeyName.trim()} className="bg-brand hover:bg-brand-dark text-white font-bold px-6 rounded-xl shadow-md">
                     {isRtl ? "توليد المفتاح" : "Generate Key"}
                   </Button>
                 </div>
@@ -789,7 +789,7 @@ export default function AutomationsView() {
                 <div className="flex justify-end">
                   <Button 
                     onClick={() => { setShowAddApiKey(false); setGeneratedKey(""); }} 
-                    className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-6 rounded-xl shadow-md"
+                    className="bg-brand hover:bg-brand-dark text-white font-bold px-6 rounded-xl shadow-md"
                   >
                     {isRtl ? "تم والإغلاق" : "Done & Close"}
                   </Button>

@@ -10,7 +10,7 @@ import { apiGet } from "@/lib/apiClient";
 import { useLocalization } from "@/contexts/LocalizationContext";
 
 export default function HrDashboard() {
-  const { t, isRtl } = useLocalization();
+  const { t, isRtl, formatCurrency } = useLocalization();
   const [isLoading, setIsLoading] = useState(true);
   const [employees, setEmployees] = useState<any[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -43,7 +43,7 @@ export default function HrDashboard() {
     await Promise.resolve();
     try {
       setIsLoading(true);
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       
       // Fetch Employees
       const empRes = await apiGet(`/entities?workspace_id=${workspaceId}&type=hr_employee`) as any;
@@ -156,7 +156,7 @@ export default function HrDashboard() {
           <StatCard title={t("hr.totalEmployeesStat")} value={stats.totalEmployees.toString()} icon={<Users className="w-6 h-6 text-blue-500" />} />
           <StatCard title={t("hr.openPositions")} value={stats.openPositions.toString()} icon={<Briefcase className="w-6 h-6 text-orange-500" />} />
           <StatCard title={t("hr.onLeaveToday")} value={stats.onLeave.toString()} icon={<Calendar className="w-6 h-6 text-emerald-500" />} />
-          <StatCard title={t("hr.monthlyPayroll")} value={`$${stats.monthlyPayroll.toLocaleString()}`} icon={<DollarSign className="w-6 h-6 text-brand" />} />
+          <StatCard title={t("hr.monthlyPayroll")} value={formatCurrency(stats.monthlyPayroll)} icon={<DollarSign className="w-6 h-6 text-brand" />} />
         </div>
 
         {/* Charts Row */}

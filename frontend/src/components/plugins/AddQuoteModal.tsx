@@ -81,7 +81,7 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
     setErrorMsg(null);
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
 
       const quoteData = {
         lead_id: lead.id,
@@ -130,7 +130,7 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
     setErrorMsg(null);
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const invoiceNumber = `INV-${new Date().getTime().toString().slice(-6)}`;
 
       // 1. Create Finance Invoice Entity
@@ -401,7 +401,7 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
               type="button"
               onClick={handleSaveQuote}
               disabled={loading || bridgeLoading}
-              className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm disabled:opacity-50"
+              className="w-full sm:w-auto px-5 py-2.5 bg-brand hover:bg-brand-dark text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-sm disabled:opacity-50"
             >
               <CheckCircle2 className="w-4 h-4 text-purple-400" />
               {loading ? t("common.saving") : t("plugins.crm.saveQuote")}

@@ -42,7 +42,7 @@ function hasComplianceAlert(emp: EmployeeCard): boolean {
 }
 
 export default function EmployeesDirectory() {
-  const { t } = useLocalization();
+  const { t, formatCurrency, baseCurrency, setBaseCurrency } = useLocalization();
   const [employees, setEmployees] = useState<EmployeeCard[]>([]);
   const [rawEmployees, setRawEmployees] = useState<EmployeeEntity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,7 +60,7 @@ export default function EmployeesDirectory() {
   const fetchEmployees = async () => {
     setIsLoading(true);
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const res = await apiGet<{ data: any[], total_pages: number }>(
         `/entities?workspace_id=${workspaceId}&type=hr_employee`,
         undefined,
@@ -196,9 +196,30 @@ export default function EmployeesDirectory() {
           </div>
           <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3 border border-slate-200">
             <DollarSign className="w-8 h-8 text-emerald-600 bg-emerald-100 rounded-lg p-1.5" />
-            <div>
-              <p className="text-xs text-slate-500 font-medium">{t("hr.totalPayrollMonth")}</p>
-              <p className="text-xl font-black text-emerald-700 font-mono">SAR {totalPayroll.toLocaleString()}</p>
+            <div className="flex-1 min-w-[150px]">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-slate-500 font-medium">{t("hr.totalPayrollMonth")}</p>
+                <select
+                  value={baseCurrency}
+                  onChange={(e) => setBaseCurrency(e.target.value)}
+                  className="text-[10px] font-bold bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-700 hover:border-emerald-500 focus:outline-none cursor-pointer shadow-2xs"
+                  title={t("settings.baseCurrency")}
+                >
+                  <option value="SAR">SAR</option>
+                  <option value="USD">USD</option>
+                  <option value="AED">AED</option>
+                  <option value="EUR">EUR</option>
+                  <option value="EGP">EGP</option>
+                  <option value="LYD">LYD</option>
+                  <option value="GBP">GBP</option>
+                  <option value="KWD">KWD</option>
+                  <option value="BHD">BHD</option>
+                  <option value="OMR">OMR</option>
+                  <option value="QAR">QAR</option>
+                  <option value="JOD">JOD</option>
+                </select>
+              </div>
+              <p className="text-xl font-black text-emerald-700 font-mono">{formatCurrency(totalPayroll)}</p>
             </div>
           </div>
         </div>
@@ -249,7 +270,7 @@ export default function EmployeesDirectory() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">{t("hr.baseSalary")}</span>
-                      <span className="font-mono font-semibold text-emerald-700">SAR {(emp.base_salary || 0).toLocaleString()}</span>
+                      <span className="font-mono font-semibold text-emerald-700">{formatCurrency(emp.base_salary || 0)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">{t("common.status")}</span>

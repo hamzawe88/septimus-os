@@ -41,7 +41,7 @@ export default function HrSettings() {
     let cancelled = false;
     const loadPolicy = async () => {
       try {
-        const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+        const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
         const res = await apiGet<{data: HrPolicyEntity[]}>(`/entities?workspace_id=${workspaceId}&type=hr_policy`);
         if (cancelled) return;
         if (res.data && res.data.length > 0) {
@@ -69,7 +69,7 @@ export default function HrSettings() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       if (policyId) {
         await apiPut(`/entities/${policyId}?workspace_id=${workspaceId}`, {
           name: "HR General Policy",

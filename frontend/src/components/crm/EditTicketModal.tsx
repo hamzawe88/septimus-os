@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { X, Ticket as TicketIcon, Save, User, Flag, CheckCircle, AlignLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiPut } from "@/lib/apiClient";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface EditTicketModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface EditTicketModalProps {
 }
 
 export default function EditTicketModal({ isOpen, onClose, onSuccess, ticket }: EditTicketModalProps) {
+  const { isRtl } = useLocalization();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState(() => ({
     title: ticket?.name || ticket?.data?.subject || "",
@@ -30,7 +32,7 @@ export default function EditTicketModal({ isOpen, onClose, onSuccess, ticket }: 
     e.preventDefault();
     try {
       setLoading(true);
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       
       const updatedData = {
         ...(ticket.data || {}),
@@ -66,15 +68,15 @@ export default function EditTicketModal({ isOpen, onClose, onSuccess, ticket }: 
               <TicketIcon className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Edit Ticket #{ticket.id.substring(0, 8)}</h2>
-              <p className="text-xs text-slate-500">تحديث الحالة والمسؤول والبيانات الأساسية</p>
+              <h2 className="text-lg font-bold text-slate-800">{isRtl ? "تعديل التذكرة #" : "Edit Ticket #"}{ticket.id.substring(0, 8)}</h2>
+              <p className="text-xs text-slate-500">{isRtl ? "تحديث الحالة والمسؤول والبيانات الأساسية" : "Update status, assignee and basic info"}</p>
             </div>
           </div>
           <button 
             onClick={onClose}
             className="p-2 text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 rounded-full transition-colors"
-            title="Close" 
-            aria-label="Close">
+            title={isRtl ? "إغلاق" : "Close"} 
+            aria-label={isRtl ? "إغلاق" : "Close"}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -84,11 +86,11 @@ export default function EditTicketModal({ isOpen, onClose, onSuccess, ticket }: 
           <div>
             <label htmlFor="edit-ticket-title" className="block text-sm font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
               <TicketIcon className="w-4 h-4 text-slate-400" />
-              موضوع التذكرة
+              {isRtl ? "موضوع التذكرة" : "Ticket Subject"}
             </label>
             <input 
               id="edit-ticket-title" 
-              placeholder="عنوان أو موضوع التذكرة" 
+              placeholder={isRtl ? "عنوان أو موضوع التذكرة" : "Ticket title or subject"} 
               type="text" 
               required
               className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all"
@@ -101,11 +103,11 @@ export default function EditTicketModal({ isOpen, onClose, onSuccess, ticket }: 
             <div>
               <label htmlFor="edit-ticket-customer" className="block text-sm font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
                 <User className="w-4 h-4 text-slate-400" />
-                اسم العميل
+                {isRtl ? "اسم العميل" : "Customer Name"}
               </label>
               <input 
                 id="edit-ticket-customer" 
-                placeholder="اسم العميل أو الشركة" 
+                placeholder={isRtl ? "اسم العميل أو الشركة" : "Customer or company name"} 
                 type="text" 
                 required
                 className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all"
@@ -117,11 +119,11 @@ export default function EditTicketModal({ isOpen, onClose, onSuccess, ticket }: 
             <div>
               <label htmlFor="edit-ticket-assignee" className="block text-sm font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
                 <User className="w-4 h-4 text-slate-400" />
-                المسؤول عن الحل
+                {isRtl ? "المسؤول عن الحل" : "Assignee"}
               </label>
               <input 
                 id="edit-ticket-assignee" 
-                placeholder="مثال: أحمد محمد / الدعم الفني" 
+                placeholder={isRtl ? "مثال: أحمد محمد / الدعم الفني" : "e.g. John Doe / Tech Support"} 
                 type="text" 
                 className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all"
                 value={formData.assignedTo}
@@ -134,7 +136,7 @@ export default function EditTicketModal({ isOpen, onClose, onSuccess, ticket }: 
             <div>
               <label htmlFor="edit-ticket-priority" className="block text-sm font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
                 <Flag className="w-4 h-4 text-slate-400" />
-                الأولوية
+                {isRtl ? "الأولوية" : "Priority"}
               </label>
               <select 
                 id="edit-ticket-priority" 
@@ -142,17 +144,17 @@ export default function EditTicketModal({ isOpen, onClose, onSuccess, ticket }: 
                 value={formData.priority}
                 onChange={(e) => setFormData({...formData, priority: e.target.value})}
               >
-                <option value="low">منخفضة</option>
-                <option value="medium">متوسطة</option>
-                <option value="high">عالية</option>
-                <option value="urgent">عاجلة جداً</option>
+                <option value="low">{isRtl ? "منخفضة" : "Low"}</option>
+                <option value="medium">{isRtl ? "متوسطة" : "Medium"}</option>
+                <option value="high">{isRtl ? "عالية" : "High"}</option>
+                <option value="urgent">{isRtl ? "عاجلة جداً" : "Urgent"}</option>
               </select>
             </div>
 
             <div>
               <label htmlFor="edit-ticket-status" className="block text-sm font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
                 <CheckCircle className="w-4 h-4 text-slate-400" />
-                حالة التذكرة
+                {isRtl ? "حالة التذكرة" : "Ticket Status"}
               </label>
               <select 
                 id="edit-ticket-status" 
@@ -160,10 +162,10 @@ export default function EditTicketModal({ isOpen, onClose, onSuccess, ticket }: 
                 value={formData.status}
                 onChange={(e) => setFormData({...formData, status: e.target.value})}
               >
-                <option value="open">مفتوحة (Open)</option>
-                <option value="in_progress">قيد المعالجة (In Progress)</option>
-                <option value="resolved">محلولة (Resolved)</option>
-                <option value="closed">مغلقة (Closed)</option>
+                <option value="open">{isRtl ? "مفتوحة" : "Open"}</option>
+                <option value="in_progress">{isRtl ? "قيد المعالجة" : "In Progress"}</option>
+                <option value="resolved">{isRtl ? "محلولة" : "Resolved"}</option>
+                <option value="closed">{isRtl ? "مغلقة" : "Closed"}</option>
               </select>
             </div>
           </div>
@@ -171,11 +173,11 @@ export default function EditTicketModal({ isOpen, onClose, onSuccess, ticket }: 
           <div>
             <label htmlFor="edit-ticket-description" className="block text-sm font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
               <AlignLeft className="w-4 h-4 text-slate-400" />
-              تفاصيل وملاحظات التذكرة
+              {isRtl ? "تفاصيل وملاحظات التذكرة" : "Details and Notes"}
             </label>
             <textarea 
               id="edit-ticket-description" 
-              placeholder="أدخل وصف المشكلة أو ملاحظات المعالجة..." 
+              placeholder={isRtl ? "أدخل وصف المشكلة أو ملاحظات المعالجة..." : "Enter problem description or processing notes..."} 
               rows={3}
               className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all resize-none"
               value={formData.description}
@@ -185,11 +187,11 @@ export default function EditTicketModal({ isOpen, onClose, onSuccess, ticket }: 
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Button type="button" variant="outline" onClick={onClose} className="rounded-xl px-5">
-              إلغاء
+              {isRtl ? "إلغاء" : "Cancel"}
             </Button>
             <Button type="submit" disabled={loading} className="bg-brand hover:bg-brand/90 text-white rounded-xl px-6 gap-2">
               <Save className="w-4 h-4" />
-              {loading ? "جاري الحفظ..." : "حفظ التعديلات"}
+              {loading ? (isRtl ? "جاري الحفظ..." : "Saving...") : (isRtl ? "حفظ التعديلات" : "Save Changes")}
             </Button>
           </div>
         </form>

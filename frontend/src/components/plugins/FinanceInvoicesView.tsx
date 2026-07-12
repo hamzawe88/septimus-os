@@ -75,7 +75,7 @@ export default function FinanceInvoicesView({ entities, loading, onNewInvoice, o
     );
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const entityToUpdate = localEntities.find((e) => e.id === draggableId);
 
       if (entityToUpdate) {

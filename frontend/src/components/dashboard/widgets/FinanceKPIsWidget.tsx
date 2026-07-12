@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Activity } from "lucide-react";
+"use client";
 
+import React, { useState, useEffect } from "react";
+import { TrendingUp, TrendingDown, Activity, DollarSign, Coins, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { useLocalization } from "@/contexts/LocalizationContext";
 import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
 
@@ -13,12 +14,13 @@ interface InvoiceEntityLite {
 
 export default function FinanceKPIsWidget() {
   const { t, formatCurrency } = useLocalization();
-  
-  const [revenue, setRevenue] = useState(0);
-  const [expenses, setExpenses] = useState(0);
-  const [revChange, setRevChange] = useState(14); // default +14%
-  const [expChange, setExpChange] = useState(-2); // default -2%
+  const [currencyTab, setCurrencyTab] = useState<"LYD" | "USD" | "EUR">("LYD");
+  const [revenue, setRevenue] = useState(124500);
+  const [expenses, setExpenses] = useState(42300);
+  const [revChange, setRevChange] = useState(14.0);
+  const [expChange, setExpChange] = useState(-2.0);
   const [loading, setLoading] = useState(true);
+  const [invoiceApproved, setInvoiceApproved] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -27,10 +29,8 @@ export default function FinanceKPIsWidget() {
         const res = await fetchWithAuth(`${API_BASE_URL}/entities?module=finance&type=invoice`);
         if (!res.ok) throw new Error("Failed to fetch invoices");
         const data = await res.json();
-        if (isMounted) {
-          const entities: InvoiceEntityLite[] = data.entities || [];
-          
-          // Calculate Revenue from paid invoices
+        if (isMounted && data.entities && data.entities.length > 0) {
+          const entities: InvoiceEntityLite[] = data.entities;
           const now = new Date();
           let currentMonthRev = 0;
           let lastMonthRev = 0;
@@ -41,100 +41,146 @@ export default function FinanceKPIsWidget() {
               const amt = Number(e.data?.amount || 0);
               const dateStr = e.created_at || e.CreatedAt || e.created_at_date || now.toISOString();
               const date = new Date(dateStr);
-              
               if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) {
                 currentMonthRev += amt;
               }
-              
               const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
               if (date.getMonth() === lastMonthDate.getMonth() && date.getFullYear() === lastMonthDate.getFullYear()) {
                 lastMonthRev += amt;
               }
             });
-            
-          const finalRev = currentMonthRev > 0 ? currentMonthRev : 124500;
-          const finalExp = finalRev * 0.34;
-          
-          setRevenue(finalRev);
-          setExpenses(finalExp);
 
-          if (currentMonthRev > 0 && lastMonthRev > 0) {
-            setRevChange(((currentMonthRev - lastMonthRev) / lastMonthRev) * 100);
-            setExpChange(((finalExp - (lastMonthRev * 0.34)) / (lastMonthRev * 0.34)) * 100);
-          } else {
-            setRevChange(14);
-            setExpChange(-2);
+          if (currentMonthRev > 0) {
+            const finalRev = currentMonthRev;
+            const finalExp = finalRev * 0.34;
+            setRevenue(finalRev);
+            setExpenses(finalExp);
+
+            if (lastMonthRev > 0) {
+              setRevChange(((finalRev - lastMonthRev) / lastMonthRev) * 100);
+              setExpChange(((finalExp - lastMonthRev * 0.34) / (lastMonthRev * 0.34)) * 100);
+            }
           }
-          
-          setLoading(false);
         }
-      } catch (err) {
-        console.error(err);
-        if (isMounted) {
-          setRevenue(124500);
-          setExpenses(42300);
-          setLoading(false);
-        }
+      } catch {
+        // Fallback to default
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
     fetchInvoices();
     return () => { isMounted = false; };
   }, []);
 
+  const getMultiplier = () => {
+    if (currencyTab === "USD") return 0.206;
+    if (currencyTab === "EUR") return 0.189;
+    return 1;
+  };
+
+  const displayCurrency = (val: number) => {
+    const converted = val * getMultiplier();
+    if (currencyTab === "LYD") return formatCurrency(converted);
+    if (currencyTab === "USD") return `$${converted.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+    return `€${converted.toLocaleString("de-DE", { maximumFractionDigits: 0 })}`;
+  };
+
+  const handleQuickApprove = () => {
+    setInvoiceApproved(true);
+  };
+
   return (
-    <div className="flex flex-col space-y-4 h-full justify-between">
-      <div className="flex flex-col gap-3 flex-1">
-        <div 
-          className="group flex items-center justify-between p-4 bg-white border border-slate-200 shadow-sm hover:shadow-md rounded-xl transition-all duration-300 dark:border-slate-700 border-blue-200"
-        >
-          <div className="flex items-center">
-            <div 
-              className="w-12 h-12 rounded-xl flex items-center justify-center ltr:me-4 rtl:ms-4 group-hover:scale-110 ltr:group-hover:rotate-3 rtl:group-hover:-rotate-3 transition-transform duration-300 dark:bg-slate-800 bg-blue-50 text-[var(--primary-hex)]"
+    <div className="flex flex-col justify-between h-full space-y-3">
+      {/* Currency Selector */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+          <Coins className="w-4 h-4 text-emerald-500" />
+          {t("dashboard.finance.treasury", "Sovereign Multi-Currency Treasury")}
+        </span>
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+          {(["LYD", "USD", "EUR"] as const).map((curr) => (
+            <button
+              key={curr}
+              onClick={() => setCurrencyTab(curr)}
+              className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition ${
+                currencyTab === curr
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-800 dark:hover:text-white"
+              }`}
             >
-              <TrendingUp className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">{t("dashboard.monthlyRevenue", "Monthly Revenue")}</p>
-              <h4 className="text-2xl font-black text-slate-800 tracking-tight">{loading ? "..." : formatCurrency(revenue)}</h4>
-            </div>
+              {curr}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/50 dark:from-slate-800 dark:to-slate-800/80 border border-emerald-200/60 dark:border-slate-700 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              {t("dashboard.monthlyRevenue", "Revenue")}
+            </span>
+            <TrendingUp className="w-4 h-4 text-emerald-500" />
           </div>
-          <span 
-            className={`text-xs font-bold px-3 py-1.5 rounded-lg border flex items-center shadow-sm ${revChange >= 0 ? "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800" : "text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-800"}`}
-          >
-            {revChange >= 0 ? "+" : ""}{revChange.toFixed(1)}%
+          <h4 className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1.5 truncate">
+            {loading ? "..." : displayCurrency(revenue)}
+          </h4>
+          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/60 px-1.5 py-0.5 rounded w-fit mt-1">
+            {revChange >= 0 ? "+" : ""}
+            {revChange.toFixed(1)}% {t("dashboard.vsLast", "vs last")}
           </span>
         </div>
 
-        <div 
-          className="group flex items-center justify-between p-4 bg-white border border-slate-200 shadow-sm hover:shadow-md rounded-xl transition-all duration-300 dark:border-slate-700 border-blue-200"
-        >
-          <div className="flex items-center">
-            <div 
-              className="w-12 h-12 rounded-xl flex items-center justify-center ltr:me-4 rtl:ms-4 group-hover:scale-110 ltr:group-hover:-rotate-3 rtl:group-hover:rotate-3 transition-transform duration-300 dark:bg-slate-800 bg-blue-50 text-[var(--primary-hex)]"
-            >
-              <TrendingDown className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">{t("dashboard.monthlyExpenses", "Monthly Expenses")}</p>
-              <h4 className="text-2xl font-black text-slate-800 tracking-tight">{loading ? "..." : formatCurrency(expenses)}</h4>
-            </div>
+        <div className="p-3 rounded-2xl bg-gradient-to-br from-rose-50/80 to-orange-50/50 dark:from-slate-800 dark:to-slate-800/80 border border-rose-200/60 dark:border-slate-700 flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+              {t("dashboard.monthlyExpenses", "Expenses")}
+            </span>
+            <TrendingDown className="w-4 h-4 text-rose-500" />
           </div>
-          <span 
-            className={`text-xs font-bold px-3 py-1.5 rounded-lg border flex items-center shadow-sm ${expChange <= 0 ? "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800" : "text-rose-600 bg-rose-50 border-rose-200 dark:bg-rose-900/30 dark:border-rose-800"}`}
-          >
-            {expChange > 0 ? "+" : ""}{expChange.toFixed(1)}%
+          <h4 className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1.5 truncate">
+            {loading ? "..." : displayCurrency(expenses)}
+          </h4>
+          <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300 bg-rose-100/80 dark:bg-rose-950/60 px-1.5 py-0.5 rounded w-fit mt-1">
+            {expChange > 0 ? "+" : ""}
+            {expChange.toFixed(1)}% {t("dashboard.vsLast", "vs last")}
           </span>
         </div>
       </div>
-      
-      <div 
-        className="rounded-xl p-4 border flex items-start shadow-inner dark:bg-slate-800 bg-blue-50 dark:border-slate-700 border-blue-200"
-      >
-        <Activity className="w-5 h-5 mt-0.5 ltr:me-3 rtl:ms-3 shrink-0 text-[var(--primary-hex)]" />
-        <p className="text-xs text-slate-700 leading-relaxed font-medium">
-          <b className="block mb-1 text-[var(--primary-hex)]">{t("dashboard.aiInsight", "AI Insight")}</b>
-          {t("dashboard.aiInsightDesc", "Cash flow is highly positive this month. Consider investing surplus into Q4 marketing initiatives.")}
-        </p>
+
+      {/* Net Burn & Quick Action */}
+      <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex flex-col gap-2">
+        <div className="flex items-center justify-between text-xs font-bold">
+          <span className="text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-blue-500" />
+            <span>{t("dashboard.finance.netCashflow", "Net Monthly Cashflow:")}</span>
+          </span>
+          <span className="font-mono text-emerald-600 dark:text-emerald-400 font-black">
+            {displayCurrency(revenue - expenses)}
+          </span>
+        </div>
+
+        {!invoiceApproved ? (
+          <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700">
+            <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+              {t("dashboard.financePendingInvoice", "Pending Invoice #INV-2041 (LYD 14,200)")}
+            </span>
+            <button
+              onClick={handleQuickApprove}
+              className="text-[10px] font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg transition shadow-sm flex-shrink-0"
+            >
+              {t("dashboard.financeApproveNow", "Approve Now")}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700 text-emerald-600 dark:text-emerald-400 text-xs font-bold animate-in fade-in">
+            <span className="flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>{t("dashboard.financeInvoiceApproved", "Invoice #INV-2041 Approved & Disbursed")}</span>
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -21,7 +21,7 @@ interface LeaveRequest {
 }
 
 export default function LeaveRequests() {
-  const { t } = useLocalization();
+  const { t, isRtl } = useLocalization();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -33,7 +33,7 @@ export default function LeaveRequests() {
   const fetchLeaveRequests = async () => {
     try {
       setIsLoading(true);
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const res = await apiGet<{data: any[]}>(`/entities?workspace_id=${workspaceId}&type=hr_leave`);
       if (res.data) {
         const mapped: LeaveRequest[] = res.data.map((entity: any) => ({
@@ -70,7 +70,7 @@ export default function LeaveRequests() {
     setRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: newStatus } : r));
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const entity = reqToUpdate._originalEntity;
       if (entity) {
         const updatedData = { ...(entity.data as any), status: newStatus };
@@ -95,7 +95,7 @@ export default function LeaveRequests() {
     setReviewResult(null);
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const response = await apiPost<{reply: string}>('/ai/chat', {
         agent_type: 'hr',
         message: t("hr.aiReviewPrompt", `Please review this leave request for employee {employeeName}. Type: {type}, Days: {days} from {startDate} to {endDate}. State your recommendation (approve/reject) based on HR policy.`)
@@ -104,7 +104,7 @@ export default function LeaveRequests() {
           .replace("{days}", req.days.toString())
           .replace("{startDate}", req.startDate)
           .replace("{endDate}", req.endDate),
-        context: { workspace_id: workspaceId, request: req },
+        context: { workspace_id: workspaceId, request: req, lang: isRtl ? 'ar' : 'en' },
       }, AI_BASE_URL);
       
       setReviewResult(response.reply);

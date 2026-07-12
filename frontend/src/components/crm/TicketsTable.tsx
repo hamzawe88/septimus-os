@@ -27,7 +27,7 @@ export default function TicketsTable() {
   const fetchTickets = async () => {
     try {
       setIsLoading(true);
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const res = await apiGet<{data: any[], total_pages: number}>(`/entities?workspace_id=${workspaceId}&type=ticket`, undefined, { page, limit });
       
       if (res.data) {

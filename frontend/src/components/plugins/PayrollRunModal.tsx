@@ -61,7 +61,7 @@ export default function PayrollRunModal({ employees, onClose }: PayrollRunModalP
     setLoading(true);
     setErrorMsg(null);
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
 
       // Create finance_expense entity for total payroll
       const res = await fetchWithAuth(`${API_BASE_URL}/entities?workspace_id=${workspaceId}`, {
@@ -188,11 +188,11 @@ export default function PayrollRunModal({ employees, onClose }: PayrollRunModalP
                     <tr key={emp.employee_id} className="hover:bg-slate-50/50">
                       <td className="p-3 font-semibold text-slate-800 text-start">{emp.full_name}</td>
                       <td className="p-3 text-slate-500 text-xs text-start">{emp.position}</td>
-                      <td className="p-3 text-end font-mono text-slate-700">{emp.base_salary.toLocaleString()}</td>
+                      <td className="p-3 text-end font-mono text-slate-700">{formatCurrency(emp.base_salary)}</td>
                       <td className="p-3 text-end font-mono text-slate-500 text-xs">
-                        +{(emp.housing_allowance + emp.transport_allowance).toLocaleString()}
+                        +{formatCurrency(emp.housing_allowance + emp.transport_allowance)}
                       </td>
-                      <td className="p-3 text-end font-mono font-bold text-emerald-700">{emp.net_salary.toLocaleString()}</td>
+                      <td className="p-3 text-end font-mono font-bold text-emerald-700">{formatCurrency(emp.net_salary)}</td>
                       <td className="p-3 text-start font-mono text-xs text-slate-400 truncate max-w-[120px]">{emp.iban}</td>
                     </tr>
                   ))}
@@ -201,7 +201,7 @@ export default function PayrollRunModal({ employees, onClose }: PayrollRunModalP
                   <tfoot className="bg-slate-100 border-t-2 border-slate-300">
                     <tr>
                       <td colSpan={4} className="p-3 text-sm font-bold text-slate-700">{t("total_payroll_obligation")}</td>
-                      <td className={`p-3 ${isRtl ? 'text-start' : 'text-end'} font-black text-lg text-emerald-700 font-mono`}>{totalPayroll.toLocaleString()}</td>
+                      <td className={`p-3 ${isRtl ? 'text-start' : 'text-end'} font-black text-lg text-emerald-700 font-mono`}>{formatCurrency(totalPayroll)}</td>
                       <td></td>
                     </tr>
                   </tfoot>

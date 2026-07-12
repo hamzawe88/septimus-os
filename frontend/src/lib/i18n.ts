@@ -51,6 +51,8 @@ export function formatCurrencyValue(amount: number, currency: string, numberForm
   return new Intl.NumberFormat(localeFor(numberFormat), {
     style: "currency",
     currency,
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 

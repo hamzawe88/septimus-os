@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Menu, Search, Bell, HeadphonesIcon, ChevronDown, MessageSquare, LogOut, User, MapPin, Settings, Flame, MessageCircle, X, LayoutGrid, Briefcase, Users, Wallet, Shield, Zap } from "lucide-react";
+import { Menu, Search, Bell, HeadphonesIcon, ChevronDown, MessageSquare, LogOut, User, MapPin, Settings, Flame, MessageCircle, X, LayoutGrid, Briefcase, Users, Wallet, Shield, Zap, Orbit } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import SettingsModal from "./SettingsModal";
 import HuddleWidget from "@/components/huddles/HuddleWidget";
@@ -27,8 +27,9 @@ interface CurrentUserExtended {
 }
 
 export default function TopBar() {
-  const { logoUrl } = useThemeStore();
-  const companyName = "Septimus OS"; // Fallback or move to a separate store
+  const { logoUrl, companyName: storeCompanyName, setBrandIdentity } = useThemeStore();
+  const { t, isRtl } = useLocalization();
+  const companyName = storeCompanyName || t("default_workspace_name");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -37,6 +38,8 @@ export default function TopBar() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"account" | "appearance" | "notifications" | "brand" | "attendance" | "currency">("account");
+  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
   const { currentUser, notifications, centrifuge, isSidebarOpen, setIsSidebarOpen, setIsCatchUpModalOpen, setCurrentView } = useAppStore();
   const [isHuddleActive, setIsHuddleActive] = useState(false);
@@ -44,18 +47,54 @@ export default function TopBar() {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isMessengerOpen, setIsMessengerOpen] = useState(false);
   const [isAppGridOpen, setIsAppGridOpen] = useState(false);
-  const { t, isRtl } = useLocalization();
 
   const unreadCount = notifications ? notifications.filter((n: { isRead?: boolean }) => !n.isRead).length : 0;
+  const [topbarAvatar, setTopbarAvatar] = useState("");
+  const [topbarName, setTopbarName] = useState("");
 
+  const workspaceRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const messengerRef = useRef<HTMLDivElement>(null);
   const appGridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const syncAvatar = () => {
+      const savedAvatar = localStorage.getItem("septimus_avatar");
+      if (savedAvatar !== null) setTopbarAvatar(savedAvatar);
+      const savedName = localStorage.getItem("septimus_display_name");
+      if (savedName !== null) setTopbarName(savedName);
+    };
+    syncAvatar();
+    window.addEventListener("septimus_avatar_updated", syncAvatar);
+    window.addEventListener("septimus_display_name_updated", syncAvatar);
+    return () => {
+      window.removeEventListener("septimus_avatar_updated", syncAvatar);
+      window.removeEventListener("septimus_display_name_updated", syncAvatar);
+    };
+  }, []);
+
+  useEffect(() => {
+    const syncBrand = () => {
+      try {
+        const saved = localStorage.getItem("septimus_brand");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setBrandIdentity(parsed.companyName || "Septimus Workspace", parsed.logoUrl || null, parsed.primaryColor, parsed.fontFamily, parsed.sidebarBg);
+        }
+      } catch { }
+    };
+    syncBrand();
+    window.addEventListener("septimus_brand_updated", syncBrand);
+    return () => window.removeEventListener("septimus_brand_updated", syncBrand);
+  }, [setBrandIdentity]);
+
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
+      if (workspaceRef.current && !workspaceRef.current.contains(target)) {
+        setIsWorkspaceMenuOpen(false);
+      }
       if (searchRef.current && !searchRef.current.contains(target)) {
         setShowDropdown(false);
       }
@@ -100,7 +139,7 @@ export default function TopBar() {
       setIsSearching(true);
       try {
         const user = currentUser as unknown as CurrentUserExtended;
-        const workspaceId = user?.WorkspaceID || user?.workspace_id || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+        const workspaceId = user?.WorkspaceID || user?.workspace_id || "";
         const res = await fetchWithAuth(`${API_BASE_URL}/search/semantic?workspace_id=${workspaceId}&q=${encodeURIComponent(query)}`);
         if (res.ok) {
           const data = await res.json();
@@ -120,7 +159,7 @@ export default function TopBar() {
   return (
     <header className="topbar" role="banner">
       {/* Left — Workspace Name (aligns with sidebar width) */}
-      <div className="topbar-left">
+      <div className="topbar-left relative" ref={workspaceRef}>
         <button 
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="me-2 p-1.5 text-white/70 hover:text-white hover:bg-white/10 rounded-md transition-colors shrink-0"
@@ -129,14 +168,96 @@ export default function TopBar() {
           <Menu className="w-5 h-5" />
         </button>
         {logoUrl ? (
-          <img src={logoUrl} alt="Logo" className="h-8 w-auto object-contain me-2" />
+          <img src={logoUrl} alt="Logo" className="h-8 w-auto object-contain me-2 shrink-0 max-w-[120px] rounded" />
         ) : (
-          <div className="topbar-logo" aria-hidden>S</div>
+          <div className="topbar-logo shrink-0" aria-hidden>S</div>
         )}
-        <button className="topbar-workspace-btn" aria-label={t("topbar.switchWorkspace")}>
-          {companyName || "Septimus OS"}
-          <ChevronDown className="topbar-chevron" aria-hidden />
+        <button 
+          onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
+          className="topbar-workspace-btn truncate max-w-[160px] flex items-center gap-1 hover:bg-white/10 px-2 py-1 rounded-md transition-colors" 
+          aria-label={t("topbar.switchWorkspace")}
+          aria-expanded={isWorkspaceMenuOpen}
+        >
+          <span className="truncate font-semibold">{companyName || "Septimus Workspace"}</span>
+          <ChevronDown className={`topbar-chevron shrink-0 transition-transform duration-200 ${isWorkspaceMenuOpen ? "rotate-180" : ""}`} aria-hidden />
         </button>
+
+        {/* Workspace Dropdown Menu */}
+        {isWorkspaceMenuOpen && (
+          <div className="absolute top-12 ltr:left-2 rtl:right-2 z-50 w-80 max-w-[92vw] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl py-3 px-3 text-slate-800 dark:text-slate-100 animate-in fade-in slide-in-from-top-2 duration-150 overflow-hidden">
+            {/* Active Workspace Header */}
+            <div className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 mb-3">
+              <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">{t("workspace.current", "مساحة العمل الحالية")}</p>
+              <div className="flex items-center gap-3">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Logo" className="w-9 h-9 rounded-lg object-contain bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 shadow-sm" />
+                ) : (
+                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-700 to-indigo-800 text-white font-bold flex items-center justify-center text-base shrink-0 shadow-sm">
+                    {(companyName || "S")[0].toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold truncate text-slate-900 dark:text-white leading-tight">{companyName || "Septimus Workspace"}</h4>
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5 mt-0.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" /> {t("workspace.active", "نشط ومتصل")}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions Menu */}
+            <div className="space-y-1.5 mb-2">
+              <button
+                onClick={() => {
+                  setIsWorkspaceMenuOpen(false);
+                  setSettingsInitialTab("brand");
+                  setIsSettingsOpen(true);
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:text-purple-700 dark:hover:text-purple-300 transition-colors group"
+              >
+                <Settings className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0 group-hover:rotate-45 transition-transform duration-300" />
+                <span className="flex-1 text-start leading-relaxed">{t("workspace.edit_brand", "تعديل اسم العمل والهوية البصرية")}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsWorkspaceMenuOpen(false);
+                  setSettingsInitialTab("account");
+                  setIsSettingsOpen(true);
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
+              >
+                <Briefcase className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="flex-1 text-start leading-relaxed">{t("workspace.settings", "إعدادات مساحة العمل العامة")}</span>
+              </button>
+            </div>
+
+            {/* Switch / Add Workspace */}
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+              <p className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t("workspace.switch", "التبديل بين مساحات العمل")}</p>
+              
+              <button
+                onClick={() => setIsWorkspaceMenuOpen(false)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs font-bold bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20"
+              >
+                <span className="truncate">{companyName || "Septimus Workspace"}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-600 text-white font-bold shrink-0 shadow-sm">✓ {t("workspace.default", "الرئيسية")}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsWorkspaceMenuOpen(false);
+                  setSettingsInitialTab("brand");
+                  setIsSettingsOpen(true);
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-dashed border-slate-200 dark:border-slate-700"
+              >
+                <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold shrink-0">+</span>
+                <span className="flex-1 text-start leading-relaxed">{t("workspace.add_new", "تخصيص الهوية والشعار...")}</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Center — Search */}
@@ -229,6 +350,10 @@ export default function TopBar() {
                 <p className="text-xs text-slate-500">{t("appGrid.subtitle")}</p>
               </div>
               <div className="p-4 grid grid-cols-3 gap-3">
+                <button onClick={() => { setCurrentView('orbit'); setIsAppGridOpen(false); }} className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-cyan-50 transition-colors group">
+                  <div className="w-10 h-10 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600 group-hover:scale-110 transition-transform"><Orbit className="w-5 h-5 animate-spin-slow" /></div>
+                  <span className="text-xs font-bold text-slate-700 mt-2">{t("my_orbit.title", "My Orbit")}</span>
+                </button>
                 <button onClick={() => { setCurrentView('chat'); setIsAppGridOpen(false); }} className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-indigo-50 transition-colors group">
                   <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform"><MessageSquare className="w-5 h-5" /></div>
                   <span className="text-xs font-bold text-slate-700 mt-2">{t("appGrid.chat")}</span>
@@ -410,8 +535,8 @@ export default function TopBar() {
         <div className="relative" ref={profileRef}>
           <button onClick={() => { setIsProfileOpen(!isProfileOpen); setIsNotifOpen(false); setIsMessengerOpen(false); }}>
             <Avatar className="topbar-avatar hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer" aria-label={t("topbar.userProfile")}>
-              <AvatarImage src={(currentUser as unknown as CurrentUserExtended)?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(String((currentUser as unknown as CurrentUserExtended)?.name || "User"))}&background=random`} alt={String((currentUser as unknown as CurrentUserExtended)?.name || "User")} />
-              <AvatarFallback className="topbar-avatar-fallback">{String((currentUser as unknown as CurrentUserExtended)?.name || "US").substring(0, 2).toUpperCase()}</AvatarFallback>
+              <AvatarImage src={topbarAvatar || (currentUser as unknown as CurrentUserExtended)?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(String(topbarName || (currentUser as unknown as CurrentUserExtended)?.name || "User"))}&background=random`} alt={String(topbarName || (currentUser as unknown as CurrentUserExtended)?.name || "User")} />
+              <AvatarFallback className="topbar-avatar-fallback">{String(topbarName || (currentUser as unknown as CurrentUserExtended)?.name || "US").substring(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
           </button>
           
@@ -419,11 +544,11 @@ export default function TopBar() {
             <div className={`absolute end-0 mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden`} dir={isRtl ? "rtl" : "ltr"}>
               <div className="p-4 border-b border-slate-100 flex items-center space-x-3">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={currentUser?.avatarUrl || `https://ui-avatars.com/api/?name=${currentUser?.name || "User"}&background=random`} />
-                  <AvatarFallback>{currentUser?.name?.substring(0, 2).toUpperCase() || "US"}</AvatarFallback>
+                  <AvatarImage src={topbarAvatar || currentUser?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(String(topbarName || currentUser?.name || "User"))}&background=random`} />
+                  <AvatarFallback>{String(topbarName || currentUser?.name || "US").substring(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm font-bold text-[var(--sb-bg)] [var(--sb-bg)] truncate w-32">{currentUser?.name || "User"}</p>
+                  <p className="text-sm font-bold text-[var(--sb-bg)] [var(--sb-bg)] truncate w-32">{topbarName || currentUser?.name || "User"}</p>
                   <p className="text-xs text-[var(--sb-bg)]/70 [var(--sb-bg)]/70 truncate w-32">{currentUser?.email || "user@septimus.local"}</p>
                 </div>
               </div>
@@ -452,7 +577,7 @@ export default function TopBar() {
         </div>
       </div>
 
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} initialTab={settingsInitialTab} />
       <AttendanceModal isOpen={isAttendanceOpen} onClose={() => setIsAttendanceOpen(false)} />
       {isHuddleActive && <HuddleWidget onClose={() => setIsHuddleActive(false)} />}
     </header>

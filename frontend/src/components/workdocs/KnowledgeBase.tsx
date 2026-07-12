@@ -85,7 +85,7 @@ export default function KnowledgeBase() {
             {isRtl ? "قاعدة المعرفة" : "Knowledge Base"}
           </h1>
           <p className="text-slate-500 mt-1">
-            {isRtl ? "ارفع المستندات لتدريب الذكاء الاصطناعي وجعلها قابلة للبحث (RAG)." : "Upload documents to train the AI and make them searchable (RAG)."}
+            {isRtl ? "ارفع المستندات لتدريب الذكاء الاصطناعي وجعلها قابلة للبحث." : "Upload documents to train the AI and make them searchable (RAG)."}
           </p>
         </div>
         <div>

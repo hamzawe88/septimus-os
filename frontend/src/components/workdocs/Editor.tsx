@@ -6,6 +6,7 @@ import * as Y from 'yjs';
 import { HocuspocusProvider } from '@hocuspocus/provider';
 import { Loader2, PlusSquare } from 'lucide-react';
 import { TaskNode } from './TaskNode';
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface EditorProps {
   documentId: string;
@@ -18,6 +19,7 @@ const colors = ['#958DF1', '#F98181', '#FBCE76', '#8CE99A', '#74C0FC', '#B197FC'
 const getRandomColor = () => colors[Math.floor(Math.random() * colors.length)];
 
 export default function WorkDocsEditor({ documentId, projectId, templateType = 'empty' }: EditorProps) {
+  const { isRtl } = useLocalization();
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null);
   
   // Memoize ydoc so it survives React StrictMode remounts
@@ -50,7 +52,7 @@ export default function WorkDocsEditor({ documentId, projectId, templateType = '
       <div className="flex items-center justify-center h-full w-full bg-[#f8fafc]">
         <div className="flex items-center gap-3 text-slate-500">
           <Loader2 className="animate-spin w-5 h-5" />
-          <span>Connecting to WorkDocs sync server...</span>
+          <span>{isRtl ? "جاري الاتصال بخادم المزامنة..." : "Connecting to WorkDocs sync server..."}</span>
         </div>
       </div>
     );
@@ -60,6 +62,7 @@ export default function WorkDocsEditor({ documentId, projectId, templateType = '
 }
 
 function WorkDocsEditorCore({ projectId, provider, ydoc, templateType }: { projectId: string, provider: HocuspocusProvider, ydoc: Y.Doc, templateType: string }) {
+  const { isRtl } = useLocalization();
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -93,41 +96,41 @@ function WorkDocsEditorCore({ projectId, provider, ydoc, templateType }: { proje
         let content = '';
         if (templateType === 'prd') {
           content = `
-            <h2>وثيقة متطلبات المنتج (PRD) 🚀</h2>
-            <h3>الهدف (Goal)</h3>
-            <p>وصف مختصر لهدف المنتج وما المشكلة التي يحلها...</p>
-            <h3>قصص المستخدم (User Stories)</h3>
+            <h2>${isRtl ? "وثيقة متطلبات المنتج" : "Product Requirements Document"} (PRD) 🚀</h2>
+            <h3>${isRtl ? "الهدف" : "Goal"}</h3>
+            <p>${isRtl ? "وصف مختصر لهدف المنتج وما المشكلة التي يحلها..." : "A brief description of the product goal and the problem it solves..."}</p>
+            <h3>${isRtl ? "قصص المستخدم" : "User Stories"}</h3>
             <ul>
-              <li>كمستخدم، أريد أن...</li>
+              <li>${isRtl ? "كمستخدم، أريد أن..." : "As a user, I want to..."}</li>
             </ul>
-            <h3>المهام المقترحة</h3>
-            <p>أضف مهامك هنا (اكتب /task أو استخدم الزر):</p>
+            <h3>${isRtl ? "المهام المقترحة" : "Proposed Tasks"}</h3>
+            <p>${isRtl ? "أضف مهامك هنا (اكتب /task أو استخدم الزر):" : "Add your tasks here (type /task or use the button):"}</p>
             <p></p>
           `;
         } else if (templateType === 'meeting') {
           content = `
-            <h2>ملاحظات الاجتماع 🤝</h2>
-            <h3>التاريخ والحضور</h3>
+            <h2>${isRtl ? "ملاحظات الاجتماع" : "Meeting Notes"} 🤝</h2>
+            <h3>${isRtl ? "التاريخ والحضور" : "Date and Attendees"}</h3>
             <ul>
-              <li>التاريخ: </li>
-              <li>الحضور: </li>
+              <li>${isRtl ? "التاريخ:" : "Date:"} </li>
+              <li>${isRtl ? "الحضور:" : "Attendees:"} </li>
             </ul>
-            <h3>الأجندة</h3>
+            <h3>${isRtl ? "الأجندة" : "Agenda"}</h3>
             <ol>
-              <li>نقطة 1</li>
+              <li>${isRtl ? "نقطة 1" : "Item 1"}</li>
             </ol>
-            <h3>نقاط العمل (Action Items)</h3>
-            <p>المهام الناتجة عن الاجتماع:</p>
+            <h3>${isRtl ? "نقاط العمل" : "Action Items"}</h3>
+            <p>${isRtl ? "المهام الناتجة عن الاجتماع:" : "Tasks resulting from the meeting:"}</p>
             <p></p>
           `;
         } else if (templateType === 'tech_spec') {
           content = `
-            <h2>وثيقة تقنية (Technical Spec) 💻</h2>
-            <h3>المقدمة</h3>
-            <p>وصف المعمارية والنظام...</p>
-            <h3>مخطط قواعد البيانات</h3>
+            <h2>${isRtl ? "وثيقة تقنية" : "Technical Spec"} 💻</h2>
+            <h3>${isRtl ? "المقدمة" : "Introduction"}</h3>
+            <p>${isRtl ? "وصف المعمارية والنظام..." : "Description of the architecture and system..."}</p>
+            <h3>${isRtl ? "مخطط قواعد البيانات" : "Database Schema"}</h3>
             <p>...</p>
-            <h3>مسارات API</h3>
+            <h3>${isRtl ? "مسارات API" : "API Routes"}</h3>
             <p>...</p>
           `;
         }
@@ -142,7 +145,7 @@ function WorkDocsEditorCore({ projectId, provider, ydoc, templateType }: { proje
     return () => {
       provider.off('synced', handleSync);
     };
-  }, [editor, provider, templateType]);
+  }, [editor, provider, templateType, isRtl]);
 
   if (!editor) {
     return null;
@@ -159,10 +162,10 @@ function WorkDocsEditorCore({ projectId, provider, ydoc, templateType }: { proje
               <button
                 onClick={() => editor.chain().focus().insertContent({ type: 'taskNode' }).run()}
                 className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
-                title="إدراج مهمة تفاعلية"
+                title={isRtl ? "إدراج مهمة تفاعلية" : "Insert Interactive Task"}
               >
                 <PlusSquare className="w-4 h-4 text-brand" />
-                إضافة مهمة تفاعلية
+                {isRtl ? "إضافة مهمة تفاعلية" : "Add Interactive Task"}
               </button>
             </div>
           )}

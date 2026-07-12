@@ -1,9 +1,9 @@
 /* eslint-disable @next/next/no-img-element */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { MessageSquare, Search, Sparkles, CheckSquare, Smile, Edit, Trash2, Check, X } from "lucide-react";
+import { MessageSquare, Search, Sparkles, CheckSquare, Smile, Edit, Trash2, Check, X, ThumbsUp, ThumbsDown, Orbit } from "lucide-react";
 import { EntityCard, AIProposalCard } from "@/components/messages/Cards";
 // Message type is removed if unused
 import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
@@ -33,6 +33,66 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
   const hasAttachment = !!msg.AttachmentURL;
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(msg.text || "");
+  const [feedbackRating, setFeedbackRating] = useState<'up' | 'down' | null>(null);
+
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("septimus_avatar") || null;
+    }
+    return null;
+  });
+  const [currentUserName, setCurrentUserName] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("septimus_display_name") || "Admin";
+    }
+    return "Admin";
+  });
+
+  useEffect(() => {
+    const loadSync = () => {
+      if (typeof window === "undefined") return;
+      const savedAvatar = localStorage.getItem("septimus_avatar");
+      const savedName = localStorage.getItem("septimus_display_name") || "Admin";
+      setCurrentUserAvatar(savedAvatar || null);
+      setCurrentUserName(savedName);
+    };
+    loadSync();
+    window.addEventListener("septimus_avatar_updated", loadSync);
+    window.addEventListener("septimus_display_name_updated", loadSync);
+    return () => {
+      window.removeEventListener("septimus_avatar_updated", loadSync);
+      window.removeEventListener("septimus_display_name_updated", loadSync);
+    };
+  }, []);
+
+  const isCurrentUser = 
+    msg.sender === "me" || 
+    msg.isMe === true ||
+    msg.author === "Admin" || 
+    msg.author === "admin@septimus.local" || 
+    msg.author === currentUserName || 
+    msg.author === formatAuthorName(currentUserName) ||
+    (msg.User && (msg.User.Email === "admin@septimus.local" || msg.User.Email === currentUserName || msg.User.Name === currentUserName));
+
+  const effectiveAvatar = isCurrentUser 
+    ? (currentUserAvatar || msg.avatar || msg.AvatarUrl || (msg.User ? msg.User.AvatarUrl : undefined))
+    : (msg.avatar || msg.AvatarUrl || (msg.User ? msg.User.AvatarUrl : undefined));
+
+  const handleFeedback = async (rating: 'up' | 'down') => {
+    const targetID = msg.id || msg.ID;
+    if (!targetID) return;
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/messages/${targetID}/feedback`, {
+        method: "POST",
+        body: JSON.stringify({ rating }),
+      });
+      if (res.ok) {
+        setFeedbackRating(rating);
+      }
+    } catch (err) {
+      console.error("Failed to submit feedback", err);
+    }
+  };
 
   const handleConvertToTask = async () => {
     try {
@@ -55,35 +115,66 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
     }
   };
 
+  const handleAddToMyOrbit = async () => {
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/orbit/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: (msg.text || "Captured message").substring(0, 120),
+          description: msg.text || "",
+          source_type: "CHAT",
+          source_id: String(msg.id || msg.ID || ""),
+          source_link: typeof window !== "undefined" ? window.location.pathname : "",
+          focus_priority: 0,
+          energy_tag: "HIGH_ENERGY",
+          xp_reward: 15,
+        }),
+      });
+      if (res.ok) {
+        alert(isRtl ? "✅ تمت إضافة الرسالة إلى مداري الشخصي (My Orbit) بنجاح!" : "✅ Added to My Orbit stream successfully!");
+      } else {
+        alert(isRtl ? "❌ تعذر إضافة الرسالة إلى مداري." : "❌ Failed to add to My Orbit.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert(isRtl ? "❌ خطأ في الاتصال بالخادم." : "❌ Server connection error.");
+    }
+  };
+
   if (msg.type === "human") {
     return (
-      <div className="group relative flex items-start gap-3.5 py-2.5 px-4 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 rounded-xl transition-all duration-150">
+      <div className="group relative flex items-start gap-3 py-2 px-4 hover:bg-[#F8F8F8] transition-colors rounded-lg">
         <div className="relative shrink-0 mt-0.5">
-          <Avatar className="h-9 w-9 border border-slate-200/80 dark:border-slate-700 shadow-sm">
-            <AvatarFallback className="bg-gradient-to-br from-brand/20 to-brand/5 text-brand font-bold text-sm">
-              {msg.author ? msg.author.charAt(0).toUpperCase() : "U"}
-            </AvatarFallback>
+          <Avatar className="h-9.5 w-9.5 rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+            {effectiveAvatar && !effectiveAvatar.includes('pravatar') ? (
+              <img src={effectiveAvatar} alt="avatar" className="w-full h-full rounded-lg object-cover" />
+            ) : (
+              <AvatarFallback className="bg-gradient-to-br from-[#2563EB] to-[#60A5FA] text-white font-bold text-sm rounded-lg shadow-inner">
+                {(isCurrentUser ? (currentUserName || "Admin") : (msg.author || "A")).charAt(0).toUpperCase()}
+              </AvatarFallback>
+            )}
           </Avatar>
-          <span className="absolute bottom-0 end-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full shadow-sm" title={isRtl ? "متصل الآن" : "Online now"} />
+          <span className="absolute bottom-[-2px] end-[-2px] w-3 h-3 bg-emerald-500 border-2 border-white rounded-full shadow-sm" title={isRtl ? "متصل الآن" : "Online now"} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
-            <span className="font-bold text-[14px] text-slate-900 dark:text-slate-100 hover:underline cursor-pointer">{formatAuthorName(msg.author)}</span>
-            <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">{msg.time}</span>
+            <span className="font-bold text-[15px] text-[#1D1C1D] hover:underline cursor-pointer">{formatAuthorName(msg.author)}</span>
+            <span className="text-[12px] font-normal text-slate-400">{msg.time}</span>
           </div>
           {msg.text && !isEditing && (
-            <div className="text-[14.5px] text-slate-700 dark:text-slate-200 mt-1 leading-relaxed whitespace-pre-wrap markdown-body">
+            <div className="text-[15px] text-[#1D1C1D] mt-0.5 leading-relaxed whitespace-pre-wrap markdown-body">
               <ReactMarkdown 
                 remarkPlugins={[remarkGfm]}
                 components={{
                   a: ({ ...props }) => {
                     if (props.href?.startsWith('hashtag:')) {
-                      return <span className="text-brand bg-brand-light/80 dark:bg-brand/20 px-1.5 py-0.5 rounded-md cursor-pointer hover:bg-brand-light font-medium inline-block transition-colors">{props.children}</span>;
+                      return <span className="bg-[#E8F5FA] text-[#1264A3] font-semibold px-1.5 py-0.5 rounded cursor-pointer hover:bg-[#D0ECF7] transition-colors inline-block">{props.children}</span>;
                     }
                     if (props.href?.startsWith('mention:')) {
-                      return <span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded-md cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/60 font-medium inline-block transition-colors">{props.children}</span>;
+                      return <span className="bg-[#E8F5FA] text-[#1264A3] font-semibold px-1.5 py-0.5 rounded cursor-pointer hover:bg-[#D0ECF7] transition-colors inline-block">{props.children}</span>;
                     }
-                    return <a {...props} className="text-brand hover:underline font-medium" />;
+                    return <a {...props} className="text-[#1264A3] hover:underline font-medium" />;
                   }
                 }}
               >
@@ -156,6 +247,7 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
             </button>
           )}
           <button className="p-1 text-slate-500 hover:text-brand hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "إشارة" : "Mention"} title={isRtl ? "إشارة" : "Mention"}><Search className="w-3.5 h-3.5" /></button>
+          <button className="p-1 text-slate-500 hover:text-cyan-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "إضافة إلى مداري" : "Add to My Orbit"} title={isRtl ? "إضافة إلى مداري" : "Add to My Orbit"} onClick={handleAddToMyOrbit}><Orbit className="w-3.5 h-3.5 text-cyan-500 animate-spin-slow" /></button>
           <button className="p-1 text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "تحويل إلى مهمة Kanban" : "Convert to Task"} title={isRtl ? "تحويل إلى مهمة Kanban" : "Convert to Task"} onClick={handleConvertToTask}><CheckSquare className="w-3.5 h-3.5" /></button>
         </div>
       </div>
@@ -186,22 +278,22 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
 
   if (msg.type === "ai") {
     return (
-      <div className="group relative flex items-start gap-3.5 py-3 px-4 bg-brand/5 dark:bg-brand/10 hover:bg-brand/10 dark:hover:bg-brand/15 rounded-xl transition-all duration-150 border border-brand/15">
+      <div className="group relative flex items-start gap-3 py-3 px-4 bg-purple-50/50 hover:bg-purple-50 transition-colors rounded-lg border border-purple-100">
         <div className="relative shrink-0 mt-0.5">
-          <Avatar className="h-9 w-9 border border-brand/30 shadow-sm">
-            <AvatarFallback className="bg-gradient-to-br from-brand to-brand-dark text-white font-bold text-xs">
+          <Avatar className="h-9.5 w-9.5 rounded-lg border border-purple-200 shadow-sm">
+            <AvatarFallback className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 text-white font-bold text-xs rounded-lg">
               AI
             </AvatarFallback>
           </Avatar>
-          <span className="absolute bottom-0 end-0 w-2.5 h-2.5 bg-amber-400 border-2 border-white dark:border-slate-900 rounded-full shadow-sm animate-pulse" title={isRtl ? "متصل الآن" : "Online now"} />
+          <span className="absolute bottom-[-2px] end-[-2px] w-3 h-3 bg-amber-400 border-2 border-white rounded-full shadow-sm animate-pulse" title={isRtl ? "متصل الآن" : "Online now"} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
-            <span className="font-bold text-[14px] text-brand dark:text-brand-light">{msg.author || "AI Orchestrator"}</span>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand-light border border-brand/20">
+            <span className="font-bold text-[15px] text-[#1D1C1D]">{msg.author || "AI Orchestrator"}</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
               <Sparkles className="w-3 h-3" aria-hidden /> AI ORCHESTRATOR
             </span>
-            <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">{msg.time}</span>
+            <span className="text-[12px] font-normal text-slate-400">{msg.time}</span>
           </div>
           <div className="text-[14.5px] text-slate-800 dark:text-slate-100 mt-1.5 leading-relaxed whitespace-pre-wrap markdown-body">
             {msg.text || (
@@ -220,8 +312,35 @@ export default function MessageRow({ msg, onReplyClick, onEdit, onDelete }: { ms
               />
             </div>
           )}
+          <div className="mt-2.5 flex items-center gap-2 border-t border-brand/10 pt-2 text-xs text-slate-500 dark:text-slate-400">
+            <span>{isRtl ? "هل كان هذا الرد مفيداً؟" : "Was this response helpful?"}</span>
+            <button
+              onClick={() => handleFeedback('up')}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
+                feedbackRating === 'up'
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20'
+                  : 'hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+              }`}
+              title={isRtl ? "رد مفيد" : "Helpful response"}
+            >
+              <ThumbsUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => handleFeedback('down')}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-colors ${
+                feedbackRating === 'down'
+                  ? 'bg-red-500/10 text-red-600 dark:text-red-400 font-bold border border-red-500/20'
+                  : 'hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+              }`}
+              title={isRtl ? "رد غير مفيد" : "Not helpful"}
+            >
+              <ThumbsDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
         <div className="absolute top-[-14px] end-4 lg:end-6 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/80 shadow-md rounded-full px-2 py-0.5 opacity-0 group-hover:opacity-100 transition-all duration-150 scale-95 group-hover:scale-100 flex items-center gap-1 z-10" aria-label="Message actions">
+          <button onClick={() => handleFeedback('up')} className={`p-1 rounded-full transition-colors ${feedbackRating === 'up' ? 'text-emerald-600 font-bold' : 'text-slate-500 hover:text-emerald-600 hover:bg-slate-100 dark:hover:bg-slate-700'}`} aria-label={isRtl ? "مفيد" : "Helpful"} title={isRtl ? "مفيد" : "Helpful"}><ThumbsUp className="w-3.5 h-3.5" /></button>
+          <button onClick={() => handleFeedback('down')} className={`p-1 rounded-full transition-colors ${feedbackRating === 'down' ? 'text-red-600 font-bold' : 'text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-700'}`} aria-label={isRtl ? "غير مفيد" : "Not helpful"} title={isRtl ? "غير مفيد" : "Not helpful"}><ThumbsDown className="w-3.5 h-3.5" /></button>
           <button className="p-1 text-slate-500 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "تفاعل" : "React with emoji"} title={isRtl ? "تفاعل" : "React"}><Smile className="w-3.5 h-3.5" /></button>
           <button className="p-1 text-slate-500 hover:text-brand hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors" aria-label={isRtl ? "رد في خيط" : "Reply in thread"} title={isRtl ? "رد في خيط" : "Reply in thread"} onClick={onReplyClick}><MessageSquare className="w-3.5 h-3.5" /></button>
           {onDelete && (

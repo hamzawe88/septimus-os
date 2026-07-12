@@ -232,7 +232,7 @@ export default function BacklogView() {
       }
     } catch (err) {
       console.error(err);
-      alert(isRtl ? "تعذّر الوصول لخدمة التخطيط. تأكد من تشغيل منسّق ai-agents على المنفذ 8000." : "AI Planning endpoint unreachable. Make sure ai-agents orchestrator is running on port 8000.");
+      alert(isRtl ? "تعذّر الوصول لخدمة التخطيط. تأكد من تشغيل خدمة ai-sidecar وأن backend-core يعمل." : "AI Planning endpoint unreachable. Make sure the ai-sidecar service is running and reachable via backend-core.");
     } finally {
       setIsLoading(false);
     }

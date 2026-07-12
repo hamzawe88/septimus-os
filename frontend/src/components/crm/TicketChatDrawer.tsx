@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, Send, MessageSquare, Clock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiPut } from "@/lib/apiClient";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface TicketChatDrawerProps {
   isOpen: boolean;
@@ -22,29 +23,30 @@ interface ChatMessage {
 }
 
 export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: TicketChatDrawerProps) {
+  const { isRtl } = useLocalization();
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (!ticket) return [];
     const existingMessages = ticket.data?.messages;
     if (Array.isArray(existingMessages) && existingMessages.length > 0) {
       return existingMessages;
     }
-    const initialSubject = ticket.name || ticket.data?.subject || "بدون موضوع";
-    const initialDesc = ticket.data?.description || "مرحباً، أواجه مشكلة في هذا القسم وأحتاج إلى مساعدة الدعم الفني في أقرب وقت ممكن.";
+    const initialSubject = ticket.name || ticket.data?.subject || (isRtl ? "بدون موضوع" : "No Subject");
+    const initialDesc = ticket.data?.description || (isRtl ? "مرحباً، أواجه مشكلة في هذا القسم وأحتاج إلى مساعدة الدعم الفني في أقرب وقت ممكن." : "Hello, I'm facing an issue here and need technical support as soon as possible.");
     
     return [
       {
         id: "msg-1",
-        sender: ticket.data?.customer || "العميل",
+        sender: ticket.data?.customer || (isRtl ? "العميل" : "Customer"),
         senderType: "customer",
-        text: `مرحباً، بخصوص التذكرة "${initialSubject}": ${initialDesc}`,
-        timestamp: "10:30 ص",
+        text: isRtl ? `مرحباً، بخصوص التذكرة "${initialSubject}": ${initialDesc}` : `Hello, regarding ticket "${initialSubject}": ${initialDesc}`,
+        timestamp: "10:30",
       },
       {
         id: "msg-2",
-        sender: "نظام الدعم الفني",
+        sender: isRtl ? "نظام الدعم الفني" : "System Support",
         senderType: "system",
-        text: "تم استلام التذكرة وتحويلها إلى فريق الدعم المختص للمتابعة.",
-        timestamp: "10:35 ص",
+        text: isRtl ? "تم استلام التذكرة وتحويلها إلى فريق الدعم المختص للمتابعة." : "Ticket received and forwarded to the appropriate support team.",
+        timestamp: "10:35",
       }
     ];
   });
@@ -70,7 +72,7 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
 
     const newMsg: ChatMessage = {
       id: "msg-" + (messages.length + 1),
-      sender: "الدعم الفني / أنت",
+      sender: isRtl ? "الدعم الفني / أنت" : "Support / You",
       senderType: "support",
       text: content.trim(),
       timestamp: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
@@ -82,14 +84,14 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
     setIsSending(true);
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "797ec9d1-e70e-4ca7-a9aa-2d4fed3d879e";
+      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const updatedData = {
         ...(ticket.data || {}),
         messages: updatedMessages,
       };
 
       await apiPut(`/entities/${ticket.id}?workspace_id=${workspaceId}`, {
-        name: ticket.name || ticket.data?.subject || "بدون موضوع",
+        name: ticket.name || ticket.data?.subject || (isRtl ? "بدون موضوع" : "No Subject"),
         data: updatedData,
       });
 
@@ -101,10 +103,14 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
     }
   };
 
-  const quickReplies = [
+  const quickReplies = isRtl ? [
     "مرحباً بك، جاري العمل على حل المشكلة الآن وفحص السجلات.",
     "تم حل المشكلة بنجاح، يرجى التحقق وإعلامنا في حال استمرارها.",
     "نحتاج إلى مزيد من التفاصيل أو لقطة شاشة للمشكلة لمساعدتك بشكل أفضل.",
+  ] : [
+    "Hello, we are currently working on resolving the issue and checking logs.",
+    "The issue has been successfully resolved. Please check and let us know if it persists.",
+    "We need more details or a screenshot of the problem to assist you better.",
   ];
 
   return (
@@ -119,21 +125,21 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
             </div>
             <div>
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                محادثة التذكرة #{ticket.id.substring(0, 8)}
+                {isRtl ? "محادثة التذكرة #" : "Ticket Chat #"}{ticket.id.substring(0, 8)}
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                   ticket.data?.status === 'open' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
                 }`}>
-                  {ticket.data?.status === 'open' ? 'مفتوحة' : 'محلولة'}
+                  {ticket.data?.status === 'open' ? (isRtl ? 'مفتوحة' : 'Open') : (isRtl ? 'محلولة' : 'Resolved')}
                 </span>
               </h3>
-              <p className="text-xs text-slate-500">العميل: {ticket.data?.customer || 'غير محدد'}</p>
+              <p className="text-xs text-slate-500">{isRtl ? "العميل:" : "Customer:"} {ticket.data?.customer || (isRtl ? 'غير محدد' : 'Unspecified')}</p>
             </div>
           </div>
           <button 
             onClick={onClose}
             className="p-2 text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 rounded-full transition-colors"
-            title="إغلاق المحادثة" 
-            aria-label="إغلاق المحادثة">
+            title={isRtl ? "إغلاق المحادثة" : "Close Chat"} 
+            aria-label={isRtl ? "إغلاق المحادثة" : "Close Chat"}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -182,7 +188,7 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
         {/* Quick Replies */}
         <div className="p-3 bg-white border-t border-slate-100 flex flex-wrap gap-1.5">
           <span className="text-xs text-slate-400 font-medium flex items-center gap-1 w-full mb-1">
-            <Sparkles className="w-3 h-3 text-amber-500" /> ردود سريعة جاهزة:
+            <Sparkles className="w-3 h-3 text-amber-500" /> {isRtl ? "ردود سريعة جاهزة:" : "Quick replies:"}
           </span>
           {quickReplies.map((reply, idx) => (
             <button
@@ -204,7 +210,7 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
           >
             <input 
               type="text"
-              placeholder="اكتب ردك للعميل هنا..."
+              placeholder={isRtl ? "اكتب ردك للعميل هنا..." : "Type your reply to the customer here..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all"
@@ -213,8 +219,8 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
               type="submit" 
               disabled={!input.trim() || isSending}
               className="bg-brand hover:bg-brand/90 text-white p-2.5 rounded-xl flex items-center justify-center transition-all disabled:opacity-50"
-              title="إرسال"
-              aria-label="إرسال"
+              title={isRtl ? "إرسال" : "Send"}
+              aria-label={isRtl ? "إرسال" : "Send"}
             >
               <Send className="w-5 h-5 rotate-180" />
             </Button>

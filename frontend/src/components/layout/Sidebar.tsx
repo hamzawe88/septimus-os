@@ -30,7 +30,8 @@ import {
   Settings,
   CreditCard,
   Puzzle,
-  Trash2
+  Trash2,
+  Orbit
 } from 'lucide-react';
 import type { Channel } from "@/types";
 
@@ -307,15 +308,13 @@ export default function Sidebar() {
         <div className="relative mb-2" ref={statusMenuRef}>
           <div className="sidebar-user cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}>
             <div className="relative">
-              <Avatar className="sidebar-user-avatar">
+              <Avatar className="sidebar-user-avatar rounded-lg border border-slate-200 shadow-sm">
                 {avatarUrl ? (
-                  <AvatarImage src={avatarUrl} alt="Hamza Admin" />
-                ) : (
-                  <AvatarImage src="https://i.pravatar.cc/40?u=admin" alt="Hamza Admin" />
-                )}
-                <AvatarFallback className="sidebar-user-fallback">AD</AvatarFallback>
+                  <AvatarImage src={avatarUrl} alt="Hamza Admin" className="rounded-lg object-cover" />
+                ) : null}
+                <AvatarFallback className="bg-gradient-to-br from-[#2563EB] to-[#60A5FA] text-white font-bold text-sm rounded-lg shadow-inner">A</AvatarFallback>
               </Avatar>
-              <span className={`sidebar-user-status ${userStatus === 'offline' ? '!bg-gray-400' : userStatus === 'away' ? '!bg-yellow-400' : userStatus === 'busy' ? '!bg-red-500' : '!bg-green-500'}`} aria-label={userStatus} />
+              <span className={`sidebar-user-status ${userStatus === 'offline' ? '!bg-gray-400' : userStatus === 'away' ? '!bg-yellow-400' : userStatus === 'busy' ? '!bg-red-500' : '!bg-green-500'} !border-2 !border-white`} aria-label={userStatus} />
             </div>
             <div className="sidebar-user-info">
               <p className="sidebar-user-name">Hamza Admin</p>
@@ -381,6 +380,10 @@ export default function Sidebar() {
           <button className={`sidebar-item ${currentView === 'dashboard' ? "active" : ""}`} onClick={() => setCurrentView('dashboard')}>
             <LayoutDashboard className="sidebar-item-icon" aria-hidden />
             <span className="sidebar-item-name">{t("sidebar.dashboard")}</span>
+          </button>
+          <button className={`sidebar-item ${currentView === 'orbit' ? "active" : ""}`} onClick={() => setCurrentView('orbit')}>
+            <Orbit className="sidebar-item-icon" aria-hidden />
+            <span className="sidebar-item-name">{t("my_orbit.title", "My Orbit")}</span>
           </button>
         </SidebarSection>
         
