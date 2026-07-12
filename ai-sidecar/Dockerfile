@@ -1,9 +1,12 @@
 FROM python:3.10-slim
 
+# Flush prints immediately so `docker logs` shows AI activity in real time
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 COPY requirements.txt ./
-RUN pip install --default-timeout=1000 --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install --retries 10 --timeout 120 -r requirements.txt
 
 COPY . .
 

@@ -41,6 +41,8 @@ langchain-community
 langchain-core==0.3.86
 langchain-google-genai==2.1.12
 langchain-openai==0.3.35
+langchain-anthropic
+langchain-ollama
 langchain-postgres==0.0.17
 langchain-text-splitters==0.3.11
 langsmith==0.4.37
@@ -102,3 +104,5 @@ fastapi
 uvicorn
 pydantic
 langgraph-checkpoint-postgres
+websockets>=13.0
+pytest>=8.0.0
