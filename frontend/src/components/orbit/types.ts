@@ -6,7 +6,7 @@ export interface OrbitTask {
   source_type: 'CHAT' | 'WORKFLOW' | 'CRM' | 'HR' | 'PRIVATE';
   source_id?: string;
   source_link?: string;
-  source_meta?: Record<string, any>;
+  source_meta?: Record<string, unknown>;
   status: 'TODO' | 'IN_PROGRESS' | 'DONE' | 'ARCHIVED';
   focus_priority: number; // 1, 2, or 3 if Top 3, 0 otherwise
   energy_tag: 'HIGH_ENERGY' | 'DEEP_FOCUS' | 'LIGHT';

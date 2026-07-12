@@ -150,17 +150,6 @@ export default function AttendanceView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, today]);
 
-  // Auto-locate and fetch data on mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchRecordsAndEmployees();
-      // Auto locate on first load
-      locateUser(true);
-    }, 100);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchRecordsAndEmployees]);
-
   const saveOfficeSettings = (lat: number, lng: number, radius: number) => {
     setOfficeLat(lat);
     setOfficeLng(lng);
@@ -212,6 +201,17 @@ export default function AttendanceView() {
       { timeout: 10000, enableHighAccuracy: true }
     );
   };
+
+  // Auto-locate and fetch data on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchRecordsAndEmployees();
+      // Auto locate on first load
+      locateUser(true);
+    }, 100);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchRecordsAndEmployees]);
 
   const simulateLocation = (lat: number, lng: number) => {
     const dist = haversineDistance(lat, lng, officeLat, officeLng);
