@@ -17,7 +17,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: backend-core/go.mod
           cache-dependency-path: backend-core/go.sum
 
       - name: Run Go build and vet
@@ -29,7 +29,7 @@ jobs:
 
       - name: Run Go tests
         working-directory: ./backend-core
-        run: go test -v ./handlers/...
+        run: go test -v ./...
 
   test-ai-sidecar:
     name: Test Python AI Sidecar
