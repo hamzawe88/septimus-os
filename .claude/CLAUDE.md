@@ -11,12 +11,8 @@
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-07-07. Confidence: 100%.
-### Architecture
-This monorepo builds an AI-augmented collaborative project management platform: it ingests user interactions through a TypeScript/React frontend, synchronizes collaborative document and board state in real time via a Yjs‑based WebSocket server, enforces business logic and persistence in a Go backend, and drives AI-powered recommendations and task automation through Python sidecar and agent services, producing interactive dashboards, sprint retrospectives, and natural‑language summaries. The frontend’s apiClient.ts serves as the primary bridge between UI and backend core, while localization and theming are managed through LocalizationContext.tsx. The system is composed of three independent runtime components and two supporting Python services:
-Data flow: User actions → Frontend → (REST) → Backend Core ↔ DB; (WebSocket) → Yjs Server ↔ Frontend. Backend Core ⇄ AI Sidecar/Agents via internal HTTP or gRPC.
+Last indexed: 2026-07-13 (commit bf84327). Confidence: 100%.
 ### Entry Points
-- `ai-agents/main.py`
 - `ai-sidecar/main.py`
 - `backend-core/main.go`
 - `yjs-server/server.js`
@@ -27,41 +23,49 @@ Data flow: User actions → Frontend → (REST) → Backend Core ↔ DB; (WebSoc
 **Infra:** Docker Compose### Architectural Layers
 | Layer | Files | Purpose |
 |-------|-------|---------|
-| Backend API Handlers | 34 | Implements the server-side HTTP and WebSocket endpoints for documents… |
-| Frontend UI Components | 98 | Provides reusable and feature-specific React components for the user interface… |
-| HTTP Middleware | 3 | Performs request authentication, authorization, and API key validation for the… |
-| Settings Management Interface | 6 | Presents frontend settings pages for customizing AI, localization, appearance… |
-| Core Business Logic & Infrastructure | 93 | Contains shared business logic including localization, AI agent orchestration… |
-| Shared Utilities | 13 | Shared UI components and backend utility functions used across the application. |
-| Frontend Type Definitions | 4 | TypeScript type definitions for frontend data models and interfaces. |
-| Service Layer | 12 | Backend service implementations and frontend API communication layer. |
-| Data Models & Store | 13 | Database models and frontend state management store for application data. |
-| Plugin View Components | 26 | User interface components for application plugin modules like Finance, CRM, and… |
+| API Handlers | 40 | Handles incoming API requests and manages business logic. |
+| User Interface Components | 113 | Contains React components for building the user interface. |
+| Configuration Settings | 9 | Manages application settings and configurations. |
+| Middleware Functions | 4 | Provides cross-cutting concerns such as authentication and authorization. |
+| Utility Functions | 14 | Contains reusable utility functions for various purposes. |
+| Type Definitions | 4 | Files defining data types and interfaces used across the application. |
+| Application Logic | 53 | Files containing core business logic, configurations, and localization settings. |
+| Services | 17 | Files implementing various services such as API clients, utilities, and AI… |
+| Data Models | 18 | Files defining data models and database schemas for the application. |
+| Documentation & Tooling | 36 | Files related to user interface components, plugins, and other tooling used in… |
 
 ### Guided Tour (12 steps)
-1. `README.md` — Start here for the end-to-end picture before diving into the code.
-2. `ai-agents/main.py` — An entry point — execution and imports fan out from here.
-3. `ai-sidecar/main.py` — An entry point — execution and imports fan out from here.
-4. `frontend/src/components/plugins/FinanceInvoicesView.tsx` — The Docs & Tooling layer's anchor — its most depended-on file.
-5. `frontend/src/lib/apiClient.ts` — The Service layer's anchor — its most depended-on file.
-6. `backend-core/models/models.go` — Directly used by the entry points above; a core collaborator.
+1. `README.md`
+2. `main.py`
+3. `generate_docs.py`
+4. `apiClient.ts`
+5. `chat.ts`
+6. `MessageInput.tsx`
 ... and 6 more steps
+### Hotspots (High Churn)
+| File | Churn | 90d Commits | Owner |
+|------|-------|-------------|-------|
+| `frontend/src/components/hr/AttendanceView.tsx` | 99.6th %ile | 4 | HaMzWe |
+| `ai-sidecar/main.py` | 99.3th %ile | 3 | HaMzWe |
+| `frontend/src/components/plugins/hub/DiscoverTab.tsx` | 97.8th %ile | 4 | HaMzWe |
+| `backend-core/handlers/websocket.go` | 97.5th %ile | 3 | HaMzWe |
+| `backend-core/handlers/integrations.go` | 96.8th %ile | 5 | HaMzWe |
 
 ## Code health
 Three signals: **defect risk** (the overall score), **maintainability** (smells that hurt readability/change-cost without predicting bugs), and **performance** (static performance RISK: I/O-in-loop / N+1 shapes that waste work, high-precision/low-recall). Maintainability and performance are co-equal views, never blended into the defect headline. See `docs/CODE_HEALTH.md`.
 
-Defect risk, Hotspot health: 9.05/10 (stable) ·
-Average: 9.05/10 ·
-Worst: 5.5/10 (`backend-core/handlers/websocket.go`)
-Maintainability, Average: 9.17/10
-Performance risk, Average: 9.95/10
+Defect risk, Hotspot health: 7.38/10 (stable) ·
+Average: 8.59/10 ·
+Worst: 2.28/10 (`backend-core/handlers/integrations.go`)
+Maintainability, Average: 8.97/10
+Performance risk, Average: 9.96/10
 
 ### Critical biomarkers
-- `frontend/src/components/shared/MessageInput.tsx` — brain method (MessageInput) — impact −0.6
-- `frontend/src/contexts/LocalizationContext.tsx` — brain method (LocalizationProvider) — impact −0.6
-- `frontend/src/store/useAppStore.ts` — brain method (create callback) — impact −0.6
-- `backend-core/handlers/websocket.go` — brain method (WebsocketHandler) — impact −0.3
-- `backend-core/handlers/websocket.go` — brain method (Run) — impact −0.3
+- `frontend/src/components/plugins/hub/DiscoverTab.tsx` — change entropy — impact −3.0
+- `backend-core/main.go` — change entropy — impact −2.5
+- `backend-core/handlers/integrations.go` — change entropy — impact −2.5
+- `frontend/src/components/crm/Customer360Modal.tsx` — change entropy — impact −1.8
+- `backend-core/main.go` — large method (main) — impact −1.0
 
 ### Repowise MCP Tools
 
@@ -102,5 +106,11 @@ This repo has the Repowise MCP server configured. The tools below answer questio
 - Output may contain a marker like `[repowise#a1b2c3d4e5f6: 230 lines omitted (~6.1k tokens); restore: repowise expand a1b2c3d4e5f6]`. The omitted content is fully preserved — run `repowise expand <ref>` to retrieve it, or `repowise expand <ref> -q <regex>` for just the matching lines.
 - Never re-run a command to see omitted output; expand the marker instead.
 - For structure-level questions about a large indexed file ("what's in here", "which function handles X"), `get_context(["path"], include=["skeleton"])` returns the file with bodies elided — every signature plus the bodies of the most central symbols — at a fraction of the cost of a full Read.
+
+### Codebase Conventions
+**Commands:**
+- Build: `make build`
+- Test: `make test`
+- Lint: `make lint`
 
 <!-- REPOWISE:END -->
