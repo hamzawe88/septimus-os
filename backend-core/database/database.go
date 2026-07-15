@@ -65,6 +65,9 @@ func ConnectDB() {
 		&models.AgentCollaborationLog{},
 		&models.PendingApproval{},
 		&models.DocumentEmbedding{}, // Added DocumentEmbedding for RAG
+		&models.CorrespondenceTemplate{}, // Added CorrespondenceTemplate
+		&models.Correspondence{},         // Added Correspondence
+		&models.CorrespondenceForwardLog{}, // Added CorrespondenceForwardLog
 	)
 	if err != nil {
 		log.Fatalf("Failed to auto-migrate: %v", err)
@@ -92,6 +95,25 @@ func ConnectDB() {
 		FOR EACH ROW EXECUTE PROCEDURE messages_tsvector_trigger();
 	`)
 
+	// Setup Full Text Search & ltree indexes for Correspondences
+	db.Exec(`ALTER TABLE correspondences ADD COLUMN IF NOT EXISTS tsv tsvector;`)
+	db.Exec(`UPDATE correspondences SET tsv = to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(content, '') || ' ' || coalesce(serial_number, '')) WHERE tsv IS NULL;`)
+	db.Exec(`CREATE INDEX IF NOT EXISTS idx_correspondences_tsv ON correspondences USING GIN(tsv);`)
+	db.Exec(`CREATE INDEX IF NOT EXISTS idx_correspondences_path_gist ON correspondences USING GIST (path);`)
+	db.Exec(`
+		CREATE OR REPLACE FUNCTION correspondences_tsvector_trigger() RETURNS trigger AS $$
+		begin
+		  new.tsv := to_tsvector('simple', coalesce(new.title, '') || ' ' || coalesce(new.content, '') || ' ' || coalesce(new.serial_number, ''));
+		  return new;
+		end
+		$$ LANGUAGE plpgsql;
+	`)
+	db.Exec(`
+		DROP TRIGGER IF EXISTS tsvectorupdate_correspondences ON correspondences;
+		CREATE TRIGGER tsvectorupdate_correspondences BEFORE INSERT OR UPDATE ON correspondences
+		FOR EACH ROW EXECUTE PROCEDURE correspondences_tsvector_trigger();
+	`)
+
 	// Setup GIN index on entities.data for ultra-fast JSONB queries
 	db.Exec(`CREATE INDEX IF NOT EXISTS idx_entities_data_gin ON entities USING GIN (data);`)
 	// Setup expression index for high-velocity CRM stages
@@ -115,21 +137,31 @@ func SeedRBAC(db *gorm.DB) {
 		db.Create(&adminRole)
 		db.Create(&managerRole)
 		db.Create(&memberRole)
+	}
 
-		perms := []models.Permission{
-			{Name: "admin.manage", Module: "Admin"},
-			{Name: "tasks.manage", Module: "Agile"},
-			{Name: "attendance.manage", Module: "HR"},
-			{Name: "finance.manage", Module: "Finance"},
-		}
-		for _, p := range perms {
+	// Always ensure permissions exist (idempotent seed)
+	perms := []models.Permission{
+		{Name: "admin.manage", Module: "Admin"},
+		{Name: "tasks.manage", Module: "Agile"},
+		{Name: "attendance.manage", Module: "HR"},
+		{Name: "finance.manage", Module: "Finance"},
+		{Name: "correspondence.create", Module: "Correspondence"},
+		{Name: "correspondence.sign", Module: "Correspondence"},
+		{Name: "correspondence.forward", Module: "Correspondence"},
+		{Name: "correspondence.archive", Module: "Correspondence"},
+		{Name: "correspondence.view_all", Module: "Correspondence"},
+	}
+	for _, p := range perms {
+		var existing models.Permission
+		if err := db.Where("name = ?", p.Name).First(&existing).Error; err != nil {
 			db.Create(&p)
 		}
-		log.Println("Seeded default RBAC roles and permissions")
 	}
+	log.Println("Seeded/verified RBAC permissions including Correspondence module")
 }
 
 func ParseUUID(s string) uuid.UUID {
 	id, _ := uuid.Parse(s)
 	return id
 }
+

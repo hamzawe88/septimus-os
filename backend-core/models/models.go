@@ -271,3 +271,62 @@ type WorkflowRun struct {
 	Context     datatypes.JSON `gorm:"type:jsonb;default:'{}'"` // event data snapshot
 	CreatedAt   time.Time      `gorm:"autoCreateTime"`
 }
+
+// ─── Official Correspondence & Institutional Registry Domain ────────────────
+
+type CorrespondenceTemplate struct {
+	ID                uuid.UUID      `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	WorkspaceID       uuid.UUID      `gorm:"type:uuid;index;not null" json:"workspace_id"`
+	Workspace         *Workspace     `gorm:"foreignKey:WorkspaceID;constraint:OnDelete:CASCADE;" json:"-"`
+	TemplateName      string         `gorm:"type:varchar(255);not null" json:"template_name"`
+	LogoURL           string         `gorm:"type:text" json:"logo_url"`
+	CompanyHeaderData datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"company_header_data"` // Name, TaxID, CR, Addresses (AR/EN)
+	CompanyFooterData datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"company_footer_data"` // Phones, Email, Bank Info, Legal Disclaimer
+	StylingConfig     datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"styling_config"`      // PrimaryColor, Font, Margins
+	IsDefault         bool           `gorm:"default:false" json:"is_default"`
+	CreatedAt         time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt         time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+type Correspondence struct {
+	ID                uuid.UUID      `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	WorkspaceID       uuid.UUID      `gorm:"type:uuid;index;not null" json:"workspace_id"`
+	Workspace         *Workspace     `gorm:"foreignKey:WorkspaceID;constraint:OnDelete:CASCADE;" json:"-"`
+	TemplateID        *uuid.UUID     `gorm:"type:uuid;index" json:"template_id"`
+	Template          *CorrespondenceTemplate `gorm:"foreignKey:TemplateID;constraint:OnDelete:SET NULL;" json:"template,omitempty"`
+	SerialNumber      string         `gorm:"type:varchar(100);index" json:"serial_number"` // e.g. SO-HR-2026-0001
+	Title             string         `gorm:"type:varchar(500);not null" json:"title"`
+	Content           string         `gorm:"type:text;not null" json:"content"` // Rich HTML / Text
+	SenderType        string         `gorm:"type:varchar(50);default:'internal'" json:"sender_type"` // internal, external
+	SenderDetails     datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"sender_details"`
+	RecipientDetails  datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"recipient_details"`
+	SecurityLevel     string         `gorm:"type:varchar(50);default:'normal'" json:"security_level"` // normal, confidential, top_secret
+	Status            string         `gorm:"type:varchar(50);default:'draft';index" json:"status"` // draft, pending_approval, signed, dispatched, archived
+	Path              string         `gorm:"type:ltree;index:idx_correspondences_path,type:gist" json:"path"` // Forwarding hierarchy e.g. hr_mgr.ops_mgr
+	TSV               string         `gorm:"type:tsvector" json:"-"`
+	Attachments       datatypes.JSON `gorm:"type:jsonb;default:'[]'" json:"attachments"`
+	QRToken           string         `gorm:"type:varchar(255);index" json:"qr_token"`           // Token encrypted/hashed for QR code check
+	QRCodeURL         string         `gorm:"type:text" json:"qr_code_url"`                      // Verification link / QR code content
+	ExternalReference string         `gorm:"type:varchar(255)" json:"external_reference"`       // External signature or reference info
+	CreatedByID       uuid.UUID      `gorm:"type:uuid;index;not null" json:"created_by_id"`
+	CreatedBy         *User          `gorm:"foreignKey:CreatedByID" json:"created_by,omitempty"`
+	CurrentHolderID   uuid.UUID      `gorm:"type:uuid;index" json:"current_holder_id"`          // Current officer responsible
+	CurrentHolder     *User          `gorm:"foreignKey:CurrentHolderID" json:"current_holder,omitempty"`
+	SignedAt          *time.Time     `json:"signed_at"`
+	ArchivedAt        *time.Time     `json:"archived_at"`
+	CreatedAt         time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt         time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+type CorrespondenceForwardLog struct {
+	ID               uuid.UUID      `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	CorrespondenceID uuid.UUID      `gorm:"type:uuid;index;not null" json:"correspondence_id"`
+	Correspondence   *Correspondence `gorm:"foreignKey:CorrespondenceID;constraint:OnDelete:CASCADE;" json:"-"`
+	FromUserID       uuid.UUID      `gorm:"type:uuid;not null" json:"from_user_id"`
+	FromUser         *User          `gorm:"foreignKey:FromUserID" json:"from_user,omitempty"`
+	ToUserID         uuid.UUID      `gorm:"type:uuid;not null" json:"to_user_id"`
+	ToUser           *User          `gorm:"foreignKey:ToUserID" json:"to_user,omitempty"`
+	OfficialNote     string         `gorm:"type:text" json:"official_note"`
+	PathSegment      string         `gorm:"type:varchar(255)" json:"path_segment"`
+	ForwardedAt      time.Time      `gorm:"autoCreateTime" json:"forwarded_at"`
+}

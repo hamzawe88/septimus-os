@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -225,4 +226,183 @@ func DispatchWebhookEvent(workspaceID uuid.UUID, eventType string, payload inter
 			}
 		}(wh.TargetURL, wh.Secret)
 	}
+}
+
+// ExternalWebhookPayload represents incoming generalized events from n8n, WhatsApp, or external agents
+type ExternalWebhookPayload struct {
+	Event       string                 `json:"event"`
+	WorkspaceID string                 `json:"workspace_id"`
+	Source      string                 `json:"source"`
+	Data        map[string]interface{} `json:"data"`
+	Secret      string                 `json:"secret,omitempty"`
+}
+
+// HandleExternalWebhook processes general inbound webhooks from n8n, WhatsApp API, or external services
+func HandleExternalWebhook(c *fiber.Ctx) error {
+	var input ExternalWebhookPayload
+	if err := c.BodyParser(&input); err != nil {
+		var generic map[string]interface{}
+		if err := c.BodyParser(&generic); err == nil {
+			if ev, ok := generic["event"].(string); ok {
+				input.Event = ev
+			}
+			if ws, ok := generic["workspace_id"].(string); ok {
+				input.WorkspaceID = ws
+			}
+			if src, ok := generic["source"].(string); ok {
+				input.Source = src
+			}
+			if data, ok := generic["data"].(map[string]interface{}); ok {
+				input.Data = data
+			} else {
+				input.Data = generic
+			}
+		}
+	}
+	if input.Event == "" {
+		input.Event = c.Get("X-Septimus-Event", "external.webhook")
+	}
+	if input.Source == "" {
+		input.Source = c.Get("X-Septimus-Source", "n8n")
+	}
+
+	workspaceID := getWebhookWorkspaceID(c)
+	if input.WorkspaceID != "" {
+		if id, err := uuid.Parse(input.WorkspaceID); err == nil {
+			workspaceID = id
+		}
+	}
+
+	sigHeader := c.Get("X-Septimus-Signature")
+	if sigHeader != "" && input.Secret == "" {
+		input.Secret = sigHeader
+	}
+
+	entityData, _ := json.Marshal(map[string]interface{}{
+		"event":       input.Event,
+		"source":      input.Source,
+		"data":        input.Data,
+		"received_at": time.Now().Format(time.RFC3339),
+	})
+
+	entity := models.Entity{
+		ID:          uuid.New(),
+		WorkspaceID: workspaceID,
+		EntityType:  "webhook_payload",
+		Data:        datatypes.JSON(entityData),
+	}
+	database.DB.Create(&entity)
+
+	ctxData := make(map[string]interface{})
+	for k, v := range input.Data {
+		ctxData[k] = v
+	}
+	ctxData["workspace_id"] = workspaceID.String()
+	ctxData["event"] = input.Event
+	ctxData["source"] = input.Source
+	ctxData["entity_id"] = entity.ID.String()
+
+	// 1. Check if this webhook resolves a Human-in-the-Loop (HITL) approval action
+	if input.Event == "hitl.approval_resolved" || input.Event == "hitl.resolve" || input.Event == "hitl.approve" || input.Event == "hitl.reject" {
+		resolveHITLFromWebhook(workspaceID, input.Event, input.Data)
+	}
+
+	// 2. Trigger any matching internal DAG workflows
+	go ExecuteWorkflowsByTrigger(input.Event, ctxData)
+
+	// 3. Publish to NATS JetStream for AI Sidecar / reactive listeners
+	if events.NatsConn != nil {
+		natsPayload, _ := json.Marshal(map[string]interface{}{
+			"event":        input.Event,
+			"workspace_id": workspaceID.String(),
+			"source":       input.Source,
+			"data":         input.Data,
+			"entity_id":    entity.ID.String(),
+		})
+		events.NatsConn.Publish("events.webhooks.external", natsPayload)
+	}
+
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{
+		"status":       "accepted",
+		"event":        input.Event,
+		"workspace_id": workspaceID,
+		"entity_id":    entity.ID,
+		"message":      "External webhook ingested and triggered across Septimus OS workflows and AI sidecar",
+	})
+}
+
+func resolveHITLFromWebhook(workspaceID uuid.UUID, event string, data map[string]interface{}) {
+	var pendingIDStr string
+	if pid, ok := data["pending_id"].(string); ok {
+		pendingIDStr = pid
+	} else if pid, ok := data["id"].(string); ok {
+		pendingIDStr = pid
+	}
+	if pendingIDStr == "" {
+		return
+	}
+	pendingID, err := uuid.Parse(pendingIDStr)
+	if err != nil {
+		return
+	}
+
+	action := "approve"
+	if event == "hitl.reject" {
+		action = "reject"
+	} else if act, ok := data["action"].(string); ok {
+		action = act
+	}
+
+	var pending models.PendingApproval
+	if err := database.DB.Where("id = ?", pendingID).First(&pending).Error; err != nil {
+		return
+	}
+
+	now := time.Now()
+	pending.ResolvedAt = &now
+	if action == "approve" || action == "approved" {
+		pending.Status = "approved"
+		outcome := "Action approved via external webhook"
+		status := "completed"
+
+		var payload approvalPayload
+		if err := json.Unmarshal([]byte(pending.Payload), &payload); err == nil && payload.Action == "create_entity" {
+			wsID, err := uuid.Parse(payload.WorkspaceID)
+			if err != nil {
+				outcome = "Approved via webhook but workspace id invalid"
+				status = "failed"
+			} else if entity, err := createEntityRecord(wsID, payload.EntityType, payload.Data); err != nil {
+				outcome = "Approved via webhook but execution failed: " + err.Error()
+				status = "failed"
+			} else {
+				outcome = fmt.Sprintf("Created %s entity %s from webhook approval", payload.EntityType, entity.ID)
+			}
+		}
+
+		database.DB.Create(&models.AgentCollaborationLog{
+			AgentName:  pending.AgentName,
+			Action:     "Webhook Approved Action",
+			InputData:  pending.ActionType,
+			OutputData: outcome,
+			Status:     status,
+		})
+	} else {
+		pending.Status = "rejected"
+		database.DB.Create(&models.AgentCollaborationLog{
+			AgentName:  pending.AgentName,
+			Action:     "Webhook Rejected Action",
+			InputData:  pending.Reason,
+			OutputData: "Action cancelled via external webhook",
+			Status:     "failed",
+		})
+	}
+
+	database.DB.Save(&pending)
+
+	go DispatchWebhookEvent(workspaceID, "hitl.approval_resolved", pending)
+	go ExecuteWorkflowsByTrigger("hitl.approval_resolved", map[string]interface{}{
+		"pending_id": pending.ID.String(),
+		"status":     pending.Status,
+		"agent_name": pending.AgentName,
+	})
 }

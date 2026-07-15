@@ -37,6 +37,9 @@ func ProxyToAISidecar(c *fiber.Ctx) error {
 	if uid, ok := c.Locals("user_id").(string); ok && uid != "" {
 		c.Request().Header.Set("X-User-Id", uid)
 	}
+	if role, ok := c.Locals("role").(string); ok && role != "" {
+		c.Request().Header.Set("X-User-Role", role)
+	}
 
 	// Strip the browser Authorization header before crossing into the internal
 	// network; the sidecar authenticates on the internal token, not the JWT.

@@ -204,6 +204,20 @@ type approvalPayload struct {
 	Data        map[string]interface{} `json:"data"`
 }
 
+// GetPendingApprovals returns pending human-in-the-loop approvals
+func GetPendingApprovals(c *fiber.Ctx) error {
+	status := c.Query("status", "pending")
+	var approvals []models.PendingApproval
+	query := database.DB.Model(&models.PendingApproval{})
+	if status != "all" && status != "*" && status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if err := query.Order("requested_at desc").Find(&approvals).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch pending approvals"})
+	}
+	return c.JSON(approvals)
+}
+
 // QueuePendingApproval records an agent-proposed write as a pending approval
 // (human-in-the-loop). Called by the sidecar's write tools instead of mutating
 // data directly.
@@ -233,6 +247,18 @@ func QueuePendingApproval(c *fiber.Ctx) error {
 
 	// Nudge the UI to refresh its approvals queue.
 	events.NatsConn.Publish("system.notifications", []byte(`{"type": "agent_approval_required", "agent": "chat"}`))
+
+	workspaceUUID := database.ParseUUID(req.WorkspaceID)
+	if workspaceUUID != uuid.Nil {
+		go DispatchWebhookEvent(workspaceUUID, "hitl.approval_required", pending)
+	}
+	go ExecuteWorkflowsByTrigger("hitl.approval_required", map[string]interface{}{
+		"pending_id":   pending.ID.String(),
+		"agent_name":   pending.AgentName,
+		"action_type":  pending.ActionType,
+		"reason":       pending.Reason,
+		"workspace_id": req.WorkspaceID,
+	})
 
 	return c.Status(201).JSON(fiber.Map{"message": "Action queued for approval", "id": pending.ID})
 }
@@ -300,5 +326,20 @@ func ApprovePendingAction(c *fiber.Ctx) error {
 	}
 
 	database.DB.Save(&pending)
+
+	var payload approvalPayload
+	if err := json.Unmarshal([]byte(pending.Payload), &payload); err == nil {
+		wsUUID := database.ParseUUID(payload.WorkspaceID)
+		if wsUUID != uuid.Nil {
+			go DispatchWebhookEvent(wsUUID, "hitl.approval_resolved", pending)
+		}
+	}
+	go ExecuteWorkflowsByTrigger("hitl.approval_resolved", map[string]interface{}{
+		"pending_id":  pending.ID.String(),
+		"status":      pending.Status,
+		"agent_name":  pending.AgentName,
+		"action_type": pending.ActionType,
+	})
+
 	return c.JSON(fiber.Map{"message": "Pending action resolved", "pending": pending})
 }

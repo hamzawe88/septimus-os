@@ -54,16 +54,16 @@ func main() {
 	// Migrate observability tables (AI message feedback)
 	database.DB.AutoMigrate(&handlers.MessageFeedback{})
 
-	// Initialize Fiber app
-	app := fiber.New()
+	// Initialize Fiber app with increased body limit for large images/payloads
+	app := fiber.New(fiber.Config{
+		BodyLimit: 50 * 1024 * 1024, // 50MB
+	})
 
 	app.Use(logger.New())
-	allowedOrigins := os.Getenv("CORS_ALLOW_ORIGINS")
-	if allowedOrigins == "" {
-		allowedOrigins = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080"
-	}
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     allowedOrigins,
+		AllowOriginsFunc: func(origin string) bool {
+			return true
+		},
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
 		AllowCredentials: true,
 	}))
@@ -167,7 +167,11 @@ func main() {
 	protected.Put("/agents/config", handlers.ConfigAI)
 	protected.Get("/agents/status", handlers.GetAgentStatus)
 	protected.Post("/agents/kill/:name", handlers.KillAgent)
+	protected.Get("/agents/pending-approvals", handlers.GetPendingApprovals)
 	protected.Post("/agents/approve/:id", handlers.ApprovePendingAction)
+
+	// AI Orchestrator Core Brain
+	protected.Post("/ai/orchestrator/query", middleware.CheckPermission("ai.orchestrate"), handlers.HandleOrchestratorQuery)
 
 	// AI Sidecar proxy — browsers never reach the sidecar directly. Every
 	// /api/v1/ai/* call is JWT-authenticated here, then forwarded over the
@@ -256,8 +260,13 @@ func main() {
 	protected.Post("/mcp", handlers.HandleMCP)
 	protected.Put("/agents/:id/status", handlers.UpdateAgentStatus)
 
-	// Search & RAG
+	// Search & RAG & Analytics
 	protected.Get("/search/semantic", handlers.SearchSemantic)
+	protected.Get("/facts", handlers.GetInstitutionalFacts)
+	protected.Post("/facts", handlers.SaveInstitutionalFact)
+	protected.Delete("/facts/:id", handlers.DeleteInstitutionalFact)
+	protected.Post("/analytics/mine_patterns", middleware.CheckPermission("analytics.mine"), handlers.MineOrganizationalPatterns)
+
 
 	// WorkDocs
 	protected.Post("/projects/:projectId/workdocs", handlers.CreateWorkDoc)
@@ -265,6 +274,21 @@ func main() {
 	protected.Get("/workdocs/:docId", handlers.GetWorkDoc)
 	protected.Put("/workdocs/:docId", handlers.UpdateWorkDoc)
 	protected.Delete("/workdocs/:docId", handlers.DeleteWorkDoc)
+
+	// Correspondence Templates & Institutional Registry
+	protected.Post("/correspondence-templates", middleware.CheckPermission("correspondence.create"), handlers.CreateTemplate)
+	protected.Get("/correspondence-templates", handlers.GetTemplates)
+	protected.Put("/correspondence-templates/:id", middleware.CheckPermission("correspondence.create"), handlers.UpdateTemplate)
+	protected.Delete("/correspondence-templates/:id", middleware.CheckPermission("correspondence.create"), handlers.DeleteTemplate)
+
+	// Official Correspondence
+	protected.Post("/correspondences", middleware.CheckPermission("correspondence.create"), handlers.CreateCorrespondence)
+	protected.Get("/correspondences", handlers.GetCorrespondences)
+	protected.Get("/correspondences/:id", handlers.GetCorrespondenceByID)
+	protected.Put("/correspondences/:id", middleware.CheckPermission("correspondence.create"), handlers.UpdateCorrespondence)
+	protected.Post("/correspondences/:id/forward", middleware.CheckPermission("correspondence.forward"), handlers.ForwardCorrespondence)
+	protected.Post("/correspondences/:id/sign", middleware.CheckPermission("correspondence.sign"), handlers.SignCorrespondence)
+	protected.Post("/correspondences/:id/archive", middleware.CheckPermission("correspondence.archive"), handlers.ArchiveCorrespondence)
 
 	// Settings (Protected)
 	protected.Post("/settings/:key", handlers.SaveSettings)
@@ -278,6 +302,8 @@ func main() {
 	// Inbound Webhooks (Zendesk & External)
 	app.Post("/api/public/v1/webhooks/zendesk", handlers.HandleZendeskWebhook)
 	app.Post("/api/v1/webhooks/zendesk", handlers.HandleZendeskWebhook)
+	app.Post("/api/public/v1/webhooks/external", handlers.HandleExternalWebhook)
+	app.Post("/api/v1/webhooks/external", handlers.HandleExternalWebhook)
 
 	// Internal APIs (for sidecars, strictly within VPC/Docker network).
 	// Gated by the shared INTERNAL_API_TOKEN so only trusted services can read
@@ -287,12 +313,20 @@ func main() {
 	internal.Get("/workspaces/default", handlers.GetDefaultWorkspaceInternal)
 	internal.Get("/search/semantic", handlers.SearchSemantic)
 	internal.Post("/embeddings", handlers.IngestEmbeddings)
+	internal.Get("/pending-approvals", handlers.GetPendingApprovals)
 	internal.Post("/pending-approvals", handlers.QueuePendingApproval)
+	internal.Post("/webhooks/external", handlers.HandleExternalWebhook)
 	internal.Post("/entities", handlers.CreateEntity)
 	internal.Get("/entities", handlers.GetEntities)
 	internal.Put("/entities/:id", handlers.UpdateEntity)
 	internal.Post("/system/messages", handlers.InjectSystemMessage)
 	internal.Put("/system/tasks/:id", handlers.UpdateTask)
+	internal.Get("/facts", handlers.GetInstitutionalFacts)
+	internal.Post("/facts", handlers.SaveInstitutionalFact)
+	internal.Delete("/facts/:id", handlers.DeleteInstitutionalFact)
+	internal.Post("/analytics/mine", handlers.MineOrganizationalPatterns)
+	internal.Post("/ai/orchestrator/query", handlers.HandleInternalOrchestratorQuery)
+
 
 	// WebSockets
 	go handlers.WSHub.Run()

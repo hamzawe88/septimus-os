@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -158,6 +161,8 @@ func executeAction(node WFNode, ctx map[string]interface{}) error {
 		return executeSendEmailAction(node, ctx)
 	case "send_slack", "slack":
 		return executeSlackAction(node, ctx)
+	case "n8n", "webhook":
+		return executeN8NWebhookAction(node, ctx)
 	default:
 		log.Printf("[WF] Unknown action type '%s' on node '%s' — skipping", node.Data.ActionType, node.Data.Label)
 		return nil
@@ -193,6 +198,59 @@ func executeHTTPAction(node WFNode, ctx map[string]interface{}) error {
 	}
 	defer resp.Body.Close()
 	log.Printf("[WF] HTTP action (%s) → %s → status %d", method, node.Data.ActionURL, resp.StatusCode)
+	return nil
+}
+
+// executeN8NWebhookAction dispatches structured/signed HTTP POST requests to external n8n or generic webhook endpoints
+func executeN8NWebhookAction(node WFNode, ctx map[string]interface{}) error {
+	if node.Data.ActionURL == "" {
+		return fmt.Errorf("n8n/webhook action missing actionUrl on node '%s'", node.Data.Label)
+	}
+	bodyStr := node.Data.ActionBody
+	if bodyStr == "" {
+		ctxBytes, _ := json.Marshal(ctx)
+		bodyStr = string(ctxBytes)
+	} else {
+		for k, v := range ctx {
+			bodyStr = strings.ReplaceAll(bodyStr, fmt.Sprintf("{{%s}}", k), fmt.Sprintf("%v", v))
+		}
+	}
+	method := strings.ToUpper(node.Data.ActionMethod)
+	if method == "" {
+		method = "POST"
+	}
+	req, err := http.NewRequest(method, node.Data.ActionURL, strings.NewReader(bodyStr))
+	if err != nil {
+		return fmt.Errorf("n8n/webhook action request creation failed: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Septimus-Source", "workflow_engine")
+	if ev, ok := ctx["event"].(string); ok && ev != "" {
+		req.Header.Set("X-Septimus-Event", ev)
+	}
+
+	secret := ""
+	for k, v := range node.Data.ActionHeaders {
+		if strings.ToLower(k) == "x-septimus-secret" || strings.ToLower(k) == "secret" {
+			secret = v
+			continue
+		}
+		req.Header.Set(k, v)
+	}
+	if secret != "" {
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write([]byte(bodyStr))
+		sig := hex.EncodeToString(mac.Sum(nil))
+		req.Header.Set("X-Septimus-Signature", sig)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("n8n/webhook action %s failed: %w", method, err)
+	}
+	defer resp.Body.Close()
+	log.Printf("[WF] n8n/webhook action (%s) -> %s -> status %d", method, node.Data.ActionURL, resp.StatusCode)
 	return nil
 }
 
@@ -558,7 +616,7 @@ func runWorkflow(wf models.Workflow, triggerEvent string, ctx map[string]interfa
 
 	for _, trigger := range triggers {
 		triggerEventConfig := trigger.Data.TriggerEvent
-		if triggerEventConfig == "" || triggerEventConfig == triggerEvent {
+		if triggerEventConfig == "" || triggerEventConfig == triggerEvent || triggerEventConfig == "*" || triggerEventConfig == "all" {
 			log.Printf("[WF] 🚀 Workflow '%s' triggered by '%s'", wf.Name, triggerEvent)
 			matched = true
 
