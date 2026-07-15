@@ -5,6 +5,23 @@ import { useLocalization } from "@/contexts/LocalizationContext";
 import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
 import { OrbitProfile } from "./types";
 
+export function formatLevelTitle(levelTitle: string | undefined, level: number, t: (key: string, defaultVal?: string) => string): string {
+  if (!levelTitle || levelTitle.includes("Novice Cadet")) return t("my_orbit.level_1_title", "Novice Cadet 🌟");
+  if (levelTitle.includes("Orbit Navigator")) return t("my_orbit.level_2_title", "Orbit Navigator 🛸");
+  if (levelTitle.includes("Orbit Commander")) return t("my_orbit.level_3_title", "Orbit Commander 🚀");
+  if (levelTitle.includes("Galactic Strategist")) return t("my_orbit.level_4_title", "Galactic Strategist ⚡");
+  if (levelTitle.includes("Quantum Pioneer")) return t("my_orbit.level_5_title", "Quantum Pioneer 🔮");
+  return t("my_orbit.level_n_title", `Sovereign Architect (Lvl ${level}) 👑`).replace("{n}", String(level));
+}
+
+export function formatBadge(badge: string, t: (key: string, defaultVal?: string) => string): string {
+  if (badge.includes("WELCOME_ORBIT")) return t("my_orbit.badge_welcome", "🌟 Welcome Orbit");
+  if (badge.includes("LEVEL_UP")) return t("my_orbit.badge_level_up", "🚀 Level Up Milestone");
+  if (badge.includes("XP_CENTURION")) return t("my_orbit.badge_centurion", "🎯 XP Centurion (+500 XP)");
+  if (badge.includes("LEGEND")) return t("my_orbit.badge_legend", "👑 Orbit Legend (+1000 XP)");
+  return badge.replace(/_/g, " ");
+}
+
 interface GamificationColumnProps {
   profile: OrbitProfile;
   onUpdateEnergyMode: (mode: string) => Promise<void>;
@@ -99,15 +116,15 @@ export default function GamificationColumn({
 
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30 font-mono font-bold">
-              Level {profile.level}
+              {t("my_orbit.level", "Level")} {profile.level}
             </span>
             <span className="text-xs font-mono text-brand dark:text-blue-400 font-semibold">
-              Total XP: {profile.xp}
+              {t("my_orbit.total_xp", "Total XP:")} {profile.xp}
             </span>
           </div>
 
           <h4 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">
-            {profile.level_title || "Novice Cadet 🌟"}
+            {formatLevelTitle(profile.level_title, profile.level, t)}
           </h4>
 
           {/* Progress bar */}
@@ -197,7 +214,7 @@ export default function GamificationColumn({
                   className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 font-semibold flex items-center gap-1.5 shadow-2xs"
                 >
                   <Flame className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span>{badge.replace(/_/g, " ")}</span>
+                  <span>{formatBadge(badge, t)}</span>
                 </div>
               ))}
             </div>
@@ -253,7 +270,7 @@ export default function GamificationColumn({
                 onClick={() => setIsHarvestModalOpen(false)}
                 className="rounded-xl border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs"
               >
-                Close
+                {t("my_orbit.close_btn", "Close")}
               </Button>
               <Button
                 onClick={handleShareToChannel}
