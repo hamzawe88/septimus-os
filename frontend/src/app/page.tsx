@@ -32,6 +32,7 @@ import ThreadsListSidebar from "@/components/chat/ThreadsListSidebar";
 import FullPageChat from "@/components/chat/FullPageChat";
 import AppStoreHub from "@/components/plugins/AppStoreHub";
 import MyOrbitPage from "@/components/orbit/MyOrbitPage";
+import { CorrespondenceView } from "@/components/correspondence/CorrespondenceView";
 
 import { fetchWithAuth, API_BASE_URL, WS_URL } from "@/lib/apiClient";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
@@ -269,6 +270,10 @@ export default function Home() {
           </div>
         ) : currentView === "plugins" ? (
           <AppStoreHub />
+        ) : currentView === "correspondence" ? (
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0 bg-slate-50 dark:bg-slate-950">
+            <CorrespondenceView />
+          </div>
         ) : currentView === "orbit" ? (
           <div className="flex-1 overflow-hidden bg-slate-950">
             <ErrorBoundary name="My Orbit">

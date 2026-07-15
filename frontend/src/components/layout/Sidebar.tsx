@@ -31,8 +31,13 @@ import {
   CreditCard,
   Puzzle,
   Trash2,
-  Orbit
+  Orbit,
+  Landmark,
+  FileSpreadsheet,
+  Edit3,
+  Archive
 } from 'lucide-react';
+import { useCorrespondenceStore } from "@/store/useCorrespondenceStore";
 import type { Channel } from "@/types";
 
 // ─── Sub-components ─────────────────────────────────────────────────────
@@ -237,7 +242,8 @@ function DmItem({
 
 
 export default function Sidebar() {
-  const { t } = useLocalization();
+  const { t, isRtl } = useLocalization();
+  const { activeTab, setActiveTab } = useCorrespondenceStore();
   const { 
     activeChannelId, setActiveChannelId,
     activeDmId, setActiveDmId,
@@ -442,6 +448,42 @@ export default function Sidebar() {
               ))}
             </SidebarSection>
           </>
+        )}
+
+        {/* === DIWAN & CORRESPONDENCE CONTEXT === */}
+        {(currentView === 'correspondence') && (
+          <SidebarSection label={isRtl ? "إدارة الديوان والمراسلات" : "Official Diwan Module"}>
+            <div className="space-y-1">
+              <button 
+                className={`sidebar-item ${activeTab === 'dashboard' ? "active" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"}`} 
+                onClick={() => { setCurrentView('correspondence'); setActiveTab('dashboard'); }}
+              >
+                <LayoutDashboard className="sidebar-item-icon" aria-hidden />
+                <span className="sidebar-item-name">{isRtl ? "لوحة القيادة السيادية" : "Diwan Dashboard & Stats"}</span>
+              </button>
+              <button 
+                className={`sidebar-item ${activeTab === 'designer' ? "active" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"}`} 
+                onClick={() => { setCurrentView('correspondence'); setActiveTab('designer'); }}
+              >
+                <FileSpreadsheet className="sidebar-item-icon" aria-hidden />
+                <span className="sidebar-item-name">{isRtl ? "تصميم القوالب والهوية" : "Template & Brand Studio"}</span>
+              </button>
+              <button 
+                className={`sidebar-item ${activeTab === 'editor' ? "active" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"}`} 
+                onClick={() => { setCurrentView('correspondence'); setActiveTab('editor'); }}
+              >
+                <Edit3 className="sidebar-item-icon" aria-hidden />
+                <span className="sidebar-item-name">{isRtl ? "صياغة وتحرير المراسلات" : "Correspondence Editor"}</span>
+              </button>
+              <button 
+                className={`sidebar-item ${activeTab === 'archive' ? "active" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"}`} 
+                onClick={() => { setCurrentView('correspondence'); setActiveTab('archive'); }}
+              >
+                <Archive className="sidebar-item-icon" aria-hidden />
+                <span className="sidebar-item-name">{isRtl ? "الأرشيف ومسارات الإحالة" : "Smart Archive & Forwarding"}</span>
+              </button>
+            </div>
+          </SidebarSection>
         )}
 
         {/* === CRM CONTEXT === */}
