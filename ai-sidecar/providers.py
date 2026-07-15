@@ -15,17 +15,22 @@ from config import BACKEND_URL, GOOGLE_API_KEY, OPENAI_API_KEY, internal_headers
 MODEL_TIERS = {
     "openai": {"fast": "gpt-5-mini", "strong": "gpt-5"},
     "gemini": {"fast": "gemini-2.5-flash", "strong": "gemini-2.5-pro"},
-    "anthropic": {"fast": "claude-3-5-haiku-20241022", "strong": "claude-sonnet-4-20250514"},
-    "ollama": {"fast": "llama3.2:3b", "strong": "deepseek-r1:14b"},
+    "anthropic": {"fast": "claude-haiku-4-5-20251001", "strong": "claude-sonnet-5"},
+    "ollama": {"fast": "llama3.2:3b", "strong": "qwen3:8b"},
 }
 
 
-def _model_for(provider: str, tier: str, selected_model: str = "") -> str:
-    """Return the model ID to use.
+def _model_for(provider: str, tier: str, selected_model: str = "", provider_cfg: dict = None) -> str:
+    """Return the model ID to use for a task tier.
 
-    If the workspace has an explicit `selectedModel` we honour it regardless
-    of the tier hint. Otherwise we fall back to the built-in tier table.
+    Priority: per-tier selection from the UI (`selectedModelFast` /
+    `selectedModelStrong`) → legacy single `selectedModel` (applies to both
+    tiers) → the built-in tier table.
     """
+    cfg = provider_cfg or {}
+    per_tier = (cfg.get("selectedModelFast") if tier == "fast" else cfg.get("selectedModelStrong")) or ""
+    if per_tier.strip():
+        return per_tier.strip()
     if selected_model:
         return selected_model
     table = MODEL_TIERS.get(provider, {})
@@ -68,20 +73,20 @@ async def get_active_llm(workspace_id: str, tier: str = "strong"):
         selected_model = (p.get("selectedModel") or "").strip()
 
         if provider_name == "openai" and api_key:
-            model_id = _model_for("openai", tier, selected_model)
+            model_id = _model_for("openai", tier, selected_model, provider_cfg=p)
             return ChatOpenAI(model=model_id, openai_api_key=api_key)
         elif provider_name == "gemini" and (api_key or GOOGLE_API_KEY):
-            model_id = _model_for("gemini", tier, selected_model)
+            model_id = _model_for("gemini", tier, selected_model, provider_cfg=p)
             return ChatGoogleGenerativeAI(model=model_id, google_api_key=api_key or GOOGLE_API_KEY)
         elif provider_name == "anthropic" and api_key:
-            model_id = _model_for("anthropic", tier, selected_model)
+            model_id = _model_for("anthropic", tier, selected_model, provider_cfg=p)
             try:
                 from langchain_anthropic import ChatAnthropic
                 return ChatAnthropic(model=model_id, anthropic_api_key=api_key)
             except ImportError:
                 print("langchain_anthropic not installed or unavailable")
         elif provider_name == "ollama":
-            model_id = _model_for("ollama", tier, selected_model)
+            model_id = _model_for("ollama", tier, selected_model, provider_cfg=p)
             base_url = p.get("baseUrl") or os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
             try:
                 from langchain_ollama import ChatOllama
