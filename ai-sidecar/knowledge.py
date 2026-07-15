@@ -82,3 +82,66 @@ def embed_document(file_path: str, document_id: str, workspace_id: str) -> int:
     except Exception as e:
         print(f"[knowledge] error processing document: {e}")
         return 0
+
+
+def retrieve_institutional_facts(workspace_id: str, query: str, k: int = 5) -> list[str]:
+    """Retrieve top-k relevant institutional facts (`entity_type='fact'`) from pgvector."""
+    try:
+        res = requests.get(
+            f"{BACKEND_URL}/internal/search/semantic?workspace_id={workspace_id}&q={query}&limit={k}&entity_type=fact",
+            headers=internal_headers(),
+            timeout=10,
+        )
+        if res.status_code == 200:
+            results = res.json().get("results") or []
+            return [r.get("content", "").strip() for r in results if isinstance(r, dict) and r.get("content")]
+    except Exception as e:
+        print(f"[knowledge] retrieve_institutional_facts error: {e}")
+    return []
+
+
+def save_fact(workspace_id: str, content: str) -> dict:
+    """Save a new institutional fact/preference to long-term memory."""
+    try:
+        res = requests.post(
+            f"{BACKEND_URL}/internal/facts",
+            json={"workspace_id": workspace_id, "content": content},
+            headers=internal_headers(),
+            timeout=20,
+        )
+        if res.status_code in (200, 201):
+            return res.json()
+    except Exception as e:
+        print(f"[knowledge] save_fact error: {e}")
+    return {}
+
+
+def list_facts(workspace_id: str) -> list[dict]:
+    """List all saved institutional facts for the workspace."""
+    try:
+        res = requests.get(
+            f"{BACKEND_URL}/internal/facts?workspace_id={workspace_id}",
+            headers=internal_headers(),
+            timeout=10,
+        )
+        if res.status_code == 200:
+            return res.json().get("facts") or []
+    except Exception as e:
+        print(f"[knowledge] list_facts error: {e}")
+    return []
+
+
+def delete_fact(fact_id: str) -> bool:
+    """Delete an institutional fact by ID."""
+    try:
+        res = requests.delete(
+            f"{BACKEND_URL}/internal/facts/{fact_id}",
+            headers=internal_headers(),
+            timeout=10,
+        )
+        if res.status_code == 200:
+            return res.json().get("success", False)
+    except Exception as e:
+        print(f"[knowledge] delete_fact error: {e}")
+    return False
+

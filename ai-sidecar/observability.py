@@ -72,6 +72,10 @@ def track_llm_usage(
     total_tokens = prompt_tokens + completion_tokens
     cost_usd = estimate_cost_usd(model_name, prompt_tokens, completion_tokens)
 
+    # Track daily tokens in memory
+    today_key = f"{workspace_id}_{time.strftime('%Y-%m-%d', time.gmtime())}"
+    _daily_token_tracker[today_key] = _daily_token_tracker.get(today_key, 0) + total_tokens
+
     usage_data = {
         "provider": provider,
         "model": model_name,
@@ -123,3 +127,59 @@ def extract_usage_from_response(response: Any) -> Dict[str, int]:
         "completion_tokens": int(completion_tokens),
         "total_tokens": int(prompt_tokens) + int(completion_tokens),
     }
+
+
+class BudgetExceededError(Exception):
+    """Raised when a workspace exceeds its daily token or cost budget."""
+    pass
+
+
+# In-memory daily usage tracking tracker: { f"{workspace_id}_{YYYY-MM-DD}": int }
+_daily_token_tracker: Dict[str, int] = {}
+
+
+def check_budget_guardrails(workspace_id: str, lang: str = "ar", max_daily_tokens: int = 0) -> None:
+    """Check whether a workspace has exceeded its daily LLM token budget.
+    
+    If `max_daily_tokens` is 0, we check the environment default (`AI_MAX_DAILY_TOKENS`) or Go backend.
+    Raises `BudgetExceededError` if the budget is exhausted.
+    """
+    if not workspace_id:
+        return
+
+    # Check against daily limit (default 1,000,000 tokens per day per workspace unless overridden)
+    limit = max_daily_tokens or int(os.getenv("AI_MAX_DAILY_TOKENS", "1000000"))
+    if limit <= 0:
+        return
+
+    today_key = f"{workspace_id}_{time.strftime('%Y-%m-%d', time.gmtime())}"
+    current_tokens = _daily_token_tracker.get(today_key, 0)
+    if current_tokens >= limit:
+        msg = (
+            f"تم تجاوز سقف استهلاك التوكنات اليومي المسموح به لبيئة العمل ({limit} توكن/يوم). يرجى مراجعة إعدادات الذكاء الاصطناعي أو الانتظار لتجديد الرصيد اليومي."
+            if lang == "ar"
+            else f"Daily token budget exceeded for this workspace ({limit} tokens/day). Please check AI settings or wait for daily reset."
+        )
+        log_event("ai.budget.exceeded", workspace_id, f"Budget guardrail blocked request (used: {current_tokens}/{limit})")
+        raise BudgetExceededError(msg)
+
+    # Check with Go backend if token-gated endpoint reports budget exhaustion
+    try:
+        res = requests.get(
+            f"{BACKEND_URL}/internal/audit/check_budget?workspace_id={workspace_id}",
+            headers=internal_headers(),
+            timeout=3,
+        )
+        if res.status_code == 429 or (res.status_code == 200 and res.json().get("exceeded", False)):
+            msg = (
+                "تم تجاوز الميزانية المخصصة للذكاء الاصطناعي من قبل إدارة النظام."
+                if lang == "ar"
+                else "AI budget exceeded as reported by system administration."
+            )
+            raise BudgetExceededError(msg)
+    except BudgetExceededError:
+        raise
+    except Exception as e:
+        # Don't block inference if check_budget endpoint is unreachable or unconfigured
+        pass
+

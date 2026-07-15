@@ -21,16 +21,21 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from config import CORS_ALLOW_ORIGINS, INTERNAL_API_TOKEN, get_default_workspace_id
 from i18n import language_directive, resolve_lang
+from reasoning_manual import get_reasoning_directives, get_validation_gate_prompt
 from knowledge import retrieve_context
 from providers import get_active_llm
 from agents_chat import run_chat_agent
+from agents_correspondence import rewrite_official_letter, audit_legal_compliance
 from nats_events import start_nats_listener
 from voice_realtime import create_realtime_session, realtime_voice_proxy
+from agents_orchestrator import agent_orchestrator
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("🚀 Starting Septimus AI Sidecar...")
+    from skills_registry import skills_registry
+    skills_registry.sync_with_pgvector("default")
     nats_task = asyncio.create_task(start_nats_listener())
     yield
     nats_task.cancel()
@@ -93,12 +98,43 @@ class VoiceSessionRequest(BaseModel):
     instructions: Optional[str] = None
 
 
+class CorrespondenceRewriteRequest(BaseModel):
+    workspace_id: Optional[str] = None
+    title: str
+    content: str
+    tone: str = "formal_institutional"
+    lang: Optional[str] = None
+
+
+class CorrespondenceAuditRequest(BaseModel):
+    workspace_id: Optional[str] = None
+    title: str
+    content: str
+    lang: Optional[str] = None
+
+
+class OrchestratorQueryRequest(BaseModel):
+    query: str
+    target_persona: Optional[str] = None
+    context_parameters: Optional[Dict[str, Any]] = None
+    workspace_id: Optional[str] = None
+    user_id: Optional[str] = None
+    user_role: Optional[str] = None
+
+
+def _workspace_from(explicit: Optional[str], header_ws: str) -> str:
+    """Caller's workspace: explicit body value → X-Workspace-Id header (stamped
+    from the JWT by the Go proxy) → single-tenant default. Keeps every endpoint
+    scoped to the requester instead of silently using the default tenant."""
+    return explicit or header_ws or get_default_workspace_id()
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.post("/api/v1/ai/voice/session", dependencies=[Depends(verify_internal_token)])
-async def create_voice_session(req: VoiceSessionRequest):
+async def create_voice_session(req: VoiceSessionRequest, x_workspace_id: str = Header(default="")):
     """Generate an ephemeral OpenAI Realtime session token for WebRTC / WebSocket low-latency voice chat."""
-    workspace_id = req.workspace_id or get_default_workspace_id()
+    workspace_id = _workspace_from(req.workspace_id, x_workspace_id)
     try:
         session_data = await create_realtime_session(
             workspace_id=workspace_id,
@@ -123,10 +159,10 @@ async def voice_websocket_endpoint(websocket: WebSocket, workspace_id: str = "",
 
 
 @app.post("/api/v1/ai/query", dependencies=[Depends(verify_internal_token)])
-async def query_documents(req: QueryRequest):
+async def query_documents(req: QueryRequest, x_workspace_id: str = Header(default="")):
     """RAG over the shared workspace knowledge base (Doc Chat), answered in the
     UI language and grounded in the retrieved context."""
-    workspace_id = req.workspace_id or get_default_workspace_id()
+    workspace_id = _workspace_from(req.workspace_id, x_workspace_id)
     lang = resolve_lang(req.lang)
 
     llm = await get_active_llm(workspace_id)
@@ -139,13 +175,14 @@ async def query_documents(req: QueryRequest):
         return {"answer": ("لم أعثر على مستندات ذات صلة بسؤالك في قاعدة المعرفة." if lang == "ar"
                            else "I couldn't find any relevant documents for your question in the knowledge base.")}
 
-    system_prompt = (
+    base_sys = (
         "أنت مساعد معرفي في Septimus OS. أجب فقط اعتماداً على السياق المرفق من قاعدة المعرفة. "
         "إذا لم يكن الجواب في السياق فقل ذلك بصراحة."
         if lang == "ar" else
         "You are a knowledge assistant in Septimus OS. Answer strictly from the provided knowledge-base "
         "context. If the answer is not in the context, say so honestly."
     )
+    system_prompt = f"{base_sys}\n\n{get_reasoning_directives('supervisor', lang)}\n\n{get_validation_gate_prompt(lang)}"
     messages = [
         SystemMessage(content=system_prompt),
         SystemMessage(content=f"Knowledge Base Context:\n{context_text}"),
@@ -161,11 +198,16 @@ async def query_documents(req: QueryRequest):
 
 
 @app.post("/api/v1/ai/chat", dependencies=[Depends(verify_internal_token)])
-async def chat_with_agent(req: ChatRequest):
+async def chat_with_agent(
+    req: ChatRequest,
+    x_workspace_id: str = Header(default=""),
+    x_user_role: str = Header(default="member"),
+):
     lang = resolve_lang(req.context.get("lang"))
-    # Ensure a workspace is always scoped for the tools.
+    # Ensure a workspace and user role are always scoped for the tools.
     context = dict(req.context)
-    context.setdefault("workspace_id", get_default_workspace_id())
+    context.setdefault("workspace_id", _workspace_from(None, x_workspace_id))
+    context.setdefault("user_role", x_user_role or "member")
     try:
         reply = await run_chat_agent(
             agent_type=req.agent_type,
@@ -185,8 +227,8 @@ async def chat_with_agent(req: ChatRequest):
 
 
 @app.post("/api/v1/ai/plan-sprint", dependencies=[Depends(verify_internal_token)])
-async def plan_sprint(req: SprintPlanRequest):
-    llm = await get_active_llm(get_default_workspace_id())
+async def plan_sprint(req: SprintPlanRequest, x_workspace_id: str = Header(default="")):
+    llm = await get_active_llm(_workspace_from(None, x_workspace_id))
     if not llm:
         # Deterministic greedy fallback.
         sorted_tasks = sorted(req.backlog, key=lambda x: (-x.get('Priority', 0), x.get('StoryPoints', 0)))
@@ -218,10 +260,33 @@ async def plan_sprint(req: SprintPlanRequest):
         return {"selected_task_ids": []}
 
 
+@app.post("/api/v1/ai/correspondence/rewrite", dependencies=[Depends(verify_internal_token)])
+async def handle_correspondence_rewrite(req: CorrespondenceRewriteRequest, x_workspace_id: str = Header(default="")):
+    workspace_id = _workspace_from(req.workspace_id, x_workspace_id)
+    return await rewrite_official_letter(
+        workspace_id=workspace_id,
+        raw_title=req.title,
+        raw_content=req.content,
+        target_tone=req.tone,
+        lang=req.lang or "ar",
+    )
+
+
+@app.post("/api/v1/ai/correspondence/audit", dependencies=[Depends(verify_internal_token)])
+async def handle_correspondence_audit(req: CorrespondenceAuditRequest, x_workspace_id: str = Header(default="")):
+    workspace_id = _workspace_from(req.workspace_id, x_workspace_id)
+    return await audit_legal_compliance(
+        workspace_id=workspace_id,
+        title=req.title,
+        content=req.content,
+        lang=req.lang or "ar",
+    )
+
+
 @app.post("/api/v1/ai/generate-subtasks", dependencies=[Depends(verify_internal_token)])
-async def generate_subtasks(req: GenerateSubtasksRequest):
+async def generate_subtasks(req: GenerateSubtasksRequest, x_workspace_id: str = Header(default="")):
     lang = resolve_lang(req.lang)
-    llm = await get_active_llm(get_default_workspace_id(), tier="fast")
+    llm = await get_active_llm(_workspace_from(None, x_workspace_id), tier="fast")
     if not llm:
         if lang == "ar":
             return {"subtasks": [
@@ -254,6 +319,19 @@ async def generate_subtasks(req: GenerateSubtasksRequest):
     except Exception as e:
         print(f"[generate-subtasks] parse error: {e}")
         return {"subtasks": []}
+
+
+@app.post("/internal/ai/orchestrator/execute", dependencies=[Depends(verify_internal_token)])
+async def handle_orchestrator_execute(req: OrchestratorQueryRequest, x_workspace_id: str = Header(default="")):
+    workspace_id = _workspace_from(req.workspace_id, x_workspace_id)
+    return await agent_orchestrator.execute_query(
+        query=req.query,
+        target_persona=req.target_persona,
+        context_parameters=req.context_parameters,
+        workspace_id=workspace_id,
+        user_id=req.user_id or "system",
+        user_role=req.user_role or "member"
+    )
 
 
 if __name__ == "__main__":

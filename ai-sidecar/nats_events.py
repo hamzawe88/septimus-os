@@ -24,8 +24,11 @@ from config import (
     internal_headers,
 )
 from i18n import language_directive, resolve_lang
+from reasoning_manual import get_reasoning_directives, get_validation_gate_prompt
 from knowledge import embed_document, retrieve_context
 from providers import get_active_llm
+from agents_correspondence import index_archived_correspondence
+from agents_orchestrator import agent_orchestrator
 
 # The active connection, set on startup so handlers can publish replies.
 _nc = None
@@ -100,10 +103,11 @@ async def on_message_created(msg):
 
     context_text = retrieve_context(workspace_id, content, k=3)
 
-    system_prompt = ("You are Septimus AI, a helpful enterprise assistant. Answer queries based on the "
-                     "provided Knowledge Base context if available. If the message implies a task needs to "
-                     "be created, add a JSON block at the end: {\"is_task\": true, \"title\": \"...\"}. "
-                     + language_directive(lang))
+    base_sys = ("You are Septimus AI, a helpful enterprise assistant. Answer queries based on the "
+                "provided Knowledge Base context if available. If the message implies a task needs to "
+                "be created, add a JSON block at the end: {\"is_task\": true, \"title\": \"...\"}. "
+                + language_directive(lang))
+    system_prompt = f"{base_sys}\n\n{get_reasoning_directives('supervisor', lang)}\n\n{get_validation_gate_prompt(lang)}"
     messages = [SystemMessage(content=system_prompt)]
     if context_text:
         messages.append(SystemMessage(content=f"Knowledge Base Context:\n{context_text}"))
@@ -190,6 +194,49 @@ async def on_workflow_trigger(msg):
 
 # ── Core NATS handlers (best-effort / request-reply) ──────────────────────────
 
+async def on_analytics_mine_requested(msg):
+    """events.analytics.mine_requested → active learning miner (`agents_miner.py`)."""
+    await msg.ack()
+    try:
+        data = json.loads(msg.data.decode())
+    except Exception as e:
+        print(f"[analytics.mine_requested] bad payload: {e}")
+        return
+
+    workspace_id = data.get("workspace_id") or get_default_workspace_id()
+    patterns = data.get("patterns")
+    try:
+        from agents_miner import run_analytics_miner
+        loop = asyncio.get_event_loop()
+        res = await loop.run_in_executor(None, run_analytics_miner, workspace_id, patterns)
+        print(f"[analytics.mine_requested] miner result: {res}")
+    except Exception as e:
+        print(f"[analytics.mine_requested] error executing miner: {e}")
+
+
+async def on_correspondence_archived(msg):
+
+    """events.correspondence.archived → index official letter into document_embeddings."""
+    await msg.ack()
+    try:
+        data = json.loads(msg.data.decode())
+    except Exception as e:
+        print(f"[correspondence.archived] bad payload: {e}")
+        return
+
+    correspondence_id = data.get("correspondence_id", "")
+    serial_number = data.get("serial_number", "")
+    title = data.get("title", "")
+    content = data.get("content", "")
+    workspace_id = data.get("workspace_id") or get_default_workspace_id()
+
+    if not correspondence_id or not content:
+        print("[correspondence.archived] missing ID or content.")
+        return
+
+    index_archived_correspondence(correspondence_id, serial_number, title, content, workspace_id)
+
+
 async def on_document_uploaded(msg):
     """document.uploaded → embed the file into the workspace knowledge base."""
     try:
@@ -247,8 +294,9 @@ async def on_huddle_speak(msg):
         if not llm:
             raise Exception("No active LLM found")
 
-        system_prompt = ("You are a helpful AI voice & vision assistant in Septimus OS. Keep your answers brief, "
-                         "conversational, and natural for a voice call. If the user shares their screen image, analyze what you see directly. " + language_directive(lang))
+        base_sys = ("You are a helpful AI voice & vision assistant in Septimus OS. Keep your answers brief, "
+                    "conversational, and natural for a voice call. If the user shares their screen image, analyze what you see directly. " + language_directive(lang))
+        system_prompt = f"{base_sys}\n\n{get_reasoning_directives('supervisor', lang)}\n\n{get_validation_gate_prompt(lang)}"
         
         image_base64 = data.get("image_base64", "")
         if image_base64:
@@ -305,6 +353,92 @@ async def on_crm_lead_score(msg):
 
 # ── Listener ──────────────────────────────────────────────────────────────────
 
+async def on_webhook_external(msg):
+    """events.webhooks.external → ingest and process external events (e.g. n8n, WhatsApp ingress, agent delegation)."""
+    await msg.ack()
+    try:
+        data = json.loads(msg.data.decode())
+    except Exception as e:
+        print(f"[webhooks.external] bad payload: {e}")
+        return
+
+    event = data.get("event", "")
+    source = data.get("source", "n8n")
+    payload_data = data.get("data", {})
+    workspace_id = data.get("workspace_id") or get_default_workspace_id()
+
+    print(f"[webhooks.external] received event '{event}' from '{source}'")
+
+    if event in ("whatsapp.ingress", "agent.delegate", "n8n.agent_task"):
+        agent_role = payload_data.get("agent_role", "general")
+        message_text = payload_data.get("message") or payload_data.get("text") or payload_data.get("prompt") or ""
+        channel_id = payload_data.get("channel_id", "00000000-0000-0000-0000-000000000000")
+
+        if not message_text:
+            print("[webhooks.external] missing message text for agent delegation.")
+            return
+
+        lang = resolve_lang(payload_data.get("lang"))
+        llm = await get_active_llm(workspace_id)
+        if not llm:
+            print("[webhooks.external] no active LLM.")
+            return
+
+        base_sys = f"You are Septimus {agent_role.upper()} Agent responding to an external event ({event} from {source}). Address the user's inquiry concisely."
+        system_prompt = f"{base_sys}\n\n{get_reasoning_directives(agent_role, lang)}\n\n{get_validation_gate_prompt(lang)}"
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=message_text)
+        ]
+
+        try:
+            response = await llm.ainvoke(messages)
+            if _nc is not None:
+                reply_payload = {
+                    "content": response.content,
+                    "channel_id": channel_id,
+                    "workspace_id": workspace_id,
+                    "source_event": event,
+                }
+                await _nc.publish("chat.message.ai_reply", json.dumps(reply_payload).encode())
+            print(f"[webhooks.external] AI reply dispatched for {event}: {response.content[:100]}...")
+        except Exception as e:
+            print(f"[webhooks.external] LLM error processing external webhook: {e}")
+
+
+async def on_internal_orchestrator_request(msg):
+    """events.ai.internal_orchestrator_request → run InternalAgentOrchestrator."""
+    await msg.ack()
+    try:
+        data = json.loads(msg.data.decode())
+    except Exception as e:
+        print(f"[ai.internal_orchestrator_request] bad payload: {e}")
+        return
+
+    query = data.get("query", "")
+    target_persona = data.get("target_persona")
+    context_params = data.get("context_parameters", {})
+    workspace_id = data.get("workspace_id") or get_default_workspace_id()
+    user_id = data.get("user_id", "system")
+    user_role = data.get("user_role", "member")
+
+    print(f"[ai.internal_orchestrator_request] processing query: {query[:80]}... (persona={target_persona})")
+    try:
+        res = await agent_orchestrator.execute_query(
+            query=query,
+            target_persona=target_persona,
+            context_parameters=context_params,
+            workspace_id=workspace_id,
+            user_id=user_id,
+            user_role=user_role
+        )
+        if _nc is not None:
+            await _nc.publish("events.ai.orchestrator_result", json.dumps(res).encode())
+        print(f"[ai.internal_orchestrator_request] completed with status: {res.get('status')}")
+    except Exception as e:
+        print(f"[ai.internal_orchestrator_request] execution error: {e}")
+
+
 async def start_nats_listener():
     """Connect to NATS and subscribe with durable JetStream consumers for
     events.* plus core subscriptions for the request/reply subjects. Retries
@@ -329,6 +463,10 @@ async def start_nats_listener():
                 ("events.tasks.created", "ai_sidecar_tasks", on_task_created),
                 ("events.messages.created", "ai_sidecar_messages", on_message_created),
                 ("events.workflow.trigger", "ai_sidecar_workflow", on_workflow_trigger),
+                ("events.correspondence.archived", "ai_sidecar_correspondence", on_correspondence_archived),
+                ("events.webhooks.external", "ai_sidecar_webhooks_external", on_webhook_external),
+                ("events.analytics.mine_requested", "ai_sidecar_analytics_miner", on_analytics_mine_requested),
+                ("events.ai.internal_orchestrator_request", "ai_sidecar_orchestrator", on_internal_orchestrator_request),
             ]
             for subject, durable, cb in durable_subs:
                 await js.subscribe(
