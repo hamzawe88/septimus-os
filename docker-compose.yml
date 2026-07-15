@@ -8,7 +8,7 @@ services:
     # Data stores bind to loopback only: reachable from this machine for local
     # tooling, but never exposed if this compose file ever runs on a server.
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -42,6 +42,8 @@ services:
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-supersecretapikey}
       - CENTRIFUGO_API_URL=http://centrifugo:8000/api
       - AI_SIDECAR_URL=http://ai-sidecar:8000
+      # Local embeddings fallback (nomic-embed-text) when no Gemini key exists.
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
     depends_on:
       - db
       - redis

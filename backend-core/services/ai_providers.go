@@ -55,3 +55,21 @@ func GetProviderKey(workspaceID uuid.UUID, provider string) (string, error) {
 	}
 	return "", errors.New("no api key configured for provider " + provider)
 }
+
+// GetProviderBaseURL returns the configured baseUrl for the named provider in
+// the workspace `ai_providers` settings (e.g. the Ollama server address).
+// Empty string when unset — callers apply their own default.
+func GetProviderBaseURL(workspaceID uuid.UUID, provider string) string {
+	var setting models.WorkspaceSetting
+	if err := database.DB.Where("workspace_id = ? AND key = ?", workspaceID, "ai_providers").First(&setting).Error; err == nil {
+		var providers []providerSetting
+		if err := json.Unmarshal(setting.Value, &providers); err == nil {
+			for _, p := range providers {
+				if p.Provider == provider && p.BaseURL != "" {
+					return p.BaseURL
+				}
+			}
+		}
+	}
+	return ""
+}

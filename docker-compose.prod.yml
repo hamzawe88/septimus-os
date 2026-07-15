@@ -44,6 +44,9 @@ services:
       - CENTRIFUGO_API_URL=http://centrifugo:8000/api
       - AI_SIDECAR_URL=http://ai-sidecar:8000
       - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:?set to your public frontend origin(s)}
+      # Optional local-embeddings fallback (set to your Ollama server; on
+      # Linux add an extra_hosts host-gateway entry if it runs on the host).
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
     depends_on:
       - db
       - redis

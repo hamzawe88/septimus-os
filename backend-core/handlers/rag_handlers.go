@@ -97,15 +97,20 @@ func SearchSemantic(c *fiber.Ctx) error {
 		query = c.Query("query", "report") // default search term if empty
 	}
 	limit := c.QueryInt("limit", 5)
+	entityType := c.Query("entity_type")
 
 	// Fetch embeddings from pgvector using the service
-	results, err := services.SearchSimilar(workspaceID, query, limit)
+	results, err := services.SearchSimilarByType(workspaceID, entityType, query, limit)
 	if err != nil || len(results) == 0 {
 		log.Printf("Semantic Search fallback to ILIKE due to: %v", err)
 		// Fallback to text search on DocumentEmbedding
-		database.DB.Where("workspace_id = ? AND content ILIKE ?", workspaceID, "%"+query+"%").Limit(limit).Find(&results)
-		if len(results) == 0 {
-			// Second fallback: search directly in entities
+		dbQuery := database.DB.Where("workspace_id = ? AND content ILIKE ?", workspaceID, "%"+query+"%")
+		if entityType != "" {
+			dbQuery = dbQuery.Where("entity_type = ?", entityType)
+		}
+		dbQuery.Limit(limit).Find(&results)
+		if len(results) == 0 && entityType == "" {
+			// Second fallback: search directly in entities (only if no specific entityType requested)
 			var entities []models.Entity
 			database.DB.Where("workspace_id = ? AND (entity_type ILIKE ? OR data::text ILIKE ?)", workspaceID, "%"+query+"%", "%"+query+"%").Limit(limit).Find(&entities)
 			for _, e := range entities {
