@@ -33,13 +33,12 @@ const PROVIDER_MODELS: Record<string, { id: string; label: string; tier: string 
     { id: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku", tier: "fast" },
   ],
   ollama: [
+    { id: "qwen3:8b", label: "Qwen 3 (8B)", tier: "strong" },
+    { id: "qwen2.5-coder:7b", label: "Qwen 2.5 Coder (7B)", tier: "strong" },
+    { id: "llama3.2:3b", label: "Llama 3.2 (3B)", tier: "fast" },
     { id: "llama3.3", label: "Llama 3.3 (70B)", tier: "strong" },
-    { id: "llama3.2", label: "Llama 3.2 (3B)", tier: "fast" },
+    { id: "deepseek-r1:14b", label: "DeepSeek R1 (14B)", tier: "strong" },
     { id: "mistral", label: "Mistral (7B)", tier: "fast" },
-    { id: "mixtral", label: "Mixtral (8x7B)", tier: "strong" },
-    { id: "codellama", label: "Code Llama (34B)", tier: "strong" },
-    { id: "deepseek-r1", label: "DeepSeek R1", tier: "strong" },
-    { id: "qwen2.5", label: "Qwen 2.5 (7B)", tier: "fast" },
     { id: "phi3", label: "Phi-3 (3.8B)", tier: "fast" },
   ],
 };
@@ -54,7 +53,9 @@ interface ModelConfig {
   baseUrl?: string;
   isActive: boolean;
   hasApiKey?: boolean;
-  selectedModel?: string; // e.g. "gemini-2.5-pro"
+  selectedModel?: string; // legacy single selection (kept in sync with strong)
+  selectedModelStrong?: string; // reasoning/chat tier
+  selectedModelFast?: string; // light high-volume tasks tier
 }
 
 const DEFAULT_MODELS: ModelConfig[] = [
@@ -96,7 +97,9 @@ const DEFAULT_MODELS: ModelConfig[] = [
     description: "ai_settings.ollama_desc",
     baseUrl: "http://localhost:11434",
     isActive: false,
-    selectedModel: "llama3.3",
+    selectedModel: "qwen3:8b",
+    selectedModelStrong: "qwen3:8b",
+    selectedModelFast: "llama3.2:3b",
   }
 ];
 
@@ -145,8 +148,15 @@ export default function AISettings() {
     setModels(models.map(m => ({ ...m, isActive: m.id === id })));
   };
 
-  const handleSelectModel = (providerId: string, modelId: string) => {
-    setModels(models.map(m => m.id === providerId ? { ...m, selectedModel: modelId } : m));
+  const handleSelectTierModel = (providerId: string, tier: "strong" | "fast", modelId: string) => {
+    setModels(models.map(m => {
+      if (m.id !== providerId) return m;
+      // Keep the legacy single selection in sync with the strong tier so
+      // older readers (AI Center display, sidecar fallback) stay correct.
+      return tier === "strong"
+        ? { ...m, selectedModelStrong: modelId, selectedModel: modelId }
+        : { ...m, selectedModelFast: modelId };
+    }));
   };
 
   const saveSettings = async () => {
@@ -221,7 +231,8 @@ export default function AISettings() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {models.map((model) => {
             const availableModels = PROVIDER_MODELS[model.provider] || [];
-            const selectedLabel = availableModels.find(m => m.id === model.selectedModel)?.label || model.selectedModel;
+            const strongValue = model.selectedModelStrong || model.selectedModel || "";
+            const fastValue = model.selectedModelFast || "";
             
             return (
               <div 
@@ -253,15 +264,15 @@ export default function AISettings() {
                 </div>
 
                 <div className="space-y-4">
-                  {/* Model Selector Dropdown */}
+                  {/* Per-tier model selectors: strong (reasoning/chat) + fast (light tasks) */}
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                      <Cpu className="w-4 h-4 text-[var(--primary-hex)]" /> {t("ai_settings.select_model")}
+                      <Cpu className="w-4 h-4 text-[var(--primary-hex)]" /> {t("ai_settings.strong_model")} 🧠
                     </label>
                     <div className="relative">
                       <select
-                        value={model.selectedModel || ""}
-                        onChange={(e) => handleSelectModel(model.id, e.target.value)}
+                        value={strongValue}
+                        onChange={(e) => handleSelectTierModel(model.id, "strong", e.target.value)}
                         className="w-full appearance-none bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pe-10 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[var(--primary-hex)]/50 focus:bg-white dark:focus:bg-slate-700 transition-all text-sm font-medium cursor-pointer"
                       >
                         {availableModels.map((am) => (
@@ -272,9 +283,29 @@ export default function AISettings() {
                       </select>
                       <ChevronDown className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                      {t("ai_settings.current_model")}: <span className="font-semibold text-slate-600 dark:text-slate-300">{selectedLabel}</span>
-                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">{t("ai_settings.strong_model_hint")}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                      <Cpu className="w-4 h-4 text-amber-500" /> {t("ai_settings.fast_model")} ⚡
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={fastValue}
+                        onChange={(e) => handleSelectTierModel(model.id, "fast", e.target.value)}
+                        className="w-full appearance-none bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pe-10 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[var(--primary-hex)]/50 focus:bg-white dark:focus:bg-slate-700 transition-all text-sm font-medium cursor-pointer"
+                      >
+                        <option value="">{t("ai_settings.fast_model_auto")}</option>
+                        {availableModels.map((am) => (
+                          <option key={am.id} value={am.id}>
+                            {am.label} {am.tier === "fast" ? `⚡` : `🧠`}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">{t("ai_settings.fast_model_hint")}</p>
                   </div>
 
                   {/* API Key / Base URL */}

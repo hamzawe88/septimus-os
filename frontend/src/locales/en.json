@@ -1559,7 +1559,12 @@
     "openai_desc": "Industry standard GPT models. Requires an OpenAI API Key.",
     "gemini_desc": "Google's most capable multimodal models. Requires a Google AI Studio Key.",
     "anthropic_desc": "Excellent at coding and long-context reasoning. Requires an Anthropic Key.",
-    "ollama_desc": "Run models locally for maximum privacy. Requires Ollama running on your machine."
+    "ollama_desc": "Run models locally for maximum privacy. Requires Ollama running on your machine.",
+    "strong_model": "Reasoning model (strong)",
+    "strong_model_hint": "Used for chat, agents, and complex tasks.",
+    "fast_model": "Fast-tasks model",
+    "fast_model_hint": "For light high-volume tasks: story points, scoring, subtasks.",
+    "fast_model_auto": "Auto (provider default)"
   },
   "my_orbit": {
     "title": "My Orbit",
