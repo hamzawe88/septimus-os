@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Menu, Search, Bell, HeadphonesIcon, ChevronDown, MessageSquare, LogOut, User, MapPin, Settings, Flame, MessageCircle, X, LayoutGrid, Briefcase, Users, Wallet, Shield, Zap, Orbit } from "lucide-react";
+import { Menu, Search, Bell, HeadphonesIcon, ChevronDown, MessageSquare, LogOut, User, MapPin, Settings, Flame, MessageCircle, X, LayoutGrid, Briefcase, Users, Wallet, Shield, Zap, Orbit, Landmark, Edit3, RotateCcw } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import SettingsModal from "./SettingsModal";
 import HuddleWidget from "@/components/huddles/HuddleWidget";
@@ -27,7 +27,7 @@ interface CurrentUserExtended {
 }
 
 export default function TopBar() {
-  const { logoUrl, companyName: storeCompanyName, setBrandIdentity } = useThemeStore();
+  const { logoUrl, companyName: storeCompanyName } = useThemeStore();
   const { t, isRtl } = useLocalization();
   const companyName = storeCompanyName || t("default_workspace_name");
   const [query, setQuery] = useState("");
@@ -47,6 +47,44 @@ export default function TopBar() {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isMessengerOpen, setIsMessengerOpen] = useState(false);
   const [isAppGridOpen, setIsAppGridOpen] = useState(false);
+  const [isAppGridEditing, setIsAppGridEditing] = useState(false);
+  const [draggedAppId, setDraggedAppId] = useState<string | null>(null);
+  const [appOrder, setAppOrder] = useState<string[]>(() => {
+    if (typeof window === 'undefined') {
+      return ['orbit', 'chat', 'crm', 'hr', 'finance', 'workflows', 'admin_dashboard', 'system_settings', 'correspondence'];
+    }
+    try {
+      const savedOrder = localStorage.getItem('septimus_app_grid_order');
+      if (savedOrder) {
+        const parsed = JSON.parse(savedOrder);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const defaultIds = ['orbit', 'chat', 'crm', 'hr', 'finance', 'workflows', 'admin_dashboard', 'system_settings', 'correspondence'];
+          const validSaved = parsed.filter((id: string) => defaultIds.includes(id));
+          const missingIds = defaultIds.filter(id => !validSaved.includes(id));
+          return [...validSaved, ...missingIds];
+        }
+      }
+    } catch (err) {
+      console.error('Error loading app grid order:', err);
+    }
+    return ['orbit', 'chat', 'crm', 'hr', 'finance', 'workflows', 'admin_dashboard', 'system_settings', 'correspondence'];
+  });
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSaveAppOrder = (newOrder: string[]) => {
+    setAppOrder(newOrder);
+    try {
+      localStorage.setItem('septimus_app_grid_order', JSON.stringify(newOrder));
+    } catch (err) {
+      console.error('Error saving app grid order:', err);
+    }
+  };
+
+  const handleResetAppOrder = () => {
+    const defaultOrder = ['orbit', 'chat', 'crm', 'hr', 'finance', 'workflows', 'admin_dashboard', 'system_settings', 'correspondence'];
+    handleSaveAppOrder(defaultOrder);
+    setIsAppGridEditing(false);
+  };
 
   const unreadCount = notifications ? notifications.filter((n: { isRead?: boolean }) => !n.isRead).length : 0;
   const [topbarAvatar, setTopbarAvatar] = useState("");
@@ -75,19 +113,10 @@ export default function TopBar() {
   }, []);
 
   useEffect(() => {
-    const syncBrand = () => {
-      try {
-        const saved = localStorage.getItem("septimus_brand");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          setBrandIdentity(parsed.companyName || "Septimus Workspace", parsed.logoUrl || null, parsed.primaryColor, parsed.fontFamily, parsed.sidebarBg);
-        }
-      } catch { }
-    };
-    syncBrand();
-    window.addEventListener("septimus_brand_updated", syncBrand);
-    return () => window.removeEventListener("septimus_brand_updated", syncBrand);
-  }, [setBrandIdentity]);
+    // useThemeStore handles persistence natively via zustand persist middleware.
+    // We no longer need to manually sync from 'septimus_brand' localStorage which was causing 
+    // stale colors to override the selected theme from the Login screen.
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -343,48 +372,150 @@ export default function TopBar() {
           >
             <LayoutGrid className="w-5 h-5" />
           </button>
-          {isAppGridOpen && (
-            <div className={`absolute end-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden`} dir={isRtl ? "rtl" : "ltr"}>
-              <div className="p-4 bg-slate-50 border-b border-slate-100">
-                <h3 className="font-bold text-slate-800">{t("appGrid.title")}</h3>
-                <p className="text-xs text-slate-500">{t("appGrid.subtitle")}</p>
+          {isAppGridOpen && (() => {
+            const DEFAULT_APPS_REGISTRY = [
+              { id: 'orbit', view: 'orbit', title: t("my_orbit.title", "My Orbit"), icon: <Orbit className="w-5 h-5 animate-spin-slow" />, bgClass: 'bg-cyan-100 dark:bg-cyan-900/30', textClass: 'text-cyan-600 dark:text-cyan-400', hoverClass: 'hover:bg-cyan-50 dark:hover:bg-cyan-900/40' },
+              { id: 'chat', view: 'chat', title: t("appGrid.chat", "المحادثات"), icon: <MessageSquare className="w-5 h-5" />, bgClass: 'bg-indigo-100 dark:bg-indigo-900/30', textClass: 'text-indigo-600 dark:text-indigo-400', hoverClass: 'hover:bg-indigo-50 dark:hover:bg-indigo-900/40' },
+              { id: 'crm', view: 'crm', title: t("appGrid.crm", "المبيعات والعملاء"), icon: <Briefcase className="w-5 h-5" />, bgClass: 'bg-emerald-100 dark:bg-emerald-900/30', textClass: 'text-emerald-600 dark:text-emerald-400', hoverClass: 'hover:bg-emerald-50 dark:hover:bg-emerald-900/40' },
+              { id: 'hr', view: 'hr', title: t("appGrid.hr", "الموارد البشرية"), icon: <Users className="w-5 h-5" />, bgClass: 'bg-sky-100 dark:bg-sky-900/30', textClass: 'text-sky-600 dark:text-sky-400', hoverClass: 'hover:bg-sky-50 dark:hover:bg-sky-900/40' },
+              { id: 'finance', view: 'finance', title: t("appGrid.finance", "المالية"), icon: <Wallet className="w-5 h-5" />, bgClass: 'bg-amber-100 dark:bg-amber-900/30', textClass: 'text-amber-600 dark:text-amber-400', hoverClass: 'hover:bg-amber-50 dark:hover:bg-amber-900/40' },
+              { id: 'workflows', view: 'workflows', title: t("appGrid.workflows", "مسارات العمل"), icon: <Zap className="w-5 h-5" />, bgClass: 'bg-purple-100 dark:bg-purple-900/30', textClass: 'text-purple-600 dark:text-purple-400', hoverClass: 'hover:bg-purple-50 dark:hover:bg-purple-900/40' },
+              { id: 'admin_dashboard', view: 'admin_dashboard', title: t("appGrid.admin", "لوحة الإدارة"), icon: <Shield className="w-5 h-5" />, bgClass: 'bg-rose-100 dark:bg-rose-900/30', textClass: 'text-rose-600 dark:text-rose-400', hoverClass: 'hover:bg-rose-50 dark:hover:bg-rose-900/40' },
+              { id: 'system_settings', view: 'system_settings', title: t("appGrid.settings", "الإعدادات"), icon: <Settings className="w-5 h-5" />, bgClass: 'bg-slate-200 dark:bg-slate-700', textClass: 'text-slate-600 dark:text-slate-300', hoverClass: 'hover:bg-slate-100 dark:hover:bg-slate-600' },
+              { id: 'correspondence', view: 'correspondence', title: t("sidebar.correspondence", "الديوان والمراسلات"), icon: <Landmark className="w-5 h-5" />, bgClass: 'bg-amber-100 dark:bg-amber-900/30', textClass: 'text-amber-600 dark:text-amber-400', hoverClass: 'hover:bg-amber-50 dark:hover:bg-amber-900/40' }
+            ];
+
+            const sortedApps = appOrder
+              .map(id => DEFAULT_APPS_REGISTRY.find(app => app.id === id))
+              .filter((app): app is typeof DEFAULT_APPS_REGISTRY[0] => app !== undefined);
+
+            return (
+              <div className="absolute end-0 mt-2 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 text-sm">
+                      <span>{t("appGrid.title", "تطبيقات النظام")}</span>
+                      {isAppGridEditing && (
+                        <span className="px-2 py-0.5 text-[10px] rounded-full bg-brand/10 text-brand font-bold animate-pulse">
+                          {isRtl ? 'وضع الاهتزاز والترتيب' : 'Edit & Reorder Mode'}
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{t("appGrid.subtitle", "اختر تطبيقاً للانتقال السريع إليه")}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {isAppGridEditing ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleResetAppOrder}
+                          title={isRtl ? 'إعادة الترتيب الافتراضي' : 'Reset Default Order'}
+                          className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 text-xs transition-colors"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsAppGridEditing(false)}
+                          className="px-2.5 py-1 rounded-lg bg-brand hover:bg-brand/90 text-white text-xs font-semibold shadow-sm transition-all"
+                        >
+                          {isRtl ? 'تم' : 'Done'}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsAppGridEditing(true)}
+                        title={isRtl ? 'تعديل وترتيب الأيقونات كـ الآيفون' : 'Edit App Grid Order'}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-brand hover:bg-brand/10 transition-colors"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4 grid grid-cols-3 gap-3">
+                  {sortedApps.map((app) => (
+                    <button
+                      key={app.id}
+                      type="button"
+                      draggable={isAppGridEditing}
+                      onDragStart={(e) => {
+                        if (!isAppGridEditing) return;
+                        setDraggedAppId(app.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragOver={(e) => {
+                        if (!isAppGridEditing) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                      }}
+                      onDrop={(e) => {
+                        if (!isAppGridEditing) return;
+                        e.preventDefault();
+                        if (!draggedAppId || draggedAppId === app.id) return;
+                        const oldIdx = appOrder.indexOf(draggedAppId);
+                        const newIdx = appOrder.indexOf(app.id);
+                        if (oldIdx === -1 || newIdx === -1) return;
+                        const newOrder = [...appOrder];
+                        newOrder[oldIdx] = appOrder[newIdx];
+                        newOrder[newIdx] = appOrder[oldIdx];
+                        handleSaveAppOrder(newOrder);
+                        setDraggedAppId(null);
+                      }}
+                      onMouseDown={() => {
+                        if (!isAppGridEditing) {
+                          longPressTimerRef.current = setTimeout(() => {
+                            setIsAppGridEditing(true);
+                          }, 480);
+                        }
+                      }}
+                      onMouseUp={() => {
+                        if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                      }}
+                      onTouchStart={() => {
+                        if (!isAppGridEditing) {
+                          longPressTimerRef.current = setTimeout(() => {
+                            setIsAppGridEditing(true);
+                          }, 480);
+                        }
+                      }}
+                      onTouchEnd={() => {
+                        if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                      }}
+                      onClick={() => {
+                        if (isAppGridEditing) return;
+                        setCurrentView(app.view);
+                        setIsAppGridOpen(false);
+                      }}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all relative select-none ${app.hoverClass} ${
+                        isAppGridEditing ? 'animate-ios-jiggle cursor-grab active:cursor-grabbing border border-dashed border-slate-300 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 shadow-sm' : 'cursor-pointer group'
+                      } ${draggedAppId === app.id ? 'opacity-40 scale-95' : ''}`}
+                    >
+                      {isAppGridEditing && (
+                        <span className="absolute -top-1 -end-1 w-4 h-4 rounded-full bg-brand text-white flex items-center justify-center shadow text-[9px] z-10 font-bold">
+                          ↕
+                        </span>
+                      )}
+                      <div className={`w-10 h-10 rounded-full ${app.bgClass} flex items-center justify-center ${app.textClass} ${!isAppGridEditing ? 'group-hover:scale-110 transition-transform' : ''}`}>
+                        {app.icon}
+                      </div>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-200 mt-2 text-center leading-tight">
+                        {app.title}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {isAppGridEditing && (
+                  <div className="px-4 py-2 bg-brand/5 border-t border-brand/20 text-center text-[11px] text-brand font-medium flex items-center justify-center gap-1.5 animate-in fade-in">
+                    <span>{isRtl ? 'اسحب وأفلت أي تطبيق لتغيير مكانه بمرونة كـ الآيفون' : 'Drag & drop any app icon to rearrange instantly'}</span>
+                  </div>
+                )}
               </div>
-              <div className="p-4 grid grid-cols-3 gap-3">
-                <button onClick={() => { setCurrentView('orbit'); setIsAppGridOpen(false); }} className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-cyan-50 transition-colors group">
-                  <div className="w-10 h-10 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600 group-hover:scale-110 transition-transform"><Orbit className="w-5 h-5 animate-spin-slow" /></div>
-                  <span className="text-xs font-bold text-slate-700 mt-2">{t("my_orbit.title", "My Orbit")}</span>
-                </button>
-                <button onClick={() => { setCurrentView('chat'); setIsAppGridOpen(false); }} className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-indigo-50 transition-colors group">
-                  <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform"><MessageSquare className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold text-slate-700 mt-2">{t("appGrid.chat")}</span>
-                </button>
-                <button onClick={() => { setCurrentView('crm'); setIsAppGridOpen(false); }} className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-emerald-50 transition-colors group">
-                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform"><Briefcase className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold text-slate-700 mt-2">{t("appGrid.crm")}</span>
-                </button>
-                <button onClick={() => { setCurrentView('hr'); setIsAppGridOpen(false); }} className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-sky-50 transition-colors group">
-                  <div className="w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center text-sky-600 group-hover:scale-110 transition-transform"><Users className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold text-slate-700 mt-2">{t("appGrid.hr")}</span>
-                </button>
-                <button onClick={() => { setCurrentView('finance'); setIsAppGridOpen(false); }} className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-amber-50 transition-colors group">
-                  <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform"><Wallet className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold text-slate-700 mt-2">{t("appGrid.finance")}</span>
-                </button>
-                <button onClick={() => { setCurrentView('workflows'); setIsAppGridOpen(false); }} className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-purple-50 transition-colors group">
-                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform"><Zap className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold text-slate-700 mt-2">{t("appGrid.workflows")}</span>
-                </button>
-                <button onClick={() => { setCurrentView('admin_dashboard'); setIsAppGridOpen(false); }} className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-rose-50 transition-colors group">
-                  <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600 group-hover:scale-110 transition-transform"><Shield className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold text-slate-700 mt-2">{t("appGrid.admin")}</span>
-                </button>
-                <button onClick={() => { setCurrentView('system_settings'); setIsAppGridOpen(false); }} className="flex flex-col items-center justify-center p-3 rounded-xl hover:bg-slate-100 transition-colors group">
-                  <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 group-hover:scale-110 transition-transform"><Settings className="w-5 h-5" /></div>
-                  <span className="text-xs font-bold text-slate-700 mt-2">{t("appGrid.settings")}</span>
-                </button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Notifications */}

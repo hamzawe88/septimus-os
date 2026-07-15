@@ -67,6 +67,7 @@ interface ThemeState {
   dividerColor: string;
   fontFamily: FontFamily | string;
   logoUrl: string | null;
+  faviconUrl: string | null;
 
   isAdvancedMode: boolean;
   customTopbarBg: string;
@@ -82,7 +83,8 @@ interface ThemeState {
   setTextColor: (color: string) => void;
   setFontFamily: (font: FontFamily | string) => void;
   setLogoUrl: (url: string | null) => void;
-  setBrandIdentity: (companyName: string, logoUrl: string | null, primaryColor?: string, fontFamily?: FontFamily | string, sidebarBg?: string) => void;
+  setFaviconUrl: (url: string | null) => void;
+  setBrandIdentity: (companyName: string, logoUrl: string | null, primaryColor?: string, fontFamily?: FontFamily | string, sidebarBg?: string, faviconUrl?: string | null) => void;
 
   setIsAdvancedMode: (advanced: boolean) => void;
   setCustomTopbarBg: (bg: string) => void;
@@ -91,13 +93,13 @@ interface ThemeState {
   setCustomAppBg: (bg: string) => void;
 }
 
-const defaultPreset = THEME_PRESETS['theme-slack'];
+const defaultPreset = THEME_PRESETS['theme-midnight'];
 
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
       mode: 'light',
-      theme: 'theme-slack',
+      theme: 'theme-midnight',
       companyName: 'Septimus Workspace',
       primaryColor: defaultPreset.primaryColor,
       sidebarBg: defaultPreset.sidebarBg,
@@ -108,6 +110,7 @@ export const useThemeStore = create<ThemeState>()(
       dividerColor: defaultPreset.dividerColor,
       fontFamily: 'cairo',
       logoUrl: null,
+      faviconUrl: null,
 
       isAdvancedMode: false,
       customTopbarBg: '#3F0E40',
@@ -135,10 +138,12 @@ export const useThemeStore = create<ThemeState>()(
       setTextColor: (textColor) => set({ textColor }),
       setFontFamily: (fontFamily) => set({ fontFamily }),
       setLogoUrl: (logoUrl) => set({ logoUrl }),
-      setBrandIdentity: (companyName, logoUrl, primaryColor, fontFamily, sidebarBg) =>
+      setFaviconUrl: (faviconUrl) => set({ faviconUrl }),
+      setBrandIdentity: (companyName, logoUrl, primaryColor, fontFamily, sidebarBg, faviconUrl) =>
         set((state) => ({
           companyName: companyName || state.companyName,
           logoUrl: logoUrl !== undefined ? logoUrl : state.logoUrl,
+          ...(faviconUrl !== undefined ? { faviconUrl } : {}),
           ...(primaryColor ? { primaryColor } : {}),
           ...(fontFamily ? { fontFamily } : {}),
           ...(sidebarBg ? { sidebarBg } : {}),

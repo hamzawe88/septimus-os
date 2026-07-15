@@ -948,3 +948,18 @@ body, html.dark body {
 .dark .markdown-body pre {
   background-color: #161b22;
 }
+
+/* ================================================================
+   iOS HOME SCREEN JIGGLE ANIMATION (App Grid Reordering)
+   ================================================================ */
+@keyframes ios-jiggle {
+  0% { transform: rotate(-2.2deg) translate(-0.5px, 0px); }
+  25% { transform: rotate(2.2deg) translate(0.5px, -0.5px); }
+  50% { transform: rotate(-2.2deg) translate(-0.5px, 0.5px); }
+  75% { transform: rotate(2.2deg) translate(0.5px, 0px); }
+  100% { transform: rotate(-2.2deg) translate(-0.5px, 0px); }
+}
+
+.animate-ios-jiggle {
+  animation: ios-jiggle 0.26s ease-in-out infinite;
+}

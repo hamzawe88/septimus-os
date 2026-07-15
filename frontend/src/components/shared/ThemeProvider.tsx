@@ -8,7 +8,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const {
     mode, primaryColor, sidebarBg, sidebarHover,
     textColor, textMuted, textActive, dividerColor, fontFamily,
-    isAdvancedMode, customTopbarBg, customSidebarBg, customSidebarText, customAppBg
+    isAdvancedMode, customTopbarBg, customSidebarBg, customSidebarText, customAppBg,
+    companyName, logoUrl, faviconUrl
   } = useThemeStore();
   const [mounted, setMounted] = useState(false);
   const { setTheme: setNextTheme, resolvedTheme } = useTheme();
@@ -21,15 +22,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return;
 
-    // Resolve the effective appearance: 'system' follows the OS preference.
-    const isDark = mode === 'dark' ||
-      (mode === 'system' && typeof window !== 'undefined' &&
-        window.matchMedia('(prefers-color-scheme: dark)').matches);
-    setNextTheme(isDark ? 'dark' : 'light');
+    // Per Brand Constitution: Dark mode is DISABLED.
+    // All backgrounds must remain clean & luminous regardless of OS or user setting.
+    setNextTheme('light');
 
     const root = document.documentElement;
-    root.classList.toggle('dark', isDark);
-    root.classList.toggle('light', !isDark);
+    root.classList.remove('dark');
+    root.classList.add('light');
     
     // ── Primary / Brand Colors ──
     const effectivePrimary = primaryColor || '#1164A3';
@@ -84,7 +83,33 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     dividerColor, fontFamily, mounted, setNextTheme, resolvedTheme,
     isAdvancedMode, customTopbarBg, customSidebarBg, customSidebarText, customAppBg
   ]);
-  
+
+  useEffect(() => {
+    if (!mounted || typeof document === 'undefined') return;
+
+    if (companyName) {
+      document.title = `${companyName} | Advanced Enterprise OS`;
+    }
+
+    const targetFavicon = faviconUrl || logoUrl || '/favicon.ico';
+    
+    let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = targetFavicon;
+
+    let shortcutLink = document.querySelector("link[rel='shortcut icon']") as HTMLLinkElement | null;
+    if (!shortcutLink) {
+      shortcutLink = document.createElement('link');
+      shortcutLink.rel = 'shortcut icon';
+      document.head.appendChild(shortcutLink);
+    }
+    shortcutLink.href = targetFavicon;
+  }, [faviconUrl, logoUrl, companyName, mounted]);
+
   if (!mounted) {
     return <>{children}</>;
   }

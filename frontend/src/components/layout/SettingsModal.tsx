@@ -50,13 +50,14 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
   const [notifAgile, setNotifAgile] = useState(true);
 
   // Brand State from store
-  const { mode, setMode, companyName: storeCompanyName, logoUrl: storeLogoUrl, primaryColor: storePrimaryColor, fontFamily: storeFontFamily, sidebarBg: storeSidebarBg, setBrandIdentity } = useThemeStore();
+  const { mode, setMode, companyName: storeCompanyName, logoUrl: storeLogoUrl, faviconUrl: storeFaviconUrl, primaryColor: storePrimaryColor, fontFamily: storeFontFamily, sidebarBg: storeSidebarBg, setBrandIdentity, setFaviconUrl } = useThemeStore();
   const [companyName, setCompanyName] = useState(storeCompanyName || "Septimus Workspace");
   const [primaryColor, setPrimaryColor] = useState(storePrimaryColor || "#8d4592");
   const [sidebarBg, setSidebarBg] = useState(storeSidebarBg || "#0f172a");
   const [textColor, setTextColor] = useState("#1e293b");
   const [fontFamily, setFontFamily] = useState(storeFontFamily || "Cairo");
   const [logoUrl, setLogoUrl] = useState(storeLogoUrl || "");
+  const [faviconUrlLocal, setFaviconUrlLocal] = useState(storeFaviconUrl || "");
 
   const processAndCompressLogo = (file: File, callback: (base64: string) => void) => {
     const reader = new FileReader();
@@ -96,8 +97,62 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
     if (file) {
       processAndCompressLogo(file, (compressedBase64) => {
         setLogoUrl(compressedBase64);
-        setBrandIdentity(companyName, compressedBase64, primaryColor, fontFamily, sidebarBg);
-        const payload = { companyName, primaryColor, sidebarBg, textColor, fontFamily, logoUrl: compressedBase64 };
+        setBrandIdentity(companyName, compressedBase64, primaryColor, fontFamily, sidebarBg, faviconUrlLocal || null);
+        const payload = { companyName, primaryColor, sidebarBg, textColor, fontFamily, logoUrl: compressedBase64, faviconUrl: faviconUrlLocal || null };
+        try {
+          localStorage.setItem("septimus_brand", JSON.stringify(payload));
+          window.dispatchEvent(new Event("septimus_brand_updated"));
+        } catch { }
+      });
+    }
+  };
+
+  const processAndCompressFavicon = (file: File, callback: (base64: string) => void) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (file.type.includes("svg") || file.name.endsWith(".ico")) {
+        callback(dataUrl);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 128;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.clearRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+        const compressedDataUrl = canvas.toDataURL("image/png");
+        callback(compressedDataUrl);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFaviconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processAndCompressFavicon(file, (compressedBase64) => {
+        setFaviconUrlLocal(compressedBase64);
+        setFaviconUrl(compressedBase64);
+        setBrandIdentity(companyName, logoUrl, primaryColor, fontFamily, sidebarBg, compressedBase64);
+        const payload = { companyName, primaryColor, sidebarBg, textColor, fontFamily, logoUrl, faviconUrl: compressedBase64 };
         try {
           localStorage.setItem("septimus_brand", JSON.stringify(payload));
           window.dispatchEvent(new Event("septimus_brand_updated"));
@@ -165,6 +220,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
           if (parsed.textColor) setTextColor(parsed.textColor);
           if (parsed.fontFamily) setFontFamily(parsed.fontFamily);
           if (parsed.logoUrl) setLogoUrl(parsed.logoUrl);
+          if (parsed.faviconUrl) setFaviconUrlLocal(parsed.faviconUrl);
         } catch {
           // ignore parsing error
         }
@@ -271,8 +327,9 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
   };
 
   const handleSaveBrand = async () => {
-    setBrandIdentity(companyName, logoUrl, primaryColor, fontFamily, sidebarBg);
-    const payload = { companyName, primaryColor, sidebarBg, textColor, fontFamily, logoUrl };
+    setFaviconUrl(faviconUrlLocal || null);
+    setBrandIdentity(companyName, logoUrl, primaryColor, fontFamily, sidebarBg, faviconUrlLocal || null);
+    const payload = { companyName, primaryColor, sidebarBg, textColor, fontFamily, logoUrl, faviconUrl: faviconUrlLocal || null };
     try {
       localStorage.setItem("septimus_brand", JSON.stringify(payload));
       window.dispatchEvent(new Event("septimus_brand_updated"));
@@ -742,6 +799,28 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                       <div className="mt-2 p-2 border border-gray-200 rounded bg-white flex items-center justify-between">
                         <img src={logoUrl} alt="Logo" className="h-8 object-contain" />
                         <Button variant="ghost" size="sm" onClick={() => setLogoUrl("")} className="text-red-500 text-xs">{t("settings.delete")}</Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {language === "ar" ? "أيقونة تبويب المتصفح (Favicon)" : "Browser Tab Icon (Favicon)"}
+                    </label>
+                    <input 
+                      type="file" 
+                      accept="image/*,.ico"
+                      title="Browser Favicon File Upload"
+                      onChange={handleFaviconUpload}
+                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm text-[var(--sb-bg)] file:me-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-brand-light file:text-brand"
+                    />
+                    {faviconUrlLocal && (
+                      <div className="mt-2 p-2 border border-gray-200 rounded bg-white flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <img src={faviconUrlLocal} alt="Favicon" className="w-6 h-6 object-contain rounded border border-slate-200 p-0.5 bg-slate-50" />
+                          <span className="text-xs text-slate-600">{language === "ar" ? "الأيقونة المخصصة نشطة" : "Custom Favicon Active"}</span>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => { setFaviconUrlLocal(""); setFaviconUrl(null); }} className="text-red-500 text-xs">{t("settings.delete")}</Button>
                       </div>
                     )}
                   </div>

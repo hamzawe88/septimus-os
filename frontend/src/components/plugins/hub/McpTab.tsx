@@ -122,10 +122,10 @@ export default function McpTab() {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8 animate-fadeIn" dir={isRtl ? "rtl" : "ltr"}>
       {/* Banner */}
-      <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-purple-950 rounded-2xl p-6 md:p-8 text-white shadow-xl border border-indigo-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="bg-gradient-to-r from-slate-900 via-brand/20 to-slate-900 dark:from-[#15181e] dark:via-brand/15 dark:to-[#15181e] rounded-2xl p-6 md:p-8 text-white shadow-xl border border-brand/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="space-y-2 max-w-2xl">
-          <div className="flex items-center gap-2 text-indigo-300 text-xs font-bold uppercase tracking-wider">
-            <Cpu className="w-4 h-4 text-indigo-400" />
+          <div className="flex items-center gap-2 text-brand text-xs font-bold uppercase tracking-wider">
+            <Cpu className="w-4 h-4 text-brand" />
             {isRtl ? "بروتوكول سياق النموذج (MCP 2024-11-05)" : "Model Context Protocol (MCP 2024-11-05)"}
           </div>
           <h2 className="text-2xl md:text-3xl font-black">
@@ -150,7 +150,7 @@ export default function McpTab() {
         {/* Left Column: Available Tools List */}
         <div className="lg:col-span-5 space-y-4">
           <div className="flex items-center gap-2 text-slate-800 dark:text-white font-black text-lg">
-            <Layers className="w-5 h-5 text-indigo-500" />
+            <Layers className="w-5 h-5 text-brand" />
             <h3>{isRtl ? "الأدوات المتاحة للوكيل" : "Exposed MCP Tools"}</h3>
           </div>
           <div className="space-y-3">
@@ -165,12 +165,12 @@ export default function McpTab() {
                 }}
                 className={`p-4 rounded-xl border cursor-pointer transition-all ${
                   selectedTool === tool.name
-                    ? "bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 shadow-md ring-2 ring-indigo-500/20"
-                    : "bg-white dark:bg-[#1e2227] border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                    ? "bg-brand/10 dark:bg-brand/20 border-brand shadow-md ring-2 ring-brand/30"
+                    : "bg-white dark:bg-[#1e2227] border-slate-200 dark:border-slate-800 hover:border-brand/40 dark:hover:border-brand/40"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-mono text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                  <span className="font-mono text-sm font-bold text-brand">
                     {tool.name}
                   </span>
                   <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold">
@@ -205,14 +205,14 @@ export default function McpTab() {
                 value={testPayload}
                 onChange={(e) => setTestPayload(e.target.value)}
                 rows={3}
-                className="w-full font-mono text-xs p-3 rounded-lg bg-slate-900 text-emerald-400 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full font-mono text-xs p-3 rounded-lg bg-slate-900 text-emerald-400 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
               />
             </div>
 
             <button
               onClick={handleTestCall}
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-md transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-sm shadow-md transition-colors disabled:opacity-50"
             >
               <Play className="w-4 h-4" />
               {isLoading
@@ -223,7 +223,7 @@ export default function McpTab() {
             {testResult && (
               <div className="mt-4 space-y-2">
                 <label className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                  <Terminal className="w-3.5 h-3.5 text-indigo-500" />
+                  <Terminal className="w-3.5 h-3.5 text-brand" />
                   {isRtl ? "نتيجة الاستجابة (JSON-RPC 2.0 Output):" : "JSON-RPC Output:"}
                 </label>
                 <pre className="p-3 bg-slate-950 text-emerald-300 font-mono text-xs rounded-xl overflow-x-auto border border-slate-800 max-h-60">
@@ -237,7 +237,7 @@ export default function McpTab() {
           <div className="bg-white dark:bg-[#1e2227] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-slate-800 dark:text-white font-black text-md">
-                <Code2 className="w-4 h-4 text-purple-500" />
+                <Code2 className="w-4 h-4 text-brand" />
                 <h4>{isRtl ? "تكوين Claude Desktop" : "Claude Desktop Configuration"}</h4>
               </div>
               <button
@@ -253,7 +253,7 @@ export default function McpTab() {
                 ? "أضف هذا التكوين إلى ملف claude_desktop_config.json الخاص بك لتمكين Claude من البحث داخل مستندات شركتك وإنشاء وإدارة المهام مباشرة."
                 : "Add this snippet to your `claude_desktop_config.json` to allow Claude Desktop to search your enterprise documents and orchestrate tasks over HTTP JSON-RPC."}
             </p>
-            <pre className="p-4 bg-slate-950 text-purple-300 font-mono text-xs rounded-xl overflow-x-auto border border-slate-800">
+            <pre className="p-4 bg-slate-950 text-emerald-300 font-mono text-xs rounded-xl overflow-x-auto border border-slate-800">
               {claudeDesktopConfig}
             </pre>
           </div>

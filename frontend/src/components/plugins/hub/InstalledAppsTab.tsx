@@ -12,7 +12,8 @@ import {
   RefreshCw,
   Plus,
   Settings,
-  Zap
+  Zap,
+  Landmark
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/useAppStore";
@@ -100,7 +101,7 @@ export default function InstalledAppsTab() {
         {/* Header Section */}
         <div className="flex items-start justify-between mb-8">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-2xl shadow-md">
+            <div className="p-3 bg-brand text-white rounded-2xl shadow-md">
               <Plug className="w-7 h-7" />
             </div>
             <div>
@@ -136,14 +137,44 @@ export default function InstalledAppsTab() {
             <RefreshCw className="w-10 h-10 mb-4 animate-spin opacity-40" />
             <p>{t("plugins.loading", "Loading integrations...")}</p>
           </div>
-        ) : apps.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-            <Plug className="w-16 h-16 mb-4 opacity-20" />
-            <p>{t("plugins.noIntegrations", "No integrations available")}</p>
-          </div>
         ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {apps.map((app) => {
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* === SOVEREIGN DIWAN APPLICATION CARD === */}
+            <div className="relative overflow-hidden flex flex-col p-6 rounded-2xl border transition-all duration-300 bg-white dark:bg-[#1a1d21] border-amber-300 dark:border-amber-700/50 shadow-lg shadow-amber-500/5 ring-1 ring-amber-400/20">
+              <div className="absolute top-0 end-0 w-full h-1 bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500" />
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-14 h-14 rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+                  <Landmark className="w-7 h-7 text-amber-600 dark:text-amber-400" />
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                  {isRtl ? "مثبت ومفعل (سيادي)" : "Installed (Sovereign Core)"}
+                </span>
+              </div>
+              <div className="mb-6 flex-1">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                  {isRtl ? "ديوان المراسلات الرسمية والأرشيف الإلكتروني الذكي" : "Official Diwan & Smart Archiving Studio"}
+                </h3>
+                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 mb-3">
+                  {isRtl ? "إدارة سيادية وأرشفة متقدمة" : "Governmental & Enterprise Archiving"}
+                </span>
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                  {isRtl
+                    ? "منظومة المراسلات الرسمية برقم تسلسلي مقفول، ومحرك القوالب التفاعلي Canvas، وأرشفة شجرية متقدمة مع الختم الرقمي المشفر QR."
+                    : "Official enterprise correspondence with advisory-locked serial numbers, interactive Canvas studio, and hierarchical ltree archiving with external QR seal."}
+                </p>
+              </div>
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
+                <Button
+                  onClick={() => setCurrentView('correspondence')}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl h-11 text-sm font-bold bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-md transition-all cursor-pointer"
+                >
+                  <Landmark className="w-4 h-4" />
+                  {isRtl ? "فتح منصة الديوان والمراسلات" : "Launch Diwan & Archiving Platform"}
+                </Button>
+              </div>
+            </div>
+
+            {apps.map((app) => {
             const isConnected = app.status === "connected";
             const isToggling = togglingId === app.id;
             
@@ -152,13 +183,13 @@ export default function InstalledAppsTab() {
                 key={app.id} 
                 className={`relative overflow-hidden flex flex-col p-6 rounded-2xl border transition-all duration-300 ${
                   isConnected 
-                    ? "bg-white border-brand-light shadow-md shadow-indigo-100/50 ring-1 ring-indigo-50" 
+                    ? "bg-white border-brand shadow-md shadow-brand/10 ring-1 ring-brand/20" 
                     : "bg-white/80 border-slate-200 hover:border-slate-300 hover:shadow-sm"
                 }`}
               >
                 {/* Active Indicator Line */}
                 {isConnected && (
-                  <div className="absolute top-0 end-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-500" />
+                  <div className="absolute top-0 end-0 w-full h-1 bg-gradient-to-r from-brand to-brand-secondary" />
                 )}
 
                 <div className="flex items-start justify-between mb-4">
@@ -188,7 +219,7 @@ export default function InstalledAppsTab() {
                       <Button
                         onClick={() => handleOpenConfig(app)}
                         variant="outline"
-                        className="flex-1 flex items-center justify-center gap-2 rounded-xl h-11 text-sm font-semibold border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
+                        className="flex-1 flex items-center justify-center gap-2 rounded-xl h-11 text-sm font-semibold border-brand/30 text-brand hover:bg-brand/10 dark:border-brand/40 dark:text-brand dark:hover:bg-brand/20"
                       >
                         <Settings className="w-4 h-4" />
                         {t("plugins.configure")}

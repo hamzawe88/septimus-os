@@ -153,7 +153,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={config.phone_number_id || ""}
               onChange={(e) => handleConfigChange("phone_number_id", e.target.value)}
               placeholder={isRtl ? "مثال: 10839281928392" : "e.g. 10839281928392"}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
           </div>
           <div>
@@ -163,7 +163,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={config.business_account_id || ""}
               onChange={(e) => handleConfigChange("business_account_id", e.target.value)}
               placeholder={isRtl ? "مثال: 10928392839201" : "e.g. 10928392839201"}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
           </div>
           <div>
@@ -173,7 +173,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
               placeholder="EAA..."
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
             />
           </div>
           <div>
@@ -183,7 +183,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={config.verify_token || ""}
               onChange={(e) => handleConfigChange("verify_token", e.target.value)}
               placeholder="septimus_secret_verify_2026"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
           </div>
         </div>
@@ -201,7 +201,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
                 value={config.subdomain || ""}
                 onChange={(e) => handleConfigChange("subdomain", e.target.value)}
                 placeholder="mycompany"
-                className="flex-1 px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-e-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-start dir-ltr"
+                className="flex-1 px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-e-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
               />
               <span className="px-3 py-2.5 bg-slate-100 dark:bg-slate-800 border border-s-0 border-slate-300 dark:border-slate-700 rounded-s-xl text-xs font-mono text-slate-600 dark:text-slate-300">.zendesk.com</span>
             </div>
@@ -213,7 +213,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={config.admin_email || ""}
               onChange={(e) => handleConfigChange("admin_email", e.target.value)}
               placeholder="admin@mycompany.com"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-start dir-ltr"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
             />
           </div>
           <div>
@@ -223,7 +223,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
               placeholder={t("plugins.enterZendeskToken")}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
             />
           </div>
         </div>
@@ -240,7 +240,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={config.server_url || ""}
               onChange={(e) => handleConfigChange("server_url", e.target.value)}
               placeholder="https://mycompany.odoo.com"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-start dir-ltr"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
             />
           </div>
           <div>
@@ -250,7 +250,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={config.database || ""}
               onChange={(e) => handleConfigChange("database", e.target.value)}
               placeholder="odoo_prod_db"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-start dir-ltr"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
             />
           </div>
           <div>
@@ -260,7 +260,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={config.username || ""}
               onChange={(e) => handleConfigChange("username", e.target.value)}
               placeholder="admin@mycompany.com"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-start dir-ltr"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
             />
           </div>
           <div>
@@ -270,7 +270,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
               placeholder={t("plugins.enterOdooKey")}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
             />
           </div>
         </div>
@@ -287,7 +287,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               onChange={(e) => handleConfigChange("provider", e.target.value)}
               aria-label={t("plugins.aiProvider")}
               title={t("plugins.aiProvider")}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             >
               <option value="gemini">{t("plugins.geminiRec")}</option>
               <option value="openai">OpenAI (ChatGPT-4o)</option>
@@ -301,7 +301,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
               placeholder={isRtl ? "أدخل المفتاح هنا..." : "AIzaSy... or sk-..."}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
             />
           </div>
           <div>
@@ -311,7 +311,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
               value={config.model || "gemini-2.5-pro"}
               onChange={(e) => handleConfigChange("model", e.target.value)}
               placeholder="gemini-2.5-pro"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-start dir-ltr"
+              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono text-start dir-ltr"
             />
           </div>
         </div>
@@ -351,7 +351,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
             value={accessToken}
             onChange={(e) => setAccessToken(e.target.value)}
             placeholder={t("plugins.genericKeyPlaceholder")}
-            className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+            className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
           />
         </div>
       </div>
@@ -368,7 +368,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
         {/* Modal Header */}
         <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-[#222529]/50">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 rounded-2xl text-indigo-600 dark:text-indigo-400">
+            <div className="p-2.5 bg-brand/10 dark:bg-brand/20 border border-brand/20 rounded-2xl text-brand">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
@@ -390,13 +390,13 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {loading ? (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400">
-              <RefreshCw className="w-8 h-8 animate-spin mb-3 text-indigo-600 dark:text-indigo-400" />
+              <RefreshCw className="w-8 h-8 animate-spin mb-3 text-brand" />
               <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("plugins.loadingConfig")}</span>
             </div>
           ) : (
             <>
               {/* Description & Guide */}
-              <div className="p-4 bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800 rounded-2xl text-sm text-indigo-900 dark:text-indigo-300 leading-relaxed">
+              <div className="p-4 bg-brand/10 dark:bg-brand/20 border border-brand/20 rounded-2xl text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
                 <span className="font-bold block mb-1">{t("plugins.guideTitle")}</span>
                 {app.description} {t("plugins.guideText")}
               </div>
@@ -485,9 +485,9 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
                 variant="outline"
                 onClick={handleTestConnection}
                 disabled={testing || loading}
-                className="rounded-xl px-4 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 flex items-center gap-2 font-semibold"
+                className="rounded-xl px-4 border-brand/30 dark:border-brand/40 text-brand hover:bg-brand/10 flex items-center gap-2 font-semibold"
               >
-                {testing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />}
+                {testing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 text-brand" />}
                 {t("plugins.testLiveConnection")}
               </Button>
 
@@ -495,7 +495,7 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
                 type="button"
                 onClick={handleSaveAndConnect}
                 disabled={loading || testing}
-                className="bg-brand hover:bg-brand-hover text-white rounded-xl px-6 font-bold shadow-md shadow-indigo-200 dark:shadow-none flex items-center gap-2"
+                className="bg-brand hover:bg-brand-hover text-white rounded-xl px-6 font-bold shadow-md shadow-brand/20 dark:shadow-none flex items-center gap-2"
               >
                 {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 {t("plugins.saveAndActivate")}

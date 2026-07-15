@@ -52,6 +52,16 @@ export default function InvoicePrintModal({
   invoiceId = "INV-2026-0001",
 }: InvoicePrintModalProps) {
   const { t } = useLocalization();
+  const [companyProfile] = React.useState<{ name?: string; taxNumber?: string; address?: string; logoUrl?: string }>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const saved = localStorage.getItem("septimus_company_profile");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return {};
+  });
 
   if (!isOpen) return null;
 
@@ -146,18 +156,23 @@ export default function InvoicePrintModal({
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-200 pb-8 gap-6">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-black text-2xl">
-                  S
-                </div>
+                {companyProfile.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={companyProfile.logoUrl} alt="Company Logo" className="w-12 h-12 object-contain rounded-xl p-0.5" />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-black text-2xl">
+                    S
+                  </div>
+                )}
                 <div>
-                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">SEPTIMUS OS</h1>
+                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">{companyProfile.name || "SEPTIMUS OS"}</h1>
                   <p className="text-xs font-semibold text-brand tracking-wider uppercase">Enterprise Financial Suite</p>
                 </div>
               </div>
-              <p className="text-sm text-slate-500 font-medium">{t("finance.companyNameLong")}</p>
+              <p className="text-sm text-slate-500 font-medium">{companyProfile.name || t("finance.companyNameLong")}</p>
               <div className="text-xs text-slate-500 space-y-0.5">
-                <p><span className="font-semibold text-slate-700">{t("finance.taxIdVAT")}</span> 300123456700003</p>
-                <p><span className="font-semibold text-slate-700">{t("finance.addressLabel")}</span> {t("finance.companyAddressValue")}</p>
+                <p><span className="font-semibold text-slate-700">{t("finance.taxIdVAT")}</span> {companyProfile.taxNumber || "300123456700003"}</p>
+                <p><span className="font-semibold text-slate-700">{t("finance.addressLabel")}</span> {companyProfile.address || t("finance.companyAddressValue")}</p>
               </div>
             </div>
 

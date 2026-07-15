@@ -198,9 +198,6 @@ export default function LiquidDashboard() {
             <h1 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">
               {t("dashboard.title", "My Sovereign Workspace")}
             </h1>
-            <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-              V2 Liquid Engine
-            </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {t("dashboard.subtitle", "Customize your personalized liquid command dashboard across all corporate subsystems.")}
