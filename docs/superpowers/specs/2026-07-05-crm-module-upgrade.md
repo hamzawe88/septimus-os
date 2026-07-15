@@ -15,10 +15,12 @@
 ### Task 1: Kanban Pipeline Enhancement & Revenue Forecasting Widget
 
 **Files:**
+
 - Modify: `/Users/hamzwe/Desktop/LPC-BRAIN CORE/septimus-os/frontend/src/components/plugins/CRMLeadsView.tsx`
 
 - [ ] **Step 1: Write the updated Kanban columns and forecasting math**
   - In `CRMLeadsView.tsx`, expand `COLUMNS` array to include 6 stages:
+
     ```typescript
     const COLUMNS = [
       { id: "new", title: "New Lead 🆕", probability: 0.1 },
@@ -29,6 +31,7 @@
       { id: "closed_lost", title: "Closed Lost ❌", probability: 0.0 },
     ];
     ```
+
   - Add a **Pipeline Forecasting Summary Bar** above the search box:
     - Total Leads Count.
     - Total Pipeline Value ($) across all active leads.
@@ -52,6 +55,7 @@
 ### Task 2: Quotation Generator Modal & Quote-to-Invoice Bridge
 
 **Files:**
+
 - Create: `/Users/hamzwe/Desktop/LPC-BRAIN CORE/septimus-os/frontend/src/components/plugins/AddQuoteModal.tsx`
 - Modify: `/Users/hamzwe/Desktop/LPC-BRAIN CORE/septimus-os/frontend/src/components/plugins/CRMLeadsView.tsx`
 - Modify: `/Users/hamzwe/Desktop/LPC-BRAIN CORE/septimus-os/frontend/src/components/plugins/LeadDetailsModal.tsx`
@@ -87,6 +91,7 @@
 ### Task 3: LangGraph AI Sales Copilot Assistant UI
 
 **Files:**
+
 - Modify: `/Users/hamzwe/Desktop/LPC-BRAIN CORE/septimus-os/frontend/src/components/plugins/LeadDetailsModal.tsx`
 
 - [ ] **Step 1: Implement AI Sales Copilot tab/section in `LeadDetailsModal.tsx`**
@@ -115,11 +120,13 @@
 ## Verification Plan
 
 ### Automated Verification
+
 - `npx tsc --noEmit` in `/frontend` to verify 100% type safety without `any`.
 - `npm run lint` in `/frontend` to ensure ESLint compliance.
 - `docker compose up -d --build frontend` to verify successful production bundle compilation.
 
 ### Manual Verification
+
 1. Open browser to `http://localhost:3000/crm`.
 2. Verify the 6-stage Kanban board is visible with the new **Pipeline Forecasting Summary Bar** showing real-time weighted revenue calculations.
 3. Drag a lead from `New Lead` to `Quote Sent` or `Negotiating` and observe the weighted expected revenue update dynamically.

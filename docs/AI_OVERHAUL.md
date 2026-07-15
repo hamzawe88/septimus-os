@@ -9,7 +9,7 @@
 
 ## 0. Quick map of the AI architecture (after the overhaul)
 
-```
+```text
 Browser (frontend)
   └─ /api/v1/*  → Caddy/backend → backend-core (Go)  [JWT]
         ├─ /api/v1/ai/*        → ProxyToAISidecar → ai-sidecar (internal only)   [JWT→internal token]
@@ -36,7 +36,7 @@ Single provider-key source: encrypted `ai_providers` workspace setting.
 ## Phase 0 — Security (DONE, live-verified)
 
 | Change | Where |
-|---|---|
+| :--- | :--- |
 | Sidecar no longer host-published; reachable only via JWT proxy | `docker-compose.yml` (`expose` not `ports`), `backend-core/handlers/ai_proxy.go` (`ProxyToAISidecar`, route `protected.All("/ai/*")`) |
 | `/internal/*` gated by shared token | `middleware/internal.go` (`RequireInternalToken`, header `X-Internal-Token` == `INTERNAL_API_TOKEN`; disabled if env unset for dev) |
 | Provider API keys encrypted at rest (AES-GCM, `enc:v1:` prefix) | `services/crypto/crypto.go`; `handlers/settings.go` (`SaveSettings` encrypts, `GetSettings` masks for browser, `GetSettingsInternal` decrypts for sidecar) |
@@ -100,7 +100,7 @@ Single provider-key source: encrypted `ai_providers` workspace setting.
 
 ## Key endpoints added/changed
 
-```
+```text
 POST /api/v1/ai/*                      → proxied to sidecar (JWT)
 POST /api/v1/agents/dispatch           → dispatch task to crm|task|comm agent
 POST /api/v1/agents/audit              → run proactive auditor now

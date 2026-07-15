@@ -37,7 +37,8 @@ frontend/src/components/dashboard/widgets/FinanceKPIsWidget.tsx
 
 ## STEP 1 — Add these keys to BOTH json files (under the top-level `"dashboard"` object)
 
-### `en.json` → merge into `"dashboard"`:
+### `en.json` → merge into `"dashboard"`
+
 ```json
 {
   "customizeGrid": "Customize Grid",
@@ -81,7 +82,8 @@ frontend/src/components/dashboard/widgets/FinanceKPIsWidget.tsx
 }
 ```
 
-### `ar.json` → merge into `"dashboard"` (SAME KEYS, Arabic values):
+### `ar.json` → merge into `"dashboard"` (SAME KEYS, Arabic values)
+
 ```json
 {
   "customizeGrid": "تخصيص الشبكة",
