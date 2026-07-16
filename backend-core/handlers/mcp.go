@@ -86,6 +86,14 @@ func HandleMCP(c *fiber.Ctx) error {
 
 	workspaceID := database.ParseUUID(fmt.Sprintf("%v", c.Locals("workspace_id")))
 
+	// A JSON-RPC notification carries no id and must not be answered with a
+	// result or an error. Real clients send `notifications/initialized` right
+	// after the handshake; replying "method not found" to it made the handshake
+	// look like it failed. Acknowledge with 202 and no body.
+	if req.ID == nil && strings.HasPrefix(req.Method, "notifications/") {
+		return c.SendStatus(fiber.StatusAccepted)
+	}
+
 	switch req.Method {
 	case "initialize":
 		return mcpOK(c, req.ID, fiber.Map{
@@ -93,6 +101,10 @@ func HandleMCP(c *fiber.Ctx) error {
 			"serverInfo":      fiber.Map{"name": "septimus-os", "version": "1.0.0"},
 			"capabilities":    fiber.Map{"tools": fiber.Map{}},
 		})
+
+	case "ping":
+		// Liveness check in the MCP spec; an empty result is the expected answer.
+		return mcpOK(c, req.ID, fiber.Map{})
 
 	case "tools/list":
 		return mcpOK(c, req.ID, fiber.Map{"tools": mcpToolSchemas()})
@@ -204,6 +216,9 @@ func runMCPTool(workspaceID uuid.UUID, name string, args map[string]interface{})
 		if err := database.DB.Create(&pending).Error; err != nil {
 			return "", fmt.Errorf("failed to queue task for approval")
 		}
+		// Surface the proposal in the AI Center's live approvals queue immediately —
+		// a human is the one gating this, so they should not wait for a poll.
+		PublishAgentApproval(workspaceID, &pending, false)
 		return fmt.Sprintf("Task '%s' queued for human approval (id %s).", title, pending.ID), nil
 
 	default:
