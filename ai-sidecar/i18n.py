@@ -51,7 +51,11 @@ SYS_PROMPTS = {
 }
 
 
-from reasoning_manual import get_reasoning_directives, get_validation_gate_prompt
+from reasoning_manual import (
+    get_injection_defense_prompt,
+    get_reasoning_directives,
+    get_validation_gate_prompt,
+)
 
 
 def system_prompt_for(agent_type: str, lang: str) -> str:
@@ -59,5 +63,8 @@ def system_prompt_for(agent_type: str, lang: str) -> str:
     base_role = table.get(agent_type.lower(), table["general"])
     reasoning_directives = get_reasoning_directives(agent_type, lang)
     validation_gate = get_validation_gate_prompt(lang)
-    return f"{base_role}\n\n{reasoning_directives}\n\n{validation_gate}"
+    # Every agent can reach retrieved content through its tools, so the
+    # untrusted-content boundary belongs in every agent's system prompt.
+    injection_defense = get_injection_defense_prompt(lang)
+    return f"{base_role}\n\n{reasoning_directives}\n\n{validation_gate}\n\n{injection_defense}"
 

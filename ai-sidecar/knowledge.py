@@ -7,6 +7,8 @@ retrieval to the Go backend so there is exactly one embedding model, one
 dimension, and one retrieval surface for the whole system.
 """
 import os
+import re
+import secrets
 
 import requests
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -14,11 +16,44 @@ from langchain_community.document_loaders import PyPDFLoader, TextLoader
 
 from config import BACKEND_URL, internal_headers
 
+# Retrieved chunks are attacker-reachable: anyone who can upload a document or
+# create an entity decides what text lands in the model's context. Fencing it
+# keeps it in data space instead of instruction space.
+FENCE_TAG = "untrusted_knowledge"
+_FENCE_PATTERN = re.compile(r"</?\s*" + FENCE_TAG + r"[^>]*>", re.IGNORECASE)
+
+
+def _neutralize_fence(text: str) -> str:
+    """Strip any fence tag a document tries to forge so it cannot close our
+    block early and continue in instruction space."""
+    return _FENCE_PATTERN.sub("[filtered]", text)
+
+
+def wrap_untrusted_context(chunks) -> str:
+    """Fence retrieved chunks as DATA, not instructions.
+
+    The nonce is fresh per call, so a poisoned document cannot guess the
+    closing tag — its payload stays inside the block no matter what it says.
+    Returns "" for an empty payload, keeping the falsy "no context" contract
+    every caller already relies on.
+    """
+    body = "\n\n---\n\n".join(
+        _neutralize_fence(c).strip() for c in (chunks or []) if c and c.strip()
+    )
+    if not body.strip():
+        return ""
+    nonce = secrets.token_hex(8)
+    return (
+        f'<{FENCE_TAG} nonce="{nonce}">\n'
+        f"{body}\n"
+        f'</{FENCE_TAG} nonce="{nonce}">'
+    )
+
 
 def retrieve_context(workspace_id: str, query: str, k: int = 4) -> str:
-    """Return the concatenated text of the top-k relevant chunks (documents and
-    entities alike) for a workspace, via the backend's unified semantic search.
-    Tenant-scoped; returns "" on no results / failure."""
+    """Return the top-k relevant chunks (documents and entities alike) for a
+    workspace, via the backend's unified semantic search, fenced as untrusted
+    data. Tenant-scoped; returns "" on no results / failure."""
     try:
         res = requests.get(
             f"{BACKEND_URL}/internal/search/semantic?workspace_id={workspace_id}&q={query}&limit={k}",
@@ -28,7 +63,7 @@ def retrieve_context(workspace_id: str, query: str, k: int = 4) -> str:
         if res.status_code == 200:
             results = res.json().get("results", [])
             texts = [r.get("content", "") for r in results if r.get("content")]
-            return "\n\n".join(texts)
+            return wrap_untrusted_context(texts)
         print(f"[knowledge] semantic search returned {res.status_code}")
     except Exception as e:
         print(f"[knowledge] retrieval error: {e}")
