@@ -83,6 +83,11 @@ services:
       - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-dev-internal-token}
       - CENTRIFUGO_API_URL=http://centrifugo:8000/api
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-supersecretapikey}
+      # Langfuse LLM tracing. Empty keys (the default) disable tracing entirely;
+      # mint a project in the Langfuse UI and put its keys in .env to switch it on.
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-http://langfuse:3000}
     depends_on:
       - db
       - nats
@@ -113,7 +118,50 @@ services:
     depends_on:
       - redis
 
+  # LLM observability/tracing UI. Optional: nothing else in the stack depends on
+  # it, and ai-sidecar traces only once LANGFUSE_*_KEY are set (see .env.example).
+  # Host port 3001 — 3000 is the frontend.
+  langfuse:
+    image: langfuse/langfuse:2
+    ports:
+      - "127.0.0.1:3001:3000"
+    environment:
+      # Langfuse owns its own schema and runs its migrations at boot, so it gets
+      # a dedicated Postgres rather than sharing the app `db`.
+      - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      # Must match the URL the browser uses, or login callbacks break.
+      - NEXTAUTH_URL=${LANGFUSE_NEXTAUTH_URL:-http://localhost:3001}
+      - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-dev-langfuse-nextauth-secret}
+      - SALT=${LANGFUSE_SALT:-dev-langfuse-salt}
+      # Must be exactly 64 hex chars (openssl rand -hex 32).
+      - ENCRYPTION_KEY=${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      - TELEMETRY_ENABLED=${TELEMETRY_ENABLED:-false}
+      - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-false}
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+
+  langfuse-db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+      POSTGRES_DB: langfuse
+    # Loopback-only, same rule as the app data stores above. 5433 is the app db.
+    ports:
+      - "127.0.0.1:5434:5432"
+    # Langfuse migrates on boot; gate startup until Postgres actually accepts.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse -d langfuse"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    volumes:
+      - langfuse_pgdata:/var/lib/postgresql/data
+
 volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  langfuse_pgdata:

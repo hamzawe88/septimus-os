@@ -133,6 +133,60 @@ flips to real replies, and token streaming activates.
 
 ---
 
+## LLM tracing — self-hosted Langfuse (optional)
+
+Per-call traces for the chat agent: prompts, completions, tool calls, latency and token
+counts, grouped per workspace. Self-hosted — no data leaves the stack.
+
+**This is additive.** The existing `log_event` / `track_llm_usage` structured logs and the
+budget guardrails are unchanged and remain authoritative. With no keys configured — the
+default — `get_langfuse_handler()` returns `None`, no callback is attached, and the agent
+path behaves exactly as it did before. A Langfuse that is down, unconfigured, or missing
+from the image degrades to "no tracing" and logs once; it never raises into inference.
+
+| Piece | Where |
+|---|---|
+| `langfuse` + `langfuse-db` (own Postgres + volume) | `docker-compose.yml`, `docker-compose.prod.yml` |
+| `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` / `LANGFUSE_HOST` | `ai-sidecar/config.py` |
+| `get_langfuse_handler(workspace_id, user_id, session_id, tags)` | `ai-sidecar/observability.py` |
+| `config["callbacks"] = [handler]` (only when not None) | `ai-sidecar/agents_chat.py` |
+
+Server is `langfuse/langfuse:2`, matched by the v2 Python SDK (`langfuse>=2.60.10,<3`) —
+the v3 SDK speaks a different API and will not work against a v2 server. The v2 SDK caps
+`packaging<25.0`, so `packaging` is held at `24.2` in `ai-sidecar/requirements.txt`.
+
+Langfuse gets its **own** Postgres (`langfuse-db`, host port `5434`): it owns and migrates
+its schema, so it must never share the app `db`. The UI is on host port **3001** (3000 is
+the frontend), loopback-bound like the other data stores. Nothing depends on `langfuse`,
+so it can be stopped at any time without touching the rest of the stack.
+
+### Turning it on
+
+```bash
+docker compose up -d langfuse langfuse-db
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001   # → 200
+```
+
+1. Open <http://localhost:3001>, create an account (first user is local to your instance),
+   then create an organization + project.
+2. **Project → Settings → API Keys → Create** — the keys only exist once Langfuse is
+   running, which is why `.env.example` ships them commented out.
+3. Paste both into `.env`:
+   ```bash
+   LANGFUSE_PUBLIC_KEY=pk-lf-...
+   LANGFUSE_SECRET_KEY=sk-lf-...
+   ```
+4. `docker compose restart ai-sidecar` — traces appear under the project on the next chat
+   call, tagged `workspace:<id>`, `agent:<type>`, `lang:<ar|en>`, and grouped into sessions
+   by `thread_id`.
+
+In production every Langfuse secret is required up front (`${VAR:?}`) — see the
+`LANGFUSE_*` block in `.env.example`. The prod service is **not** published on a host port,
+since the UI exposes prompt and completion content; add a reverse-proxy route behind auth
+or tunnel to it deliberately.
+
+---
+
 ## Still-open (future)
 
 - Realtime voice (OpenAI Realtime API) — needs a key.

@@ -11,7 +11,7 @@ from config import BACKEND_URL, DB_DSN, internal_headers
 from i18n import language_directive, resolve_lang, system_prompt_for
 from reasoning_manual import get_reasoning_directives, get_validation_gate_prompt
 from providers import get_active_llm
-from observability import check_budget_guardrails, BudgetExceededError
+from observability import check_budget_guardrails, BudgetExceededError, get_langfuse_handler
 import knowledge
 
 
@@ -384,6 +384,15 @@ async def run_chat_agent(agent_type: str, message: str, context: dict,
             "configurable": {"thread_id": thread_id},
             "recursion_limit": 8,
         }
+        # Optional Langfuse tracing; None (the default) leaves `config` untouched.
+        langfuse_handler = get_langfuse_handler(
+            workspace_id,
+            user_id=context.get("user_id"),
+            session_id=thread_id,
+            tags=[f"agent:{agent_type}", f"lang:{lang}"],
+        )
+        if langfuse_handler is not None:
+            config["callbacks"] = [langfuse_handler]
         inputs = {"messages": [("user", message)]}
 
         if channel:

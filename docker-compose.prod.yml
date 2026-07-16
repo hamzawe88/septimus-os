@@ -69,6 +69,12 @@ services:
       - CENTRIFUGO_API_URL=http://centrifugo:8000/api
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:?}
       - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:?}
+      # Langfuse tracing stays optional (not :?): the keys can only be minted
+      # from the Langfuse UI after it is already running, so requiring them here
+      # would deadlock a first deploy. Unset = tracing off, sidecar unaffected.
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-http://langfuse:3000}
     depends_on:
       - db
       - nats
@@ -116,6 +122,49 @@ services:
     networks:
       - septimus_net
 
+  # LLM observability/tracing. Deliberately NOT published on a host port: the
+  # UI exposes prompts and completions, so reaching it in production should be a
+  # conscious act — add a Caddy route behind auth, or `docker compose port` /
+  # an SSH tunnel for occasional access.
+  langfuse:
+    image: langfuse/langfuse:2
+    restart: always
+    expose:
+      - "3000"
+    environment:
+      # Langfuse owns its schema — point this at langfuse-db, never the app db.
+      - DATABASE_URL=${LANGFUSE_DATABASE_URL:?e.g. postgresql://user:pass@langfuse-db:5432/langfuse}
+      - NEXTAUTH_URL=${LANGFUSE_NEXTAUTH_URL:?public URL the browser reaches Langfuse on}
+      - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:?openssl rand -base64 32}
+      - SALT=${LANGFUSE_SALT:?openssl rand -base64 32}
+      - ENCRYPTION_KEY=${LANGFUSE_ENCRYPTION_KEY:?exactly 64 hex chars — openssl rand -hex 32}
+      - TELEMETRY_ENABLED=${TELEMETRY_ENABLED:-false}
+      - LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES=${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-false}
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    networks:
+      - septimus_net
+
+  langfuse-db:
+    image: postgres:17
+    restart: always
+    environment:
+      POSTGRES_USER: ${LANGFUSE_POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${LANGFUSE_POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${LANGFUSE_POSTGRES_DB:?}
+    # Langfuse migrates on boot; gate startup until Postgres actually accepts.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LANGFUSE_POSTGRES_USER:?} -d ${LANGFUSE_POSTGRES_DB:?}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    volumes:
+      - langfuse_pgdata:/var/lib/postgresql/data
+    networks:
+      - septimus_net
+
   caddy:
     image: caddy:alpine
     restart: always
@@ -135,6 +184,7 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  langfuse_pgdata:
 
 networks:
   septimus_net:

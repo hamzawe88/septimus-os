@@ -2,15 +2,26 @@
 
 Provides JSON-formatted audit logs and token consumption estimation per workspace,
 enabling cost governance and observability across AI tiers (Fast / Strong).
+
+Optionally also emits LangChain traces to a self-hosted Langfuse instance. That
+path is strictly additive — the structured logs and token accounting below stay
+authoritative whether or not Langfuse is configured or reachable.
 """
 import json
 import logging
 import os
 import sys
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 import requests
-from config import BACKEND_URL, internal_headers
+from config import (
+    BACKEND_URL,
+    LANGFUSE_HOST,
+    LANGFUSE_PUBLIC_KEY,
+    LANGFUSE_SECRET_KEY,
+    internal_headers,
+    langfuse_enabled,
+)
 
 # Configure JSON structured logger
 logger = logging.getLogger("septimus_ai_sidecar")
@@ -182,4 +193,69 @@ def check_budget_guardrails(workspace_id: str, lang: str = "ar", max_daily_token
     except Exception as e:
         # Don't block inference if check_budget endpoint is unreachable or unconfigured
         pass
+
+
+# ── Langfuse tracing (self-hosted, optional) ──────────────────────────────────
+# Tracing is a best-effort side-channel layered on top of the structured logging
+# above — never a replacement for it. Every failure mode (SDK missing, bad keys,
+# Langfuse container down) degrades silently to "no tracing" and is logged once,
+# so an unreachable Langfuse can't spam the audit log on every single inference.
+_langfuse_warning_logged = False
+
+
+def _log_langfuse_once(message: str) -> None:
+    """Log a Langfuse degradation once per process lifetime."""
+    global _langfuse_warning_logged
+    if _langfuse_warning_logged:
+        return
+    _langfuse_warning_logged = True
+    log_event("ai.langfuse.unavailable", "", message)
+
+
+def get_langfuse_handler(
+    workspace_id: str,
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+):
+    """Build a Langfuse LangChain callback handler for a single agent run.
+
+    Returns the handler when both Langfuse keys are configured, else `None`.
+    Callers pass it through as `callbacks=[handler]` only when it isn't None,
+    so the unconfigured path (the default) is byte-for-byte the old behaviour.
+
+    This function never raises: a missing SDK, a malformed key, or a Langfuse
+    server that is simply down all resolve to `None` rather than breaking the
+    inference that the trace was only meant to observe.
+    """
+    if not langfuse_enabled():
+        return None
+
+    try:
+        # Imported lazily: the sidecar must start and serve normally even if the
+        # langfuse package isn't installed in the image.
+        from langfuse.callback import CallbackHandler
+    except Exception as e:
+        _log_langfuse_once(f"Langfuse SDK unavailable; LLM tracing disabled: {e}")
+        return None
+
+    try:
+        run_tags = ["septimus-os", "ai-sidecar"]
+        if workspace_id:
+            run_tags.append(f"workspace:{workspace_id}")
+        if tags:
+            run_tags.extend([t for t in tags if t])
+
+        return CallbackHandler(
+            public_key=LANGFUSE_PUBLIC_KEY,
+            secret_key=LANGFUSE_SECRET_KEY,
+            host=LANGFUSE_HOST,
+            user_id=user_id or None,
+            session_id=session_id or None,
+            tags=run_tags,
+            metadata={"workspace_id": workspace_id or ""},
+        )
+    except Exception as e:
+        _log_langfuse_once(f"Langfuse handler construction failed; LLM tracing disabled: {e}")
+        return None
 

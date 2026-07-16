@@ -60,6 +60,18 @@ CENTRIFUGO_API_KEY = os.getenv("CENTRIFUGO_API_KEY", "supersecretapikey")
 # /internal/* routes present the same token.
 INTERNAL_API_TOKEN = os.getenv("INTERNAL_API_TOKEN", "")
 
+# Langfuse (self-hosted LLM tracing). Purely additive: when the two keys are
+# absent — the default — tracing stays off and the agent path behaves exactly
+# as before. Keys are minted in the Langfuse UI on first run (see .env.example).
+LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY", "")
+LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "http://langfuse:3000")
+
+
+def langfuse_enabled() -> bool:
+    """True only when both Langfuse keys are configured."""
+    return bool(LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY)
+
 CORS_ALLOW_ORIGINS = [
     origin.strip()
     for origin in os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080").split(",")
