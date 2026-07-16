@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import type { PublicationContext } from 'centrifuge';
 import { apiGet, apiPost, apiPut } from '@/lib/apiClient';
+import { useAppStore } from '@/store/useAppStore';
 import AISettings from '../settings/AISettings';
 import { Activity, Cpu, Zap, ShieldCheck, Play, Loader2 } from 'lucide-react';
 import { useLocalization } from '@/contexts/LocalizationContext';
@@ -9,6 +11,10 @@ import { useLocalization } from '@/contexts/LocalizationContext';
 const STRONG_MODEL: Record<string, string> = { openai: 'gpt-5', gemini: 'gemini-2.5-pro' };
 
 interface ProviderSetting { provider: string; isActive?: boolean; hasApiKey?: boolean; apiKey?: string; }
+
+// The active provider as data; the display label is derived at render time so it
+// follows the current language without a refetch.
+interface ActiveProvider { provider: string; configured: boolean }
 
 interface AgentState {
   id: string;
@@ -43,42 +49,124 @@ interface AIConfig {
   api_key?: string;
 }
 
+// The snapshot GET /agents/status returns. `channel` is the Centrifugo channel
+// carrying live updates for this workspace — the server names it so the client
+// never has to guess the workspace scope.
+interface AgentStatusSnapshot {
+  states: AgentState[];
+  logs: AgentLog[];
+  pending: PendingApproval[];
+  config: AIConfig;
+  channel: string;
+}
+
+// One event pushed on `agents_<workspaceID>`. Each carries the row that changed,
+// so the UI applies it directly instead of re-fetching the whole board.
+type AgentEvent =
+  | { type: 'agent_log'; log: AgentLog }
+  | { type: 'agent_state'; state: AgentState }
+  | { type: 'agent_approval'; pending: PendingApproval }
+  | { type: 'agent_approval_resolved'; pending: PendingApproval };
+
+// Matches the LIMIT 50 the snapshot query uses, so live-appended logs and a
+// refetched snapshot converge on the same list instead of fighting each other.
+const MAX_LOGS = 50;
+
+// Safety-net refetch while the subscription is live. The agents channel lives in
+// Centrifugo's default namespace, which keeps no history — so anything published
+// while the socket is down is gone for good, and a reconnect alone cannot heal
+// the board. A 60s snapshot bounds that staleness while still cutting request
+// volume 20x versus the 3s poll this replaced.
+const SAFETY_REFETCH_MS = 60000;
+// Cadence while the stream is NOT live — no Centrifugo at all (same defensive
+// shape as AgentChatDrawer, which falls back to non-streamed replies when
+// centrifuge is null), or the subscription was refused/dropped. Matches the old
+// polling interval, so the worst case is exactly the behaviour this replaced.
+const FALLBACK_POLL_MS = 3000;
+
 export function AgentOrchestrator() {
   const { isRtl } = useLocalization();
+  const centrifuge = useAppStore((s) => s.centrifuge);
   const [states, setStates] = useState<AgentState[]>([]);
   const [logs, setLogs] = useState<AgentLog[]>([]);
   const [pending, setPending] = useState<PendingApproval[]>([]);
+  const [channel, setChannel] = useState<string>('');
+  // True only while Centrifugo has confirmed the subscription; drives whether we
+  // trust the stream or fall back to polling.
+  const [streamLive, setStreamLive] = useState(false);
   const [activeTab, setActiveTab] = useState<'monitoring' | 'providers'>('monitoring');
-  const [activeModelName, setActiveModelName] = useState<string>("OpenAI (GPT-4o)");
+  // undefined = not fetched yet, null = no active provider. Kept as data rather
+  // than a pre-rendered string so fetchStatus stays independent of the language,
+  // and a language flip never has to tear down the live subscription below.
+  const [activeProvider, setActiveProvider] = useState<ActiveProvider | null | undefined>(undefined);
 
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [newAgent, setNewAgent] = useState({ name: '', role: '', config: '{}' });
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
-      // For now we just fetch agents. We can keep logs and pending if backend implements them.
-      const agentsRes = await apiGet<AgentState[]>('/agents');
-      const res = await apiGet<{logs: AgentLog[], pending: PendingApproval[], config: AIConfig}>('/agents/status').catch(() => ({ logs: [], pending: [], config: {} as AIConfig }));
-      setStates(agentsRes || []);
+      // /agents/status already returns the agent states, so the separate GET
+      // /agents it used to make was a duplicate of the same table.
+      const res = await apiGet<AgentStatusSnapshot>('/agents/status')
+        .catch(() => ({ states: [], logs: [], pending: [], config: {} as AIConfig, channel: '' }));
+      setStates(res.states || []);
       setLogs(res.logs || []);
       setPending(res.pending || []);
+      setChannel(res.channel || '');
 
       // Active provider from the REAL source (ai_providers settings), showing
       // the model the sidecar actually routes to — not a stale hardcoded label.
       const wsId = (typeof window !== 'undefined' && localStorage.getItem('currentWorkspaceId')) || '';
       const providers = await apiGet<ProviderSetting[]>(`/settings/ai_providers?workspace_id=${wsId}`).catch(() => [] as ProviderSetting[]);
       const active = Array.isArray(providers) ? providers.find(p => p.isActive) : undefined;
-      if (active) {
-        const configured = active.hasApiKey || (active.apiKey ? active.apiKey.length > 0 : false);
-        const model = STRONG_MODEL[active.provider] || 'auto';
-        setActiveModelName(configured ? `${active.provider} · ${model}` : `${active.provider} · ${isRtl ? 'غير مُعَد' : 'not configured'}`);
-      } else {
-        setActiveModelName(isRtl ? 'لا مزوّد نشط' : 'No active provider');
-      }
+      setActiveProvider(active
+        ? { provider: active.provider, configured: !!active.hasApiKey || !!active.apiKey }
+        : null);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
+
+  // Apply one pushed event to local state. Every branch upserts by id so a
+  // duplicate publish (or a publish racing the snapshot) is idempotent.
+  const applyEvent = useCallback((event: AgentEvent) => {
+    switch (event.type) {
+      case 'agent_log': {
+        const incoming = event.log;
+        if (!incoming?.id) return;
+        setLogs(prev => {
+          const next = prev.some(l => l.id === incoming.id)
+            ? prev.map(l => (l.id === incoming.id ? { ...l, ...incoming } : l))
+            : [incoming, ...prev];
+          // Newest first, matching the snapshot's `ORDER BY created_at DESC`.
+          return next
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, MAX_LOGS);
+        });
+        return;
+      }
+      case 'agent_state': {
+        const incoming = event.state;
+        if (!incoming?.id) return;
+        setStates(prev => prev.some(s => s.id === incoming.id)
+          ? prev.map(s => (s.id === incoming.id ? { ...s, ...incoming } : s))
+          : [...prev, incoming]);
+        return;
+      }
+      case 'agent_approval': {
+        const incoming = event.pending;
+        if (!incoming?.id) return;
+        setPending(prev => prev.some(p => p.id === incoming.id) ? prev : [...prev, incoming]);
+        return;
+      }
+      case 'agent_approval_resolved': {
+        const incoming = event.pending;
+        if (!incoming?.id) return;
+        setPending(prev => prev.filter(p => p.id !== incoming.id));
+        return;
+      }
+    }
+  }, []);
 
   const [dispatching, setDispatching] = useState<string | null>(null);
   const dispatchAgent = async (type: 'crm' | 'task' | 'comm') => {
@@ -91,25 +179,79 @@ export function AgentOrchestrator() {
     } catch (e) {
       console.error(e);
     } finally {
-      // The Go runner does ~2s of real work; refresh after it lands.
-      setTimeout(() => { fetchStatus(); setDispatching(null); }, 2600);
+      // Live: the runner's "running" then "completed" events land on their own, so
+      // the button only has to outlast the dispatch round-trip. Not live: the Go
+      // runner does ~2s of real work, so keep the old wait and refresh after it.
+      const settle = streamLive ? 800 : 2600;
+      setTimeout(() => {
+        if (!streamLive) fetchStatus();
+        setDispatching(null);
+      }, settle);
     }
   };
 
+  // The label for the "Active Provider" tile, derived from the fetched provider.
+  const activeModelName = activeProvider === undefined
+    ? '…'
+    : activeProvider === null
+      ? (isRtl ? 'لا مزوّد نشط' : 'No active provider')
+      : `${activeProvider.provider} · ${activeProvider.configured
+          ? (STRONG_MODEL[activeProvider.provider] || 'auto')
+          : (isRtl ? 'غير مُعَد' : 'not configured')}`;
+
+  // One snapshot on mount: a subscription only delivers future events, so the
+  // board needs its initial contents from the API either way.
   useEffect(() => {
-    let mounted = true;
-    const fetchWrapper = async () => {
-      if (mounted) await fetchStatus();
+    const loadSnapshot = async () => { await fetchStatus(); };
+    loadSnapshot();
+  }, [fetchStatus]);
+
+  // Live updates. Agent runs are bursty and rare — pushing the ~3 rows that
+  // actually change beats re-reading the whole board every 3 seconds.
+  useEffect(() => {
+    if (!centrifuge) return;   // no socket at all → the refetch effect polls
+    if (!channel) return;      // waiting for the snapshot to name our workspace channel
+
+    // Reuse an existing subscription: Centrifugo rejects a second newSubscription
+    // for a channel already registered on the client.
+    const existing = centrifuge.getSubscription(channel);
+    const sub = existing ?? centrifuge.newSubscription(channel);
+
+    const onPublication = (ctx: PublicationContext) => {
+      const data = ctx.data as AgentEvent | undefined;
+      if (data?.type) applyEvent(data);
     };
-    fetchWrapper();
-    const interval = setInterval(fetchWrapper, 3000);
+    // Only a confirmed subscription earns the slow refetch. If Centrifugo refuses
+    // the channel (e.g. permission denied) or the socket drops, we must go back to
+    // polling — a subscription that silently never delivers would otherwise leave
+    // the board 60s stale, which is worse than the poll it replaced.
+    const onSubscribed = () => setStreamLive(true);
+    const onDown = () => setStreamLive(false);
+
+    sub.on('publication', onPublication);
+    sub.on('subscribed', onSubscribed);
+    sub.on('error', onDown);
+    sub.on('unsubscribed', onDown);
+    if (!existing) sub.subscribe();
+
     return () => {
-      mounted = false;
-      clearInterval(interval);
+      setStreamLive(false);
+      try {
+        sub.off('publication', onPublication);
+        sub.off('subscribed', onSubscribed);
+        sub.off('error', onDown);
+        sub.off('unsubscribed', onDown);
+        sub.unsubscribe();
+      } catch { /* socket already torn down */ }
     };
-    // Mount-only polling loop; fetchStatus is intentionally not a dependency.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [centrifuge, channel, applyEvent]);
+
+  // Refetch cadence follows the stream's health: a safety net when live, the old
+  // poll when not.
+  useEffect(() => {
+    const interval = setInterval(fetchStatus, streamLive ? SAFETY_REFETCH_MS : FALLBACK_POLL_MS);
+    return () => clearInterval(interval);
+  }, [streamLive, fetchStatus]);
 
   const toggleKillSwitch = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'killed' ? 'running' : 'killed';

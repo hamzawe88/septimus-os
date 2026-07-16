@@ -155,6 +155,10 @@ func GetAgentStatus(c *fiber.Ctx) error {
 		"states":  states,
 		"logs":    logs,
 		"pending": pending,
+		// The Centrifugo channel carrying live updates for this snapshot. Handing
+		// it to the client (instead of letting it guess from localStorage) is what
+		// guarantees the subscriber and the publishers agree on the workspace.
+		"channel": AgentsChannel(getWorkspaceID(c)),
 	})
 }
 
@@ -180,7 +184,9 @@ func KillAgent(c *fiber.Ctx) error {
 		}
 		database.DB.Save(&state)
 	}
-	
+
+	PublishAgentState(getWorkspaceID(c), &state)
+
 	return c.JSON(fiber.Map{"message": "Agent status updated", "agent": state})
 }
 
@@ -249,6 +255,8 @@ func QueuePendingApproval(c *fiber.Ctx) error {
 	events.NatsConn.Publish("system.notifications", []byte(`{"type": "agent_approval_required", "agent": "chat"}`))
 
 	workspaceUUID := database.ParseUUID(req.WorkspaceID)
+	// Push the new approval straight into the AI Center's live queue.
+	PublishAgentApproval(workspaceUUID, &pending, false)
 	if workspaceUUID != uuid.Nil {
 		go DispatchWebhookEvent(workspaceUUID, "hitl.approval_required", pending)
 	}
@@ -287,14 +295,21 @@ func ApprovePendingAction(c *fiber.Ctx) error {
 	}
 	pending.ResolvedAt = &now
 
+	// The queued action carries the workspace it was proposed in; that is the
+	// stream the resulting log and the resolution belong on.
+	var payload approvalPayload
+	_ = json.Unmarshal([]byte(pending.Payload), &payload)
+	wsUUID := database.ParseUUID(payload.WorkspaceID)
+
+	var logEntry models.AgentCollaborationLog
+
 	if input.Action == "approve" {
 		pending.Status = "approved"
 
 		outcome := "Action approved"
 		status := "completed"
 
-		var payload approvalPayload
-		if err := json.Unmarshal([]byte(pending.Payload), &payload); err == nil && payload.Action == "create_entity" {
+		if payload.Action == "create_entity" {
 			workspaceID, err := uuid.Parse(payload.WorkspaceID)
 			if err != nil {
 				outcome = "Approved but workspace id invalid; entity not created"
@@ -307,32 +322,34 @@ func ApprovePendingAction(c *fiber.Ctx) error {
 			}
 		}
 
-		database.DB.Create(&models.AgentCollaborationLog{
+		logEntry = models.AgentCollaborationLog{
 			AgentName:  pending.AgentName,
 			Action:     "Admin Approved Action",
 			InputData:  pending.ActionType,
 			OutputData: outcome,
 			Status:     status,
-		})
+		}
 	} else {
 		pending.Status = "rejected"
-		database.DB.Create(&models.AgentCollaborationLog{
+		logEntry = models.AgentCollaborationLog{
 			AgentName:  pending.AgentName,
 			Action:     "Admin Rejected Action",
 			InputData:  pending.Reason,
 			OutputData: "Action cancelled",
 			Status:     "failed",
-		})
+		}
 	}
 
+	database.DB.Create(&logEntry)
 	database.DB.Save(&pending)
 
-	var payload approvalPayload
-	if err := json.Unmarshal([]byte(pending.Payload), &payload); err == nil {
-		wsUUID := database.ParseUUID(payload.WorkspaceID)
-		if wsUUID != uuid.Nil {
-			go DispatchWebhookEvent(wsUUID, "hitl.approval_resolved", pending)
-		}
+	// Live push: the resolved approval leaves the queue and the audit line lands
+	// in the collaboration stream without the client asking for either.
+	PublishAgentApproval(wsUUID, &pending, true)
+	PublishAgentLog(wsUUID, &logEntry)
+
+	if wsUUID != uuid.Nil {
+		go DispatchWebhookEvent(wsUUID, "hitl.approval_resolved", pending)
 	}
 	go ExecuteWorkflowsByTrigger("hitl.approval_resolved", map[string]interface{}{
 		"pending_id":  pending.ID.String(),

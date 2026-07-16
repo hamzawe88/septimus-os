@@ -14,6 +14,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"gorm.io/gorm"
 
+	"github.com/septimus-os/backend-core/handlers"
 	"github.com/septimus-os/backend-core/models"
 )
 
@@ -56,8 +57,32 @@ func (ar *AgentRunners) checkKillSwitch(agentName string) bool {
 	return state.Status == "killed"
 }
 
-func (ar *AgentRunners) incrementLoopCount(agentName string) {
+func (ar *AgentRunners) incrementLoopCount(workspaceID uuid.UUID, agentName string) {
 	ar.db.Model(&models.AgentState{}).Where("name = ?", agentName).UpdateColumn("loop_count", gorm.Expr("loop_count + ?", 1))
+
+	// Read back the row the UI renders and push it, so the loop counter and the
+	// status dot move the moment the agent picks the task up. One extra SELECT
+	// per dispatch — dispatches are user-initiated and rare.
+	var state models.AgentState
+	if err := ar.db.Where("name = ?", agentName).First(&state).Error; err == nil {
+		handlers.PublishAgentState(workspaceID, &state)
+	}
+}
+
+// createLog records the opening line of an agent run and streams it live.
+func (ar *AgentRunners) createLog(workspaceID uuid.UUID, entry *models.AgentCollaborationLog) {
+	ar.db.Create(entry)
+	handlers.PublishAgentLog(workspaceID, entry)
+}
+
+// finishLog persists an agent run's outcome and streams the updated row. The
+// in-memory entry is updated alongside the DB write so the published payload
+// matches what a later snapshot refetch would return.
+func (ar *AgentRunners) finishLog(workspaceID uuid.UUID, entry *models.AgentCollaborationLog, status, output string) {
+	entry.Status = status
+	entry.OutputData = output
+	ar.db.Model(entry).Updates(map[string]interface{}{"status": status, "output_data": output})
+	handlers.PublishAgentLog(workspaceID, entry)
 }
 
 // agentTask is the payload dispatched to an agent over `agents.<type>`.
@@ -97,9 +122,9 @@ func (ar *AgentRunners) runCRMAgent() {
 			log.Printf("[%s] Agent killed, ignoring message", agentName)
 			return
 		}
-		ar.incrementLoopCount(agentName)
 
 		sessionID, workspaceID, taskDesc := parseAgentTask(msg.Data)
+		ar.incrementLoopCount(workspaceID, agentName)
 
 		logEntry := models.AgentCollaborationLog{
 			SessionID: sessionID,
@@ -108,16 +133,16 @@ func (ar *AgentRunners) runCRMAgent() {
 			InputData: taskDesc,
 			Status:    "running",
 		}
-		ar.db.Create(&logEntry)
+		ar.createLog(workspaceID, &logEntry)
 
 		// Kill switch re-check before the real (DB) work.
 		if ar.checkKillSwitch(agentName) {
-			ar.db.Model(&logEntry).Updates(map[string]interface{}{"status": "killed", "output_data": "Terminated by kill switch"})
+			ar.finishLog(workspaceID, &logEntry, "killed", "Terminated by kill switch")
 			return
 		}
 
 		summary := ar.crmSummary(workspaceID)
-		ar.db.Model(&logEntry).Updates(map[string]interface{}{"status": "completed", "output_data": summary})
+		ar.finishLog(workspaceID, &logEntry, "completed", summary)
 	})
 
 	if err != nil {
@@ -170,9 +195,9 @@ func (ar *AgentRunners) runTaskAgent() {
 			log.Printf("[%s] Agent killed, ignoring message", agentName)
 			return
 		}
-		ar.incrementLoopCount(agentName)
 
 		sessionID, workspaceID, taskDesc := parseAgentTask(msg.Data)
+		ar.incrementLoopCount(workspaceID, agentName)
 
 		logEntry := models.AgentCollaborationLog{
 			SessionID: sessionID,
@@ -181,15 +206,15 @@ func (ar *AgentRunners) runTaskAgent() {
 			InputData: taskDesc,
 			Status:    "running",
 		}
-		ar.db.Create(&logEntry)
+		ar.createLog(workspaceID, &logEntry)
 
 		if ar.checkKillSwitch(agentName) {
-			ar.db.Model(&logEntry).Updates(map[string]interface{}{"status": "killed", "output_data": "Terminated by kill switch"})
+			ar.finishLog(workspaceID, &logEntry, "killed", "Terminated by kill switch")
 			return
 		}
 
 		summary := ar.taskSummary(workspaceID)
-		ar.db.Model(&logEntry).Updates(map[string]interface{}{"status": "completed", "output_data": summary})
+		ar.finishLog(workspaceID, &logEntry, "completed", summary)
 	})
 
 	if err != nil {
@@ -237,9 +262,9 @@ func (ar *AgentRunners) runCommAgent() {
 			log.Printf("[%s] Agent killed, ignoring message", agentName)
 			return
 		}
-		ar.incrementLoopCount(agentName)
 
-		sessionID, _, taskDesc := parseAgentTask(msg.Data)
+		sessionID, workspaceID, taskDesc := parseAgentTask(msg.Data)
+		ar.incrementLoopCount(workspaceID, agentName)
 
 		logEntry := models.AgentCollaborationLog{
 			SessionID: sessionID,
@@ -248,7 +273,7 @@ func (ar *AgentRunners) runCommAgent() {
 			InputData: taskDesc,
 			Status:    "running",
 		}
-		ar.db.Create(&logEntry)
+		ar.createLog(workspaceID, &logEntry)
 
 		// Human-in-the-loop: sensitive messages need manual review before send.
 		lower := strings.ToLower(taskDesc)
@@ -258,33 +283,38 @@ func (ar *AgentRunners) runCommAgent() {
 			strings.Contains(lower, "استرداد")
 
 		if isSensitive {
-			payloadBytes, _ := json.Marshal(map[string]string{"message": taskDesc})
+			// workspace_id belongs in the payload: GetAgentStatus filters the
+			// approvals queue on `payload->>'workspace_id'`, so without it this
+			// approval was created but never shown to anyone.
+			payloadBytes, _ := json.Marshal(map[string]string{
+				"message":      taskDesc,
+				"workspace_id": workspaceID.String(),
+			})
 
 			pending := models.PendingApproval{
 				AgentName:  agentName,
 				ActionType: "Send External Message",
 				Payload:    string(payloadBytes),
 				Reason:     "Sensitive keywords detected (refund/apology). Requires manual review.",
+				Status:     "pending",
 			}
 			ar.db.Create(&pending)
+			handlers.PublishAgentApproval(workspaceID, &pending, false)
 
-			ar.db.Model(&logEntry).Updates(map[string]interface{}{
-				"status":      "paused",
-				"output_data": "Sent to pending approvals queue due to sensitive content",
-			})
+			ar.finishLog(workspaceID, &logEntry, "paused", "Sent to pending approvals queue due to sensitive content")
 
 			ar.nc.Publish("system.notifications", []byte(`{"type": "agent_approval_required", "agent": "comm"}`))
 			return
 		}
 
 		if ar.checkKillSwitch(agentName) {
-			ar.db.Model(&logEntry).Updates(map[string]interface{}{"status": "killed", "output_data": "Terminated by kill switch"})
+			ar.finishLog(workspaceID, &logEntry, "killed", "Terminated by kill switch")
 			return
 		}
 
 		// Non-sensitive: dispatch a real notification event and record it.
 		ar.nc.Publish("system.notifications", []byte(`{"type": "agent_message_dispatched", "agent": "comm"}`))
-		ar.db.Model(&logEntry).Updates(map[string]interface{}{"status": "completed", "output_data": "Communication dispatched successfully"})
+		ar.finishLog(workspaceID, &logEntry, "completed", "Communication dispatched successfully")
 	})
 
 	if err != nil {

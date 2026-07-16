@@ -17,6 +17,58 @@ type DeployAgentPayload struct {
 	Config map[string]interface{} `json:"config"`
 }
 
+// ── Live agent stream ────────────────────────────────────────────────────────
+// The AI Center used to poll /agents/status every 3s. Instead, every place that
+// changes agent state pushes the changed row to a workspace-scoped Centrifugo
+// channel, exactly like chat does with `channel_<id>`.
+//
+// `agents_<workspaceID>` sits in Centrifugo's default namespace (no "<ns>:"
+// prefix), so it inherits the same permissions as the `channel_<id>` /
+// `ai_<streamId>` channels the app already subscribes to — no new transport and
+// no config change.
+
+// AgentsChannel names the live stream for a workspace. Callers on both sides
+// (publishers here, the channel the client is told to subscribe to in
+// GetAgentStatus) must derive the name from this one function.
+func AgentsChannel(workspaceID uuid.UUID) string {
+	return "agents_" + workspaceID.String()
+}
+
+// publishAgentEvent pushes one event to the workspace's agent stream. Failures
+// are logged, never fatal: the client keeps a low-frequency snapshot refetch, so
+// a dropped publish degrades to slightly stale UI rather than a broken request.
+//
+// Kept synchronous (like the chat publishes in channels.go) so a log's
+// "running" event can never overtake its own "completed" event.
+func publishAgentEvent(workspaceID uuid.UUID, event map[string]interface{}) {
+	if workspaceID == uuid.Nil {
+		return // no workspace scope → nobody to publish to
+	}
+	if err := PublishToCentrifugo(AgentsChannel(workspaceID), event); err != nil {
+		log.Printf("agents: centrifugo publish failed for workspace %s: %v", workspaceID, err)
+	}
+}
+
+// PublishAgentLog streams a collaboration-log row (create or status change).
+func PublishAgentLog(workspaceID uuid.UUID, entry *models.AgentCollaborationLog) {
+	publishAgentEvent(workspaceID, map[string]interface{}{"type": "agent_log", "log": entry})
+}
+
+// PublishAgentState streams an agent's running state (deploy, kill switch, loop count).
+func PublishAgentState(workspaceID uuid.UUID, state *models.AgentState) {
+	publishAgentEvent(workspaceID, map[string]interface{}{"type": "agent_state", "state": state})
+}
+
+// PublishAgentApproval streams a human-in-the-loop approval. `resolved` marks it
+// as leaving the queue (approved/rejected) rather than entering it.
+func PublishAgentApproval(workspaceID uuid.UUID, pending *models.PendingApproval, resolved bool) {
+	eventType := "agent_approval"
+	if resolved {
+		eventType = "agent_approval_resolved"
+	}
+	publishAgentEvent(workspaceID, map[string]interface{}{"type": eventType, "pending": pending})
+}
+
 func GetAgents(c *fiber.Ctx) error {
 	var agents []models.AgentState
 	if err := database.DB.Find(&agents).Error; err != nil {
@@ -47,6 +99,8 @@ func DeployAgent(c *fiber.Ctx) error {
 		log.Printf("Failed to deploy agent: %v", err)
 		return c.Status(500).JSON(fiber.Map{"error": "failed to deploy agent"})
 	}
+
+	PublishAgentState(getWorkspaceID(c), &agent)
 
 	return c.Status(201).JSON(fiber.Map{
 		"message": "Agent deployed successfully",
@@ -117,6 +171,8 @@ func UpdateAgentStatus(c *fiber.Ctx) error {
 	if err := database.DB.Save(&agent).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to update agent status"})
 	}
+
+	PublishAgentState(getWorkspaceID(c), &agent)
 
 	return c.JSON(fiber.Map{"message": "Agent status updated", "agent": agent})
 }
