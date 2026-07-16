@@ -11,7 +11,7 @@
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-07-13 (commit 375a437). Confidence: 100%.
+Last indexed: 2026-07-15 (commit cf9bc90). Confidence: 100%.
 ### Entry Points
 - `ai-sidecar/main.py`
 - `backend-core/main.go`
@@ -49,13 +49,13 @@ Last indexed: 2026-07-13 (commit 375a437). Confidence: 100%.
 | `ai-sidecar/main.py` | 99.6th %ile | 3 | HaMzWe |
 | `frontend/src/components/plugins/hub/DiscoverTab.tsx` | 98.2th %ile | 4 | HaMzWe |
 | `backend-core/handlers/websocket.go` | 97.9th %ile | 3 | HaMzWe |
-| `backend-core/handlers/integrations.go` | 97.1th %ile | 5 | HaMzWe |
+| `backend-core/handlers/integrations.go` | 97.2th %ile | 5 | HaMzWe |
 
 ## Code health
 Three signals: **defect risk** (the overall score), **maintainability** (smells that hurt readability/change-cost without predicting bugs), and **performance** (static performance RISK: I/O-in-loop / N+1 shapes that waste work, high-precision/low-recall). Maintainability and performance are co-equal views, never blended into the defect headline. See `docs/CODE_HEALTH.md`.
 
 Defect risk, Hotspot health: 7.39/10 (stable) ·
-Average: 8.59/10 ·
+Average: 8.58/10 ·
 Worst: 2.28/10 (`backend-core/handlers/integrations.go`)
 Maintainability, Average: 8.97/10
 Performance risk, Average: 9.96/10
