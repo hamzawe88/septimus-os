@@ -22,13 +22,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return;
 
-    // Per Brand Constitution: Dark mode is DISABLED.
-    // All backgrounds must remain clean & luminous regardless of OS or user setting.
-    setNextTheme('light');
+    // Apply the user's appearance choice (light / dark / system).
+    // next-themes owns the html class via attribute="class"; the .dark CSS
+    // variable overrides in globals.css use !important, so they win over the
+    // light-mode inline custom properties set below.
+    setNextTheme(mode);
 
     const root = document.documentElement;
-    root.classList.remove('dark');
-    root.classList.add('light');
     
     // ── Primary / Brand Colors ──
     const effectivePrimary = primaryColor || '#1164A3';
@@ -119,7 +119,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   return (
-    <NextThemesProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+    <NextThemesProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
       <ThemeProvider>
         {children}
       </ThemeProvider>

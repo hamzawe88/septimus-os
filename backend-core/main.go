@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/nats-io/nats.go"
 	"github.com/google/uuid"
@@ -60,9 +62,22 @@ func main() {
 	})
 
 	app.Use(logger.New())
+
+	// CORS: credentials are enabled, so the origin check must never be a
+	// blanket "return true" — that lets ANY website fire authenticated
+	// requests with the user's cookies/headers. Origins come from
+	// CORS_ALLOW_ORIGINS (comma-separated). When unset (local dev), any
+	// localhost / 127.0.0.1 origin is accepted on any port — something a
+	// remote attacker's site can never claim as its origin.
+	corsAllowlist := map[string]bool{}
+	for _, o := range strings.Split(os.Getenv("CORS_ALLOW_ORIGINS"), ",") {
+		if o = strings.TrimRight(strings.TrimSpace(o), "/"); o != "" {
+			corsAllowlist[o] = true
+		}
+	}
 	app.Use(cors.New(cors.Config{
 		AllowOriginsFunc: func(origin string) bool {
-			return true
+			return corsOriginAllowed(corsAllowlist, origin)
 		},
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
 		AllowCredentials: true,
@@ -419,4 +434,24 @@ func initNatsSubscribers() {
 	} else {
 		log.Println("Subscribed to chat.message.ai_reply")
 	}
+}
+
+// corsOriginAllowed decides whether a browser origin may make credentialed
+// requests. Explicit entries in the allowlist always win; when the allowlist
+// is empty (local dev, CORS_ALLOW_ORIGINS unset) only loopback origins are
+// accepted — an origin no external website can present. Never widen this to
+// a blanket "true": AllowCredentials is enabled.
+func corsOriginAllowed(allowlist map[string]bool, origin string) bool {
+	if allowlist[strings.TrimRight(origin, "/")] {
+		return true
+	}
+	if len(allowlist) == 0 {
+		u, err := url.Parse(origin)
+		if err != nil {
+			return false
+		}
+		host := u.Hostname()
+		return host == "localhost" || host == "127.0.0.1"
+	}
+	return false
 }
