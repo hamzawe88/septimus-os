@@ -313,6 +313,10 @@ func main() {
 	publicAPI := app.Group("/api/public/v1", middleware.RequireAPIKey)
 	publicAPI.Post("/entities", handlers.CreateEntity)
 	publicAPI.Get("/entities", handlers.GetEntities)
+	// Lets an automation (n8n) run an agent. RequireAPIKey stamps the key's
+	// workspace onto Locals, which is exactly what the handler scopes to — so a
+	// workflow can never dispatch outside the workspace its key belongs to.
+	publicAPI.Post("/agents/dispatch", handlers.DispatchAgentTask)
 
 	// Inbound Webhooks (Zendesk & External)
 	app.Post("/api/public/v1/webhooks/zendesk", handlers.HandleZendeskWebhook)

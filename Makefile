@@ -1,4 +1,4 @@
-.PHONY: up down build logs dev-go dev-ai dev-frontend test test-go test-ai test-frontend lint
+.PHONY: up down build logs n8n-up n8n-down dev-go dev-ai dev-frontend test test-go test-ai test-frontend lint
 
 # ── Full stack (Docker) ───────────────────────────────────────────────────────
 
@@ -13,6 +13,16 @@ build:         ## Rebuild images without starting
 
 logs:          ## Tail logs from every service
 	docker compose logs -f --tail=100
+
+# ── n8n automation (optional overlay — see docs/N8N_AUTOMATION.md) ───────────
+# Merged with the main compose so n8n shares the stack network and can call
+# http://backend-core:4000 by service name.
+
+n8n-up:        ## Start the stack + n8n (UI on http://localhost:5678)
+	docker compose -f docker-compose.yml -f docker-compose.n8n.yml up -d
+
+n8n-down:      ## Stop n8n only (the rest of the stack keeps running)
+	docker compose -f docker-compose.yml -f docker-compose.n8n.yml stop n8n
 
 # ── Per-layer dev servers (infra must be up: `make up`) ──────────────────────
 

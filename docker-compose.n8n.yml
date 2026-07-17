@@ -1,18 +1,44 @@
-version: "3.8"
+# n8n automation runtime — an OVERLAY on the main stack, not a standalone file.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.n8n.yml up -d
+#   (or: make n8n-up)
+#
+# Merging the two files puts n8n on the same project network as everything else,
+# so its workflows reach the backend at http://backend-core:4000 by service name.
+# Running this file alone would isolate n8n on its own network, where that host
+# does not resolve.
+#
+# Talking to Septimus from an n8n workflow:
+#   HTTP Request node → http://backend-core:4000/api/public/v1/...
+#   Header: X-API-Key: <key minted in the app under API Keys>
+# The API key carries its workspace, so a workflow can only ever reach the
+# workspace its key belongs to.
+#
+# Septimus → n8n: point a webhook subscription at an n8n Webhook node URL
+# (POST /api/v1/workspaces/:workspace_id/webhooks).
 
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n
     restart: always
+    # Loopback-only, same rule as the data stores in the main compose.
     ports:
-      - "5678:5678"
+      - "127.0.0.1:5678:5678"
     environment:
-      - N8N_HOST=localhost
+      - N8N_HOST=${N8N_HOST:-localhost}
       - N8N_PORT=5678
-      - N8N_PROTOCOL=http
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
       - NODE_ENV=production
-      - WEBHOOK_URL=http://localhost:5678/
-      - GENERIC_TIMEZONE=Asia/Riyadh
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678/}
+      # Libya HQ — scheduled workflows fire against the company's clock.
+      - GENERIC_TIMEZONE=${N8N_TIMEZONE:-Africa/Tripoli}
+      # Encrypts stored credentials. Set it before the first boot and never
+      # rotate it: n8n auto-generates one into the volume otherwise, and a later
+      # change leaves every saved credential undecryptable.
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-dev-n8n-encryption-key-change-me}
+      # n8n owns its own auth (owner account on first visit). The old
+      # N8N_BASIC_AUTH_* variables are deprecated and deliberately unused.
+      - N8N_DIAGNOSTICS_ENABLED=${N8N_DIAGNOSTICS_ENABLED:-false}
     volumes:
       - n8n_data:/home/node/.n8n
 
