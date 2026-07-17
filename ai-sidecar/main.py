@@ -14,8 +14,9 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -32,6 +33,7 @@ from agents_chat import run_chat_agent
 from agents_correspondence import rewrite_official_letter, audit_legal_compliance
 from nats_events import start_nats_listener
 from voice_realtime import create_realtime_session, realtime_voice_proxy
+from voice_local import local_voice_status, synthesize, transcribe
 from agents_orchestrator import agent_orchestrator
 
 
@@ -102,6 +104,12 @@ class VoiceSessionRequest(BaseModel):
     instructions: Optional[str] = None
 
 
+class SpeakRequest(BaseModel):
+    text: str
+    lang: Optional[str] = None
+    workspace_id: Optional[str] = None
+
+
 class CorrespondenceRewriteRequest(BaseModel):
     workspace_id: Optional[str] = None
     title: str
@@ -149,6 +157,71 @@ async def create_voice_session(req: VoiceSessionRequest, x_workspace_id: str = H
     except Exception as e:
         print(f"[voice/session] error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Local voice (no API key, runs on our own hardware) ───────────────────────
+# The endpoints above need an OpenAI key and send audio to a third party. These
+# two are the local alternative: faster-whisper + Piper, same stance as the
+# Ollama LLM/embedding fallbacks. See voice_local.py.
+
+_VOICE_ERRORS = {
+    "unavailable": (
+        "خدمة الصوت المحلية غير متاحة على هذا الخادم.",
+        "The local voice engine is not available on this server.",
+    ),
+    "failed": (
+        "تعذّرت معالجة الصوت. تأكد من صيغة الملف وحاول مجدداً.",
+        "Could not process the audio. Check the file format and try again.",
+    ),
+    "empty": (
+        "لا يوجد نص لتحويله إلى صوت.",
+        "There is no text to speak.",
+    ),
+}
+
+
+def _voice_error(code: str, lang: str) -> str:
+    ar, en = _VOICE_ERRORS.get(code, _VOICE_ERRORS["failed"])
+    return ar if lang == "ar" else en
+
+
+@app.get("/api/v1/ai/voice/local/status", dependencies=[Depends(verify_internal_token)])
+async def voice_local_status():
+    """Whether the local engines are usable — checked without pulling a model."""
+    return local_voice_status()
+
+
+@app.post("/api/v1/ai/voice/transcribe", dependencies=[Depends(verify_internal_token)])
+async def voice_transcribe(
+    file: UploadFile = File(...),
+    lang: Optional[str] = Form(None),
+    x_workspace_id: str = Header(default=""),
+):
+    """Speech to text with the local Whisper model. Accepts whatever container
+    the browser records (webm/opus, mp4, wav): PyAV decodes it, so no system
+    ffmpeg is involved."""
+    resolved = resolve_lang(lang)
+    audio = await file.read()
+    if not audio:
+        raise HTTPException(status_code=400, detail=_voice_error("failed", resolved))
+
+    # Whisper autodetects when no language is pinned; only pin an explicit hint.
+    text, err = await asyncio.to_thread(transcribe, audio, lang if lang in ("ar", "en") else None)
+    if err:
+        status = 503 if err == "unavailable" else 400
+        raise HTTPException(status_code=status, detail=_voice_error(err, resolved))
+    return {"text": text, "lang": resolved}
+
+
+@app.post("/api/v1/ai/voice/speak", dependencies=[Depends(verify_internal_token)])
+async def voice_speak(req: SpeakRequest, x_workspace_id: str = Header(default="")):
+    """Text to speech with the local Piper voice (Arabic: ar_JO-kareem)."""
+    resolved = resolve_lang(req.lang)
+    audio, err = await asyncio.to_thread(synthesize, req.text, resolved)
+    if err:
+        status = 503 if err == "unavailable" else 400
+        raise HTTPException(status_code=status, detail=_voice_error(err, resolved))
+    return Response(content=audio, media_type="audio/wav")
 
 
 @app.websocket("/api/v1/ai/voice/ws")

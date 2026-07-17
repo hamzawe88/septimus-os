@@ -75,6 +75,12 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
       - LANGFUSE_HOST=${LANGFUSE_HOST:-http://langfuse:3000}
+      # Local voice (key-free STT/TTS). "base" Whisper is CPU-friendly; bump to
+      # "small" for better Arabic if the host can afford it.
+      - WHISPER_MODEL=${WHISPER_MODEL:-base}
+      - VOICE_MODELS_DIR=/models
+    volumes:
+      - voice_models:/models
     depends_on:
       - db
       - nats
@@ -185,6 +191,7 @@ volumes:
   caddy_data:
   caddy_config:
   langfuse_pgdata:
+  voice_models:
 
 networks:
   septimus_net:

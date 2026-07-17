@@ -111,3 +111,11 @@ pydantic
 langgraph-checkpoint-postgres
 websockets>=13.0
 pytest>=8.0.0
+
+# Local voice (no API key). faster-whisper bundles PyAV (FFmpeg libs) so no
+# system ffmpeg is needed; piper-tts bundles espeak-ng-data so no system
+# espeak-ng either. Models download at first use into VOICE_MODELS_DIR.
+faster-whisper
+piper-tts
+# Required by FastAPI to parse the multipart upload on /voice/transcribe.
+python-multipart

@@ -88,6 +88,12 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
       - LANGFUSE_HOST=${LANGFUSE_HOST:-http://langfuse:3000}
+      # Local voice (key-free STT/TTS). Models download on first use into the
+      # volume below, so they survive restarts and stay out of the image.
+      - WHISPER_MODEL=${WHISPER_MODEL:-base}
+      - VOICE_MODELS_DIR=/models
+    volumes:
+      - voice_models:/models
     depends_on:
       - db
       - nats
@@ -165,3 +171,4 @@ volumes:
   caddy_data:
   caddy_config:
   langfuse_pgdata:
+  voice_models:
