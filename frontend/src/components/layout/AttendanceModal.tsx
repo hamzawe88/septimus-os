@@ -141,7 +141,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
   const distance = (userLat !== null && userLng !== null) ? getDistanceFromLatLonInM(userLat, userLng, officeLat, officeLng) : null;
 
   const isWithinRadius = distance !== null && distance <= radiusMeters;
-  const canCheckIn = isWithinRadius || (allowRemote && isRemoteCheckIn) || true; // Bypassed for testing
+  const canCheckIn = isWithinRadius || (allowRemote && isRemoteCheckIn);
 
   const handleCheckIn = async () => {
     if (!canCheckIn) return;
