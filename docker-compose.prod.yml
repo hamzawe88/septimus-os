@@ -103,6 +103,12 @@ services:
       - CENTRIFUGO_ADMIN_PASSWORD=${CENTRIFUGO_ADMIN_PASSWORD:?}
       - CENTRIFUGO_ADMIN_SECRET=${CENTRIFUGO_ADMIN_SECRET:?}
       - CENTRIFUGO_ALLOWED_ORIGINS=${CORS_ALLOW_ORIGINS:?}
+      # The subscribe proxy authenticates to backend-core with the shared
+      # internal token. config.json hardcodes the dev token; production must
+      # override it here so the header matches the real INTERNAL_API_TOKEN,
+      # otherwise the backend fails those proxy calls closed and every client
+      # subscription is denied.
+      - CENTRIFUGO_PROXY_STATIC_HTTP_HEADERS={"X-Internal-Token":"${INTERNAL_API_TOKEN:?}"}
     depends_on:
       - redis
     networks:

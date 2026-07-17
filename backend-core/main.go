@@ -324,6 +324,12 @@ func main() {
 	app.Post("/api/public/v1/webhooks/external", handlers.HandleExternalWebhook)
 	app.Post("/api/v1/webhooks/external", handlers.HandleExternalWebhook)
 
+	// Centrifugo subscribe proxy: Centrifugo calls this to authorize every
+	// client subscription against real channel/workspace membership. It carries
+	// its own auth (the static INTERNAL_API_TOKEN header Centrifugo is
+	// configured to send), so it sits outside the JWT-gated groups.
+	app.Post("/centrifugo/subscribe", handlers.CentrifugoSubscribe)
+
 	// Internal APIs (for sidecars, strictly within VPC/Docker network).
 	// Gated by the shared INTERNAL_API_TOKEN so only trusted services can read
 	// decrypted provider keys or mutate entities.

@@ -7,13 +7,19 @@
   "allowed_origins": [
     "*"
   ],
+  "proxy_subscribe_endpoint": "http://backend-core:4000/centrifugo/subscribe",
+  "proxy_static_http_headers": {
+    "X-Internal-Token": "dev-internal-token"
+  },
+  "proxy_subscribe": true,
   "namespaces": [
     {
       "name": "chat",
       "presence": true,
       "history_size": 100,
       "history_ttl": "24h",
-      "join_leave": true
+      "join_leave": true,
+      "proxy_subscribe": true
     }
   ]
 }
