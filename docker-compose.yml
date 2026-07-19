@@ -119,6 +119,17 @@ services:
     volumes:
       - ./centrifugo:/centrifugo
     command: centrifugo -c config.json
+    environment:
+      # Secrets live in the environment, never in the committed config.json, so
+      # they can be rotated without leaking into git. Centrifugo v5 overrides any
+      # flat config key with CENTRIFUGO_<KEY>.
+      - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_SECRET:-supersecretcentrifugokey}
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-supersecretapikey}
+      - CENTRIFUGO_ADMIN_PASSWORD=${CENTRIFUGO_ADMIN_PASSWORD:-admin}
+      - CENTRIFUGO_ADMIN_SECRET=${CENTRIFUGO_ADMIN_SECRET:-adminsecret}
+      # MUST match the INTERNAL_API_TOKEN that backend-core validates on the
+      # subscribe-proxy endpoint — a mismatch denies every subscription with 401.
+      - CENTRIFUGO_PROXY_STATIC_HTTP_HEADERS={"X-Internal-Token":"${INTERNAL_API_TOKEN:-dev-internal-token}"}
     ports:
       - "127.0.0.1:8002:8000"
     depends_on:

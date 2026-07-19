@@ -1,16 +1,8 @@
 {
-  "v3_use_offset": true,
-  "token_hmac_secret_key": "supersecretcentrifugokey",
-  "admin_password": "admin",
-  "admin_secret": "adminsecret",
-  "api_key": "supersecretapikey",
   "allowed_origins": [
     "*"
   ],
   "proxy_subscribe_endpoint": "http://backend-core:4000/centrifugo/subscribe",
-  "proxy_static_http_headers": {
-    "X-Internal-Token": "dev-internal-token"
-  },
   "proxy_subscribe": true,
   "namespaces": [
     {

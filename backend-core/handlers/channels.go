@@ -38,7 +38,12 @@ func CreateChannel(c *fiber.Ctx) error {
 		chanType = "DM"
 	}
 
-	tx := database.GetDB(c).Begin()
+	// The request already runs inside a transaction opened by TenantEnforcer
+	// (which also sets the RLS workspace GUC on it). Opening a nested one here
+	// and committing it detached the outer transaction and every write failed
+	// with "sql: transaction has already been committed or rolled back", so use
+	// the request-scoped handle directly and let the middleware commit.
+	tx := database.GetDB(c)
 
 	channel := models.Channel{
 		WorkspaceID: database.ParseUUID(workspaceID),
@@ -47,7 +52,6 @@ func CreateChannel(c *fiber.Ctx) error {
 	}
 
 	if err := tx.Create(&channel).Error; err != nil {
-		tx.Rollback()
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not create channel"})
 	}
 
@@ -66,10 +70,6 @@ func CreateChannel(c *fiber.Ctx) error {
 				UserID:    database.ParseUUID(idStr),
 			})
 		}
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Transaction failed"})
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(channel)

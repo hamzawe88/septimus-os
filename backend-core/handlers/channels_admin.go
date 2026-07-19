@@ -80,28 +80,22 @@ func DeleteChannel(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only the channel owner can delete it"})
 	}
 
-	tx := database.GetDB(c).Begin()
-	if tx.Error != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to start transaction"})
-	}
+	// The request already runs inside TenantEnforcer's transaction, so a nested
+	// Begin/Commit here detached it ("transaction has already been committed or
+	// rolled back"). Use the request handle; returning a fiber error makes the
+	// middleware roll back, keeping this multi-step delete atomic.
+	tx := database.GetDB(c)
 
 	if err := tx.Where("channel_id = ?", channelID).Delete(&models.Message{}).Error; err != nil {
-		tx.Rollback()
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete channel messages"})
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to delete channel messages")
 	}
 
 	if err := tx.Where("channel_id = ?", channelID).Delete(&models.ChannelMember{}).Error; err != nil {
-		tx.Rollback()
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete channel members"})
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to delete channel members")
 	}
 
 	if err := tx.Where("id = ?", channelID).Delete(&models.Channel{}).Error; err != nil {
-		tx.Rollback()
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete channel"})
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to commit transaction"})
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to delete channel")
 	}
 
 	return c.JSON(fiber.Map{"message": "Channel deleted successfully"})
