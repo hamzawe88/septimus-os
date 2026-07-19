@@ -11,7 +11,7 @@
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-07-17 (commit c9d49cc). Confidence: 100%.
+Last indexed: 2026-07-17 (commit ed9a4fe). Confidence: 100%.
 ### Entry Points
 - `ai-sidecar/main.py`
 - `backend-core/main.go`

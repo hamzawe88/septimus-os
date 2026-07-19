@@ -71,7 +71,7 @@ func PublishAgentApproval(workspaceID uuid.UUID, pending *models.PendingApproval
 
 func GetAgents(c *fiber.Ctx) error {
 	var agents []models.AgentState
-	if err := database.DB.Find(&agents).Error; err != nil {
+	if err := database.GetDB(c).Find(&agents).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to fetch agents"})
 	}
 	return c.JSON(agents)
@@ -95,7 +95,7 @@ func DeployAgent(c *fiber.Ctx) error {
 		Config: string(configBytes),
 	}
 
-	if err := database.DB.Create(&agent).Error; err != nil {
+	if err := database.GetDB(c).Create(&agent).Error; err != nil {
 		log.Printf("Failed to deploy agent: %v", err)
 		return c.Status(500).JSON(fiber.Map{"error": "failed to deploy agent"})
 	}
@@ -163,12 +163,12 @@ func UpdateAgentStatus(c *fiber.Ctx) error {
 	}
 
 	var agent models.AgentState
-	if err := database.DB.First(&agent, "id = ?", id).Error; err != nil {
+	if err := database.GetDB(c).First(&agent, "id = ?", id).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "agent not found"})
 	}
 
 	agent.Status = payload.Status
-	if err := database.DB.Save(&agent).Error; err != nil {
+	if err := database.GetDB(c).Save(&agent).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to update agent status"})
 	}
 

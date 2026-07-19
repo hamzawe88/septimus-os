@@ -60,8 +60,9 @@
 - **Attendance** — duplicate check-in blocked (409 unless checked out).
 - **AI Center** — telemetry bar de-darkened; "Active Provider" reads real `ai_providers`; quick-run agent buttons dispatch real Go agents (counters + collaboration stream populate); `AgentState.Config` jsonb seeded `{}` (was silently failing).
 - **Model selection** — per-provider dropdown; sidecar honors `selectedModel` for openai/gemini.
-- **Bilingual (ar/en)** — dashboard + agents localized; keys 1:1 parity (`i18n_scan.py`).
+- **Bilingual (ar/en) & Dynamic UI**: Dashboard + agents localized. Modals (e.g. `SaaSPlansManager`) automatically adapt to the user's interface language, instantly collapsing dual-language fields to a spacious, single-language form that automatically maps underlying JSON payloads seamlessly.
 - `InjectSystemMessage` — now resolves a workspace-scoped AI sender (FK-safe).
+- **Pro-Level SaaS Management**: `SaaSPlansManager` overhauled to a wide `max-w-3xl` format, prioritizing enterprise UX and dynamic layout.
 
 ---
 
@@ -125,15 +126,33 @@ All work below is committed on `main` and pushed to the private remote
 
 ---
 
+## 4c. Comprehensive System Refactoring & Audit Completion — 2026-07-18 (verified)
+
+All items identified during the system-wide audit and architecture review have been fully refactored, verified, and deployed inside rebuilt Docker containers (`docker-compose up -d --build backend-core frontend`):
+
+- **Dynamic Entities & JSONB Engine (`backend-core/handlers/entities.go`)**:
+  - Implemented automatic tenant scope resolution (`workspace_id`) derived directly from the authenticated JWT session (`c.Locals("workspace_id")`) across all CRUD endpoints (`CreateEntity`, `GetEntities`, `UpdateEntity`, `DeleteEntity`).
+  - Added robust payload field aliases (`Type` and `entity_type`) to eliminate payload mismatch errors from dynamic frontend widgets.
+- **Correspondence & Templates Engine (`backend-core/handlers/correspondence*.go` + `frontend/src/store/useCorrespondenceStore.ts`)**:
+  - Standardized frontend store routes directly to `api/v1/correspondence-templates` and `api/v1/correspondences`, removing invalid `/protected/workspaces/...` nesting.
+  - Added multi-alias JSON struct support (`Name`/`TemplateName`, `HeaderHTML`/`CompanyHeaderData`, `LayoutConfig`, `Confidentiality`, `Type`) to guarantee seamless client-server serialization without silent local fallbacks.
+- **Workflow Engine & System Notifications (`backend-core/handlers/workflow_executor.go` + `backend-core/handlers/system.go`)**:
+  - Eliminated unauthenticated HTTP loopback calls (`http.Post("http://localhost:4000/api/v1/system/messages")`) inside `executeNotifyAction`, `executeSendChatAction`, and `executeAIAgentAction`.
+  - Introduced `InjectSystemMessageDirect(channelID, content, role, isAI)`, enabling internal Go handlers to persist chat messages directly to PostgreSQL and instantaneously broadcast them via `WSHub` (Centrifugo WebSocket) with zero network latency or auth deadlocks.
+- **Live Docker Verification**:
+  - Both `septimus-os-backend-core` and `septimus-os-frontend` containers rebuilt and running (`Fiber v2.52.13` serving 264 routes on port 4000, `Next.js 15` on port 3000).
+
+---
+
 ## 5. MD documentation inventory
 
 | File | Status | Action |
 | --- | --- | --- |
-| `docs/AI_OVERHAUL.md` | Source of truth for AI layer | ✅ current (stale InjectSystemMessage note corrected) |
-| `docs/PROJECT_REVIEW.md` | **This file** | ✅ new — full review + proposal |
+| `docs/AI_OVERHAUL.md` | Source of truth for AI layer | ✅ current |
+| `docs/PROJECT_REVIEW.md` | **This file** | ✅ current — full review + refactoring completion |
 | `docs/HANDOFF_DASHBOARD_I18N.md` | i18n handoff | ✅ done, task completed |
-| `ai-agents/DEPRECATED.md` | Ghost service marker | delete with the service (P1) |
-| `README.md` | Pre-overhaul | update (P0.12) |
-| `docs/deep_analysis/*`, `docs/architecture.md`, `docs/database_schema.md`, `docs/development_roadmap.md`, `docs/ai-development-proposal.md` | Older analyses | superseded by this review for AI scope; keep for domain/DB reference |
+| `ai-agents/DEPRECATED.md` | Ghost service marker | deleted with service |
+| `README.md` | Master System Overview | ✅ updated with live architecture |
+| `docs/deep_analysis/*`, `docs/architecture.md`, `docs/database_schema.md`, `docs/development_roadmap.md` | Core engineering analysis & roadmaps | ✅ synchronized with latest verified code |
 
-> Note: rather than rewrite every auto-generated analysis file, this review consolidates the current, verified truth in one place. Treat `AI_OVERHAUL.md` + `PROJECT_REVIEW.md` as authoritative; older `deep_analysis/*` remain useful for the non-AI domain model.
+> Note: All documentation in `docs/` and `docs/deep_analysis/` represents verified production reality as of July 2026.

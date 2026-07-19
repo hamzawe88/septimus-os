@@ -85,6 +85,7 @@ interface ThemeState {
   setLogoUrl: (url: string | null) => void;
   setFaviconUrl: (url: string | null) => void;
   setBrandIdentity: (companyName: string, logoUrl: string | null, primaryColor?: string, fontFamily?: FontFamily | string, sidebarBg?: string, faviconUrl?: string | null) => void;
+  resetBrandIdentity: () => void;
 
   setIsAdvancedMode: (advanced: boolean) => void;
   setCustomTopbarBg: (bg: string) => void;
@@ -148,6 +149,27 @@ export const useThemeStore = create<ThemeState>()(
           ...(fontFamily ? { fontFamily } : {}),
           ...(sidebarBg ? { sidebarBg } : {}),
         })),
+      // Wipe the WORKSPACE-specific brand (name/logo/favicon/colors) back to
+      // defaults — call on logout so the next account that signs in on this
+      // device never inherits the previous workspace's identity. Device-level
+      // preferences (mode, theme, fontFamily) are intentionally preserved.
+      resetBrandIdentity: () =>
+        set({
+          companyName: 'Septimus Workspace',
+          logoUrl: null,
+          faviconUrl: null,
+          primaryColor: defaultPreset.primaryColor,
+          sidebarBg: defaultPreset.sidebarBg,
+          sidebarHover: defaultPreset.sidebarHover,
+          textColor: defaultPreset.textColor,
+          textMuted: defaultPreset.textMuted,
+          textActive: defaultPreset.textActive,
+          dividerColor: defaultPreset.dividerColor,
+          customTopbarBg: '#3F0E40',
+          customSidebarBg: '#3F0E40',
+          customSidebarText: '#D1D2D3',
+          customAppBg: '#F8F8F8',
+        }),
 
       setIsAdvancedMode: (isAdvancedMode) => set({ isAdvancedMode }),
       setCustomTopbarBg: (customTopbarBg) => set({ customTopbarBg }),

@@ -18,7 +18,7 @@ func UpdateTask(c *fiber.Ctx) error {
 	}
 
 	var task models.Task
-	if err := database.DB.Preload("Project").First(&task, "id = ?", taskID).Error; err != nil {
+	if err := database.GetDB(c).Preload("Project").First(&task, "id = ?", taskID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Task not found"})
 	}
 
@@ -97,7 +97,7 @@ func UpdateTask(c *fiber.Ctx) error {
 		}
 	}
 
-	if err := database.DB.Save(&task).Error; err != nil {
+	if err := database.GetDB(c).Save(&task).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update task"})
 	}
 

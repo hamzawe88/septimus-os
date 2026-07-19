@@ -19,7 +19,7 @@ func UpdateChannel(c *fiber.Ctx) error {
 
 	// Check permissions
 	var member models.ChannelMember
-	if err := database.DB.Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error; err != nil {
+	if err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error; err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You are not a member of this channel"})
 	}
 
@@ -28,7 +28,7 @@ func UpdateChannel(c *fiber.Ctx) error {
 	}
 
 	var channel models.Channel
-	if err := database.DB.First(&channel, "id = ?", channelID).Error; err != nil {
+	if err := database.GetDB(c).First(&channel, "id = ?", channelID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Channel not found"})
 	}
 
@@ -51,7 +51,7 @@ func UpdateChannel(c *fiber.Ctx) error {
 		channel.IsArchived = *req.IsArchived
 	}
 
-	database.DB.Save(&channel)
+	database.GetDB(c).Save(&channel)
 
 	return c.JSON(channel)
 }
@@ -62,7 +62,7 @@ func DeleteChannel(c *fiber.Ctx) error {
 	userID, _ := c.Locals("user_id").(string)
 
 	var channel models.Channel
-	if err := database.DB.First(&channel, "id = ?", channelID).Error; err != nil {
+	if err := database.GetDB(c).First(&channel, "id = ?", channelID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Channel not found"})
 	}
 
@@ -71,7 +71,7 @@ func DeleteChannel(c *fiber.Ctx) error {
 	}
 
 	var member models.ChannelMember
-	if err := database.DB.Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error; err != nil {
+	if err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error; err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You are not a member of this channel"})
 	}
 
@@ -80,7 +80,7 @@ func DeleteChannel(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only the channel owner can delete it"})
 	}
 
-	tx := database.DB.Begin()
+	tx := database.GetDB(c).Begin()
 	if tx.Error != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to start transaction"})
 	}

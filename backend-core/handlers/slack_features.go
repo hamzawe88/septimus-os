@@ -18,7 +18,7 @@ func RecapChannel(c *fiber.Ctx) error {
 	}
 
 	var messages []models.Message
-	err := database.DB.Preload("User").
+	err := database.GetDB(c).Preload("User").
 		Where("channel_id = ?", channelIDStr).
 		Order("created_at DESC").
 		Limit(30).
@@ -67,7 +67,7 @@ func GetCatchUpFeed(c *fiber.Ctx) error {
 	workspaceIDStr, _ := c.Locals("workspace_id").(string)
 
 	var messages []models.Message
-	err := database.DB.
+	err := database.GetDB(c).
 		Joins("JOIN channels ON channels.id = messages.channel_id").
 		Where("channels.workspace_id = ?", workspaceIDStr).
 		Where("messages.sender_id != ?", userIDStr).
@@ -99,7 +99,7 @@ func ConvertMessageToTask(c *fiber.Ctx) error {
 	}
 
 	var msg models.Message
-	if err := database.DB.First(&msg, "id = ?", payload.MessageID).Error; err != nil {
+	if err := database.GetDB(c).First(&msg, "id = ?", payload.MessageID).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Message not found"})
 	}
 
@@ -107,7 +107,7 @@ func ConvertMessageToTask(c *fiber.Ctx) error {
 	if projID == uuid.Nil {
 		// Try finding first available project
 		var proj models.Project
-		if err := database.DB.First(&proj).Error; err == nil {
+		if err := database.GetDB(c).First(&proj).Error; err == nil {
 			projID = proj.ID
 		} else {
 			return c.Status(400).JSON(fiber.Map{"error": "Valid project_id required"})
@@ -129,7 +129,7 @@ func ConvertMessageToTask(c *fiber.Ctx) error {
 		Status:      "todo",
 	}
 
-	if err := database.DB.Create(&task).Error; err != nil {
+	if err := database.GetDB(c).Create(&task).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to convert message to task"})
 	}
 

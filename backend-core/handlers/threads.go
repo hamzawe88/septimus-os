@@ -35,7 +35,7 @@ func GetChannelThreads(c *fiber.Ctx) error {
 		Count    int64
 	}
 	var counts []rc
-	database.DB.Model(&models.Message{}).
+	database.GetDB(c).Model(&models.Message{}).
 		Select("parent_id, count(*) as count").
 		Where("channel_id = ? AND parent_id IS NOT NULL", channelID).
 		Group("parent_id").
@@ -54,7 +54,7 @@ func GetChannelThreads(c *fiber.Ctx) error {
 
 	// 2. Fetch the parent messages (thread roots) with their author.
 	var parents []models.Message
-	database.DB.Preload("User").
+	database.GetDB(c).Preload("User").
 		Where("id IN ?", ids).
 		Order("created_at DESC").
 		Find(&parents)
@@ -94,7 +94,7 @@ func GetMessageReplies(c *fiber.Ctx) error {
 	var replies []models.Message
 	
 	// Preload the User so we know who sent the reply
-	result := database.DB.Preload("User").
+	result := database.GetDB(c).Preload("User").
 		Where("parent_id = ?", messageID).
 		Order("created_at ASC").
 		Find(&replies)

@@ -38,7 +38,7 @@ func CreateChannel(c *fiber.Ctx) error {
 		chanType = "DM"
 	}
 
-	tx := database.DB.Begin()
+	tx := database.GetDB(c).Begin()
 
 	channel := models.Channel{
 		WorkspaceID: database.ParseUUID(workspaceID),
@@ -83,7 +83,7 @@ func GetChannels(c *fiber.Ctx) error {
 	var channels []models.Channel
 
 	// Fetch PUBLIC channels in the workspace, PLUS any PRIVATE/DM channels the user is a member of.
-	err := database.DB.Distinct("channels.*").
+	err := database.GetDB(c).Distinct("channels.*").
 		Joins("LEFT JOIN channel_members ON channel_members.channel_id = channels.id").
 		Where("channels.workspace_id = ?", workspaceID).
 		Where("channels.type = 'PUBLIC' OR channel_members.user_id = ?", userID).
@@ -104,13 +104,13 @@ func GetMessages(c *fiber.Ctx) error {
 
 	// Check membership
 	var memberCount int64
-	database.DB.Model(&models.ChannelMember{}).
+	database.GetDB(c).Model(&models.ChannelMember{}).
 		Where("channel_id = ? AND user_id = ?", channelID, userID).
 		Count(&memberCount)
 
 	if memberCount == 0 {
 		var channel models.Channel
-		database.DB.First(&channel, "id = ?", channelID)
+		database.GetDB(c).First(&channel, "id = ?", channelID)
 		if channel.Type != "PUBLIC" {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not a member of this private channel"})
 		}
@@ -123,7 +123,7 @@ func GetMessages(c *fiber.Ctx) error {
 	}
 	beforeMsgID := c.Query("before") // cursor: load messages before this ID
 
-	query := database.DB.Preload("User").
+	query := database.GetDB(c).Preload("User").
 		Where("channel_id = ? AND parent_id IS NULL", channelID).
 		Order("created_at DESC").
 		Limit(limit)
@@ -131,7 +131,7 @@ func GetMessages(c *fiber.Ctx) error {
 	if beforeMsgID != "" {
 		// Cursor pagination: get messages older than the cursor message's timestamp
 		var cursor models.Message
-		if err := database.DB.First(&cursor, "id = ?", beforeMsgID).Error; err == nil {
+		if err := database.GetDB(c).First(&cursor, "id = ?", beforeMsgID).Error; err == nil {
 			query = query.Where("created_at < ?", cursor.CreatedAt)
 		}
 	}
@@ -182,7 +182,7 @@ func SendMessage(c *fiber.Ctx) error {
 	}
 
 	var member models.ChannelMember
-	if err := database.DB.Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error; err != nil {
+	if err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error; err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You are not a member of this channel"})
 	}
 	if member.IsMuted {
@@ -207,13 +207,13 @@ func SendMessage(c *fiber.Ctx) error {
 		AttachmentType: req.AttachmentType,
 	}
 
-	if err := database.DB.Create(&dbMsg).Error; err != nil {
+	if err := database.GetDB(c).Create(&dbMsg).Error; err != nil {
 		log.Printf("Failed to save message: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save"})
 	}
 
 	// Preload User
-	database.DB.Preload("User").First(&dbMsg, dbMsg.ID)
+	database.GetDB(c).Preload("User").First(&dbMsg, dbMsg.ID)
 
 	// Publish to Centrifugo
 	wsPayload := map[string]interface{}{
@@ -259,14 +259,14 @@ func UpdateMessage(c *fiber.Ctx) error {
 	}
 
 	var dbMsg models.Message
-	if err := database.DB.Preload("User").First(&dbMsg, "id = ?", messageID).Error; err != nil {
+	if err := database.GetDB(c).Preload("User").First(&dbMsg, "id = ?", messageID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Message not found"})
 	}
 
 	// Verify ownership or admin
 	if dbMsg.SenderID.String() != userID {
 		var user models.User
-		if err := database.DB.First(&user, "id = ?", userID).Error; err == nil {
+		if err := database.GetDB(c).First(&user, "id = ?", userID).Error; err == nil {
 			if user.Role != "ADMIN" && user.Role != "admin" {
 				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not authorized to edit this message"})
 			}
@@ -276,7 +276,7 @@ func UpdateMessage(c *fiber.Ctx) error {
 	}
 
 	dbMsg.Content = req.Content
-	if err := database.DB.Save(&dbMsg).Error; err != nil {
+	if err := database.GetDB(c).Save(&dbMsg).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update message"})
 	}
 
@@ -296,14 +296,14 @@ func DeleteMessage(c *fiber.Ctx) error {
 	userID, _ := c.Locals("user_id").(string)
 
 	var dbMsg models.Message
-	if err := database.DB.First(&dbMsg, "id = ?", messageID).Error; err != nil {
+	if err := database.GetDB(c).First(&dbMsg, "id = ?", messageID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Message not found"})
 	}
 
 	// Verify ownership or admin
 	if dbMsg.SenderID.String() != userID {
 		var user models.User
-		if err := database.DB.First(&user, "id = ?", userID).Error; err == nil {
+		if err := database.GetDB(c).First(&user, "id = ?", userID).Error; err == nil {
 			if user.Role != "ADMIN" && user.Role != "admin" {
 				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not authorized to delete this message"})
 			}
@@ -315,7 +315,7 @@ func DeleteMessage(c *fiber.Ctx) error {
 	channelID := dbMsg.ChannelID.String()
 	msgUUID := dbMsg.ID.String()
 
-	if err := database.DB.Delete(&dbMsg).Error; err != nil {
+	if err := database.GetDB(c).Delete(&dbMsg).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete message"})
 	}
 

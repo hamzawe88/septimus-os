@@ -203,7 +203,7 @@ export default function TopBar() {
         )}
         <button 
           onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
-          className="topbar-workspace-btn truncate max-w-[160px] flex items-center gap-1 hover:bg-white/10 px-2 py-1 rounded-md transition-colors" 
+          className="topbar-workspace-btn hover-scale-soft truncate max-w-[160px] flex items-center gap-1 hover:bg-white/10 px-2 py-1 rounded-md transition-colors" 
           aria-label={t("topbar.switchWorkspace")}
           aria-expanded={isWorkspaceMenuOpen}
         >
@@ -366,7 +366,7 @@ export default function TopBar() {
         {/* Global App Switcher Grid */}
         <div className="relative" ref={appGridRef}>
           <button 
-            className="topbar-icon-btn" 
+            className="topbar-icon-btn hover-scale-soft" 
             aria-label={t("topbar.appSwitcher")}
             onClick={() => { setIsAppGridOpen(!isAppGridOpen); setIsNotifOpen(false); setIsProfileOpen(false); setIsMessengerOpen(false); }}
           >
@@ -521,7 +521,7 @@ export default function TopBar() {
         {/* Notifications */}
         <div className="relative" ref={notifRef}>
           <button 
-            className="topbar-icon-btn" 
+            className="topbar-icon-btn hover-scale-soft" 
             aria-label={t("topbar.notifications")}
             onClick={() => { setIsNotifOpen(!isNotifOpen); setIsProfileOpen(false); setIsMessengerOpen(false); }}
           >
@@ -570,7 +570,7 @@ export default function TopBar() {
         {/* Messenger */}
         <div className="relative" ref={messengerRef}>
           <button 
-            className="topbar-icon-btn" 
+            className="topbar-icon-btn hover-scale-soft" 
             aria-label={t("topbar.messages")}
             onClick={() => { setIsMessengerOpen(!isMessengerOpen); setIsNotifOpen(false); setIsProfileOpen(false); }}
           >
@@ -637,7 +637,7 @@ export default function TopBar() {
 
         {/* Settings */}
         <button 
-          className="topbar-icon-btn" 
+          className="topbar-icon-btn hover-scale-soft" 
           aria-label={t("topbar.settings")}
           onClick={() => setIsSettingsOpen(true)}
         >
@@ -646,7 +646,7 @@ export default function TopBar() {
 
         {/* Attendance Button */}
         <button 
-          className="topbar-icon-btn" 
+          className="topbar-icon-btn hover-scale-soft" 
           aria-label={t("topbar.attendance")}
           onClick={() => setIsAttendanceOpen(true)}
         >
@@ -655,7 +655,7 @@ export default function TopBar() {
 
         {/* Huddle */}
         <button 
-          className={`topbar-icon-btn ${isHuddleActive ? 'text-primary bg-primary/10' : ''}`} 
+          className={`topbar-icon-btn hover-scale-soft ${isHuddleActive ? 'text-primary bg-primary/10' : ''}`} 
           aria-label={t("topbar.huddle")}
           onClick={() => setIsHuddleActive(!isHuddleActive)}
         >
@@ -664,7 +664,7 @@ export default function TopBar() {
 
         {/* Profile */}
         <div className="relative" ref={profileRef}>
-          <button onClick={() => { setIsProfileOpen(!isProfileOpen); setIsNotifOpen(false); setIsMessengerOpen(false); }}>
+          <button className="hover-scale-soft block" onClick={() => { setIsProfileOpen(!isProfileOpen); setIsNotifOpen(false); setIsMessengerOpen(false); }}>
             <Avatar className="topbar-avatar hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer" aria-label={t("topbar.userProfile")}>
               <AvatarImage src={topbarAvatar || (currentUser as unknown as CurrentUserExtended)?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(String(topbarName || (currentUser as unknown as CurrentUserExtended)?.name || "User"))}&background=random`} alt={String(topbarName || (currentUser as unknown as CurrentUserExtended)?.name || "User")} />
               <AvatarFallback className="topbar-avatar-fallback">{String(topbarName || (currentUser as unknown as CurrentUserExtended)?.name || "US").substring(0, 2).toUpperCase()}</AvatarFallback>
@@ -694,7 +694,17 @@ export default function TopBar() {
                 <button 
                   onClick={() => {
                     if (centrifuge) centrifuge.disconnect();
-                    localStorage.removeItem('septimus_token');
+                    // Wipe the previous workspace's brand so the next account
+                    // that signs in on this device doesn't inherit its
+                    // name/logo/colors (device prefs like dark mode are kept).
+                    useThemeStore.getState().resetBrandIdentity();
+                    // Clear both the session token AND the personal identity keys
+                    // (name/avatar/user/company) so the next account on this
+                    // device never shows the previous user's name or picture.
+                    [
+                      'septimus_token', 'septimus_brand', 'septimus_user',
+                      'septimus_avatar', 'septimus_display_name', 'septimus_company_profile',
+                    ].forEach((k) => localStorage.removeItem(k));
                     window.location.href = '/';
                   }}
                   className="w-full flex items-center space-x-2 px-3 py-2 hover:bg-red-50 :bg-red-900/30 text-red-600 rounded-md text-sm transition-colors"

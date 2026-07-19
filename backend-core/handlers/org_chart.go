@@ -26,14 +26,19 @@ type GraphData struct {
 
 // GetOrgChartGraph returns all users and departments as a graph structure
 func GetOrgChartGraph(c *fiber.Ctx) error {
+	workspaceID, _ := c.Locals("workspace_id").(string)
+	if workspaceID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing workspace context"})
+	}
 	var users []models.User
 	var departments []models.Department
 
-	if err := database.DB.Find(&users).Error; err != nil {
+	// Both users and departments are workspace-scoped from the session.
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Find(&users).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch users"})
 	}
 
-	if err := database.DB.Find(&departments).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Find(&departments).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch departments"})
 	}
 

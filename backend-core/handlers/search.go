@@ -21,7 +21,7 @@ func SearchMessages(c *fiber.Ctx) error {
 
 	// We join channels and channel_members to ensure the user has access to the message's channel
 	// We use to_tsquery for full text search against the tsv column
-	err := database.DB.Distinct("messages.*").
+	err := database.GetDB(c).Distinct("messages.*").
 		Joins("JOIN channels ON channels.id = messages.channel_id").
 		Joins("LEFT JOIN channel_members ON channel_members.channel_id = channels.id").
 		Where("channels.workspace_id = ?", workspaceID).

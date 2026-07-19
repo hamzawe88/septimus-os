@@ -12,8 +12,12 @@ import (
 // ─── Departments ─────────────────────────────────────────────────────────────
 
 func GetDepartments(c *fiber.Ctx) error {
+	workspaceID, _ := c.Locals("workspace_id").(string)
+	if workspaceID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing workspace context"})
+	}
 	var depts []models.Department
-	if err := database.DB.Preload("Parent").Find(&depts).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Preload("Parent").Find(&depts).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch departments"})
 	}
 	return c.JSON(depts)
@@ -24,7 +28,11 @@ func CreateDepartment(c *fiber.Ctx) error {
 	if err := c.BodyParser(&dept); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
 	}
-	if err := database.DB.Create(&dept).Error; err != nil {
+	// Tenant scope is derived from the session, never trusted from the client.
+	if ws, ok := c.Locals("workspace_id").(string); ok {
+		dept.WorkspaceID = database.ParseUUID(ws)
+	}
+	if err := database.GetDB(c).Create(&dept).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create department"})
 	}
 	logAdminEvent(c, "department.create", "Department", dept.ID.String(), dept)
@@ -39,7 +47,7 @@ func UpdateDepartment(c *fiber.Ctx) error {
 	}
 
 	var dept models.Department
-	if err := database.DB.Where("id = ?", id).First(&dept).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).First(&dept).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Department not found"})
 	}
 
@@ -47,7 +55,7 @@ func UpdateDepartment(c *fiber.Ctx) error {
 	dept.ParentID = req.ParentID
 	dept.ManagerID = req.ManagerID
 
-	if err := database.DB.Save(&dept).Error; err != nil {
+	if err := database.GetDB(c).Save(&dept).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update department"})
 	}
 	logAdminEvent(c, "department.update", "Department", dept.ID.String(), dept)
@@ -56,7 +64,7 @@ func UpdateDepartment(c *fiber.Ctx) error {
 
 func DeleteDepartment(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if err := database.DB.Where("id = ?", id).Delete(&models.Department{}).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).Delete(&models.Department{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete department"})
 	}
 	logAdminEvent(c, "department.delete", "Department", id, nil)
@@ -67,7 +75,7 @@ func DeleteDepartment(c *fiber.Ctx) error {
 
 func GetRoles(c *fiber.Ctx) error {
 	var roles []models.Role
-	if err := database.DB.Find(&roles).Error; err != nil {
+	if err := database.GetDB(c).Find(&roles).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch roles"})
 	}
 	return c.JSON(roles)
@@ -78,7 +86,7 @@ func CreateRole(c *fiber.Ctx) error {
 	if err := c.BodyParser(&role); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
 	}
-	if err := database.DB.Create(&role).Error; err != nil {
+	if err := database.GetDB(c).Create(&role).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create role"})
 	}
 	logAdminEvent(c, "role.create", "Role", role.ID.String(), role)
@@ -93,14 +101,14 @@ func UpdateRole(c *fiber.Ctx) error {
 	}
 
 	var role models.Role
-	if err := database.DB.Where("id = ?", id).First(&role).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).First(&role).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Role not found"})
 	}
 
 	role.Name = req.Name
 	role.Description = req.Description
 
-	if err := database.DB.Save(&role).Error; err != nil {
+	if err := database.GetDB(c).Save(&role).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update role"})
 	}
 	logAdminEvent(c, "role.update", "Role", role.ID.String(), role)
@@ -112,11 +120,11 @@ func DeleteRole(c *fiber.Ctx) error {
 	
 	// Prevent deleting system roles
 	var role models.Role
-	if err := database.DB.Where("id = ?", id).First(&role).Error; err == nil && role.IsSystemRole {
+	if err := database.GetDB(c).Where("id = ?", id).First(&role).Error; err == nil && role.IsSystemRole {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Cannot delete system role"})
 	}
 
-	if err := database.DB.Where("id = ?", id).Delete(&models.Role{}).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).Delete(&models.Role{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete role"})
 	}
 	logAdminEvent(c, "role.delete", "Role", id, nil)
@@ -127,7 +135,7 @@ func DeleteRole(c *fiber.Ctx) error {
 
 func GetPermissions(c *fiber.Ctx) error {
 	var perms []models.Permission
-	if err := database.DB.Find(&perms).Error; err != nil {
+	if err := database.GetDB(c).Find(&perms).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch permissions"})
 	}
 	return c.JSON(perms)
@@ -138,7 +146,7 @@ func CreatePermission(c *fiber.Ctx) error {
 	if err := c.BodyParser(&perm); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 	}
-	if err := database.DB.Create(&perm).Error; err != nil {
+	if err := database.GetDB(c).Create(&perm).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create permission"})
 	}
 	logAdminEvent(c, "permission.create", "Permission", perm.ID.String(), perm)
@@ -147,7 +155,7 @@ func CreatePermission(c *fiber.Ctx) error {
 
 func DeletePermission(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if err := database.DB.Where("id = ?", id).Delete(&models.Permission{}).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).Delete(&models.Permission{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete permission"})
 	}
 	logAdminEvent(c, "permission.delete", "Permission", id, nil)
@@ -156,7 +164,7 @@ func DeletePermission(c *fiber.Ctx) error {
 
 func GetRolePermissions(c *fiber.Ctx) error {
 	var rps []models.RolePermission
-	if err := database.DB.Find(&rps).Error; err != nil {
+	if err := database.GetDB(c).Find(&rps).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch role permissions"})
 	}
 	return c.JSON(rps)
@@ -184,7 +192,7 @@ func AssignPermissionToRole(c *fiber.Ctx) error {
 		PermissionID: pid,
 	}
 
-	if err := database.DB.Create(&rp).Error; err != nil {
+	if err := database.GetDB(c).Create(&rp).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to assign permission"})
 	}
 	logAdminEvent(c, "role.permission.assign", "RolePermission", rid.String(), req)
@@ -195,7 +203,7 @@ func RemovePermissionFromRole(c *fiber.Ctx) error {
 	roleID := c.Params("roleId")
 	permID := c.Params("permId")
 
-	if err := database.DB.Where("role_id = ? AND permission_id = ?", roleID, permID).Delete(&models.RolePermission{}).Error; err != nil {
+	if err := database.GetDB(c).Where("role_id = ? AND permission_id = ?", roleID, permID).Delete(&models.RolePermission{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to remove permission"})
 	}
 	logAdminEvent(c, "role.permission.remove", "RolePermission", roleID, map[string]string{"role_id": roleID, "permission_id": permID})
@@ -205,8 +213,12 @@ func RemovePermissionFromRole(c *fiber.Ctx) error {
 // ─── Users (Admin Context) ───────────────────────────────────────────────────
 
 func GetUsersAdmin(c *fiber.Ctx) error {
+	workspaceID, _ := c.Locals("workspace_id").(string)
+	if workspaceID == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing workspace context"})
+	}
 	var users []models.User
-	if err := database.DB.Preload("RoleRef").Preload("Department").Find(&users).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Preload("RoleRef").Preload("Department").Find(&users).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch users"})
 	}
 
@@ -251,7 +263,7 @@ func CreateUserAdmin(c *fiber.Ctx) error {
 	} else if req.Role != "" {
 		// Try to find the role by name to assign RoleID
 		var existingRole models.Role
-		if err := database.DB.Where("name ILIKE ?", req.Role).First(&existingRole).Error; err == nil {
+		if err := database.GetDB(c).Where("name ILIKE ?", req.Role).First(&existingRole).Error; err == nil {
 			user.RoleID = &existingRole.ID
 		}
 	}
@@ -263,7 +275,7 @@ func CreateUserAdmin(c *fiber.Ctx) error {
 		}
 	}
 
-	if err := database.DB.Create(&user).Error; err != nil {
+	if err := database.GetDB(c).Create(&user).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create user"})
 	}
 
@@ -287,7 +299,7 @@ func UpdateUserAdmin(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	if err := database.DB.Where("id = ?", id).First(&user).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).First(&user).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
@@ -302,13 +314,13 @@ func UpdateUserAdmin(c *fiber.Ctx) error {
 		// Try to find the role by name to assign RoleID if not provided
 		if req.RoleID == "" {
 			var existingRole models.Role
-			if err := database.DB.Where("name ILIKE ?", req.Role).First(&existingRole).Error; err == nil {
+			if err := database.GetDB(c).Where("name ILIKE ?", req.Role).First(&existingRole).Error; err == nil {
 				user.RoleID = &existingRole.ID
 			}
 		}
 	}
 
-	if err := database.DB.Save(&user).Error; err != nil {
+	if err := database.GetDB(c).Save(&user).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update user"})
 	}
 
@@ -327,7 +339,7 @@ func DeleteUserAdmin(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Cannot delete your own account"})
 	}
 
-	if err := database.DB.Where("id = ?", id).Delete(&models.User{}).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).Delete(&models.User{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete user"})
 	}
 
@@ -352,7 +364,7 @@ func GetAuditLogs(c *fiber.Ctx) error {
 	entityType := c.Query("entity_type")
 	userID := c.Query("user_id")
 
-	query := database.DB.Model(&models.AuditLog{})
+	query := database.GetDB(c).Model(&models.AuditLog{})
 
 	if search != "" {
 		searchLike := "%" + search + "%"

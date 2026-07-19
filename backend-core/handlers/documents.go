@@ -47,9 +47,9 @@ func UploadDocument(c *fiber.Ctx) error {
 
 	// For simplicity in this step, find the first workspace and project to link the entity to
 	var project models.Project
-	database.DB.First(&project)
+	database.GetDB(c).First(&project)
 	var workspace models.Workspace
-	database.DB.First(&workspace)
+	database.GetDB(c).First(&workspace)
 
 	docEntity := models.Entity{
 		ID:          docUUID,
@@ -59,7 +59,7 @@ func UploadDocument(c *fiber.Ctx) error {
 		Data:        datatypes.JSON(fmt.Appendf(nil, `{"name": "%s", "url": "/uploads/documents/%s", "size": %d, "uploader_id": "%s", "channel_id": "%s", "status": "processing"}`, file.Filename, filename, file.Size, userID, channelID)),
 	}
 
-	if err := database.DB.Create(&docEntity).Error; err != nil {
+	if err := database.GetDB(c).Create(&docEntity).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save document metadata"})
 	}
 
@@ -93,7 +93,7 @@ func GetDocuments(c *fiber.Ctx) error {
 	channelID := c.Query("channel_id")
 	
 	var entities []models.Entity
-	query := database.DB.Where("entity_type = ?", "document")
+	query := database.GetDB(c).Where("entity_type = ?", "document")
 	
 	if channelID != "" {
 		// PostgreSQL JSONB query to filter by channel_id

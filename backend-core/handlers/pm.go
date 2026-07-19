@@ -81,7 +81,7 @@ func CreateProject(c *fiber.Ctx) error {
 		Settings:    datatypes.JSON(settings),
 	}
 
-	if err := database.DB.Create(&project).Error; err != nil {
+	if err := database.GetDB(c).Create(&project).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
@@ -92,7 +92,7 @@ func CreateProject(c *fiber.Ctx) error {
 		
 		if err == nil {
 			project.DriveFolderLink = webViewLink
-			database.DB.Save(&project)
+			database.GetDB(c).Save(&project)
 		} else {
 			log.Printf("Failed to create Google Drive folder: %v", err)
 		}
@@ -112,7 +112,7 @@ func CreateProject(c *fiber.Ctx) error {
 func GetProjects(c *fiber.Ctx) error {
 	workspaceID, _ := c.Locals("workspace_id").(string)
 	var projects []models.Project
-	if err := database.DB.Where("workspace_id = ?", workspaceID).Order("created_at desc").Find(&projects).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Order("created_at desc").Find(&projects).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.JSON(projects)
@@ -139,7 +139,7 @@ func UpdateProject(c *fiber.Ctx) error {
 	}
 
 	var project models.Project
-	if err := database.DB.Where("id = ?", id).First(&project).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).First(&project).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found"})
 	}
 
@@ -156,7 +156,7 @@ func UpdateProject(c *fiber.Ctx) error {
 		project.Settings = datatypes.JSON(req.Settings)
 	}
 
-	if err := database.DB.Save(&project).Error; err != nil {
+	if err := database.GetDB(c).Save(&project).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update project"})
 	}
 
@@ -175,7 +175,7 @@ func DeleteProject(c *fiber.Ctx) error {
 	}
 
 	var project models.Project
-	if err := database.DB.Where("id = ?", id).First(&project).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).First(&project).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found"})
 	}
 
@@ -185,7 +185,7 @@ func DeleteProject(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not have permission to delete this project"})
 	}
 
-	if err := database.DB.Where("id = ?", id).Delete(&models.Project{}).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).Delete(&models.Project{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete project"})
 	}
 
@@ -235,7 +235,7 @@ func CreateTask(c *fiber.Ctx) error {
 
 		// Fetch parent to get its path
 		var parentTask models.Task
-		if err := database.DB.First(&parentTask, "id = ?", pid).Error; err != nil {
+		if err := database.GetDB(c).First(&parentTask, "id = ?", pid).Error; err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Parent task not found"})
 		}
 		
@@ -255,7 +255,7 @@ func CreateTask(c *fiber.Ctx) error {
 		Path:        path,
 	}
 
-	err = database.DB.Transaction(func(tx *gorm.DB) error {
+	err = database.GetDB(c).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&task).Error; err != nil {
 			return err
 		}
@@ -302,7 +302,7 @@ func CreateTask(c *fiber.Ctx) error {
 		services.DispatchWebhook(workspaceID, "events.tasks.created", eventDataMap)
 		
 		// Trigger Workflow Engine
-		go engine.ExecuteEvent(database.DB, workspaceID, "task.created", eventDataMap)
+		go engine.ExecuteEvent(database.GetDB(c), workspaceID, "task.created", eventDataMap)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(task)
@@ -320,7 +320,7 @@ func GetTasks(c *fiber.Ctx) error {
 	}
 	offset := (page - 1) * limit
 
-	query := database.DB.Model(&models.Task{})
+	query := database.GetDB(c).Model(&models.Task{})
 
 	if projectIDParam != "" {
 		pid, err := uuid.Parse(projectIDParam)
@@ -364,7 +364,7 @@ func GetTaskTree(c *fiber.Ctx) error {
 
 	// First, get the parent task to know its path
 	var parentTask models.Task
-	if err := database.DB.First(&parentTask, "id = ?", taskID).Error; err != nil {
+	if err := database.GetDB(c).First(&parentTask, "id = ?", taskID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Task not found"})
 	}
 
@@ -372,7 +372,7 @@ func GetTaskTree(c *fiber.Ctx) error {
 	// '<@' is the LTREE operator for 'is descendant of'
 	// This query fetches the task itself AND all its nested subtasks (children, grandchildren, etc.)
 	// at any depth, using the GIST index in O(1) / O(log N) time!
-	if err := database.DB.Where("path <@ ?", parentTask.Path).Order("path ASC").Find(&allTasks).Error; err != nil {
+	if err := database.GetDB(c).Where("path <@ ?", parentTask.Path).Order("path ASC").Find(&allTasks).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch task tree"})
 	}
 
@@ -400,7 +400,7 @@ func TransitionTask(c *fiber.Ctx) error {
 
 	// 1. Fetch the Task and its Project
 	var task models.Task
-	if err := database.DB.Preload("Project").First(&task, "id = ?", taskID).Error; err != nil {
+	if err := database.GetDB(c).Preload("Project").First(&task, "id = ?", taskID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Task not found"})
 	}
 
@@ -436,7 +436,7 @@ func TransitionTask(c *fiber.Ctx) error {
 
 	// 4. Update the Task
 	task.Status = req.NewStatus
-	if err := database.DB.Save(&task).Error; err != nil {
+	if err := database.GetDB(c).Save(&task).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update task"})
 	}
 
@@ -460,7 +460,7 @@ func TransitionTask(c *fiber.Ctx) error {
 		NewStatus:      task.Status,
 		ChangedAt:      time.Now(),
 	}
-	database.DB.Create(&history)
+	database.GetDB(c).Create(&history)
 
 	// 6. Integration: Publish event to NATS
 	eventData, _ := json.Marshal(map[string]interface{}{

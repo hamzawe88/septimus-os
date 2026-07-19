@@ -188,7 +188,8 @@ async def on_workflow_trigger(msg):
 
         async with AsyncPostgresSaver.from_conn_string(DB_DSN) as memory:
             await memory.asetup()
-            agent = create_react_agent(llm, tools=[search_knowledge], checkpointer=memory, state_modifier=system_message)
+            # langgraph >=1.0 renamed state_modifier -> prompt
+            agent = create_react_agent(llm, tools=[search_knowledge], checkpointer=memory, prompt=system_message)
             config = {"configurable": {"thread_id": thread_id}}
             inputs = {"messages": [("user", prompt_template)]}
             async for event in agent.astream(inputs, config, stream_mode="values"):

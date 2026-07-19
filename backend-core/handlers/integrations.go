@@ -83,6 +83,16 @@ var availableIntegrations = []IntegrationDef{
 	},
 }
 
+// normalizeProvider collapses the three Google sub-integrations onto the single
+// "google" OAuth credential record they all share.
+func normalizeProvider(provider string) string {
+	switch provider {
+	case "google_calendar", "google_drive", "google_sheets":
+		return "google"
+	}
+	return provider
+}
+
 func getWorkspaceID(c *fiber.Ctx) uuid.UUID {
 	var workspaceID uuid.UUID
 	if val := c.Locals("workspace_id"); val != nil {
@@ -101,7 +111,7 @@ func getWorkspaceID(c *fiber.Ctx) uuid.UUID {
 	}
 	if workspaceID == uuid.Nil {
 		var ws models.Workspace
-		if err := database.DB.First(&ws).Error; err == nil {
+		if err := database.GetDB(c).First(&ws).Error; err == nil {
 			workspaceID = ws.ID
 		}
 	}
@@ -112,7 +122,7 @@ func GetIntegrations(c *fiber.Ctx) error {
 	workspaceID := getWorkspaceID(c)
 
 	var activeIntegrations []models.WorkspaceIntegration
-	database.DB.Where("workspace_id = ?", workspaceID).Find(&activeIntegrations)
+	database.GetDB(c).Where("workspace_id = ?", workspaceID).Find(&activeIntegrations)
 
 	response := make([]IntegrationDef, len(availableIntegrations))
 	for i, def := range availableIntegrations {
@@ -134,16 +144,13 @@ func ToggleIntegration(c *fiber.Ctx) error {
 	id := c.Params("id") // provider id like "whatsapp", "zendesk", "odoo", "ai_analytics"
 	workspaceID := getWorkspaceID(c)
 
-	provider := id
-	if provider == "google_calendar" || provider == "google_drive" || provider == "google_sheets" {
-		provider = "google"
-	}
+	provider := normalizeProvider(id)
 
 	var existing models.WorkspaceIntegration
-	err := database.DB.Where("workspace_id = ? AND provider = ?", workspaceID, provider).First(&existing).Error
+	err := database.GetDB(c).Where("workspace_id = ? AND provider = ?", workspaceID, provider).First(&existing).Error
 	if err == nil {
 		// It exists -> disconnect it
-		database.DB.Delete(&existing)
+		database.GetDB(c).Delete(&existing)
 		logIntegrationEvent(c, "integration.disconnect", provider, nil)
 		return c.JSON(fiber.Map{
 			"status":  "disconnected",
@@ -157,7 +164,7 @@ func ToggleIntegration(c *fiber.Ctx) error {
 			Provider:    provider,
 			AccessToken: "active_token_" + provider,
 		}
-		if err := database.DB.Create(&newInt).Error; err != nil {
+		if err := database.GetDB(c).Create(&newInt).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to connect integration"})
 		}
 		logIntegrationEvent(c, "integration.connect", provider, nil)
@@ -172,11 +179,13 @@ func ToggleIntegration(c *fiber.Ctx) error {
 func DisconnectIntegration(c *fiber.Ctx) error {
 	workspaceID := getWorkspaceID(c)
 	provider := c.Params("id")
-	if provider == "" || provider == "google_calendar" || provider == "google_drive" || provider == "google_sheets" {
+	if provider == "" {
 		provider = "google"
+	} else {
+		provider = normalizeProvider(provider)
 	}
 
-	if err := database.DB.Where("workspace_id = ? AND provider = ?", workspaceID, provider).Delete(&models.WorkspaceIntegration{}).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ? AND provider = ?", workspaceID, provider).Delete(&models.WorkspaceIntegration{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to disconnect integration"})
 	}
 
@@ -189,9 +198,7 @@ func DisconnectIntegration(c *fiber.Ctx) error {
 
 // GetActiveIntegration returns the integration if it's connected
 func GetActiveIntegration(workspaceID uuid.UUID, provider string) (*models.WorkspaceIntegration, bool) {
-	if provider == "google_calendar" || provider == "google_drive" || provider == "google_sheets" {
-		provider = "google"
-	}
+	provider = normalizeProvider(provider)
 
 	var integration models.WorkspaceIntegration
 	if err := database.DB.Where("workspace_id = ? AND provider = ?", workspaceID, provider).First(&integration).Error; err != nil {
@@ -209,7 +216,7 @@ func GetIntegrationConfig(c *fiber.Ctx) error {
 	}
 
 	var existing models.WorkspaceIntegration
-	err := database.DB.Where("workspace_id = ? AND provider = ?", workspaceID, provider).First(&existing).Error
+	err := database.GetDB(c).Where("workspace_id = ? AND provider = ?", workspaceID, provider).First(&existing).Error
 	if err != nil {
 		return c.JSON(fiber.Map{
 			"status": "disconnected",
@@ -254,11 +261,11 @@ func SaveIntegrationConfig(c *fiber.Ctx) error {
 	}
 
 	var existing models.WorkspaceIntegration
-	err = database.DB.Where("workspace_id = ? AND provider = ?", workspaceID, provider).First(&existing).Error
+	err = database.GetDB(c).Where("workspace_id = ? AND provider = ?", workspaceID, provider).First(&existing).Error
 	if err == nil {
 		existing.AccessToken = input.AccessToken
 		existing.Metadata = datatypes.JSON(metaJSON)
-		if err := database.DB.Save(&existing).Error; err != nil {
+		if err := database.GetDB(c).Save(&existing).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update configuration"})
 		}
 	} else {
@@ -269,7 +276,7 @@ func SaveIntegrationConfig(c *fiber.Ctx) error {
 			AccessToken: input.AccessToken,
 			Metadata:    datatypes.JSON(metaJSON),
 		}
-		if err := database.DB.Create(&newInt).Error; err != nil {
+		if err := database.GetDB(c).Create(&newInt).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save configuration"})
 		}
 	}
@@ -539,7 +546,7 @@ func ExportTasksToSheet(c *fiber.Ctx) error {
 	}
 
 	var tasks []models.Task
-	if err := database.DB.Where("project_id = ?", pid).Order("status asc, priority desc").Find(&tasks).Error; err != nil {
+	if err := database.GetDB(c).Where("project_id = ?", pid).Order("status asc, priority desc").Find(&tasks).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load tasks"})
 	}
 	if len(tasks) == 0 {

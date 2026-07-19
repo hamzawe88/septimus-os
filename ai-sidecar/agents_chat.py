@@ -13,6 +13,7 @@ from reasoning_manual import get_reasoning_directives, get_validation_gate_promp
 from providers import get_active_llm
 from observability import check_budget_guardrails, BudgetExceededError, get_langfuse_handler
 import knowledge
+import agent_rbac
 
 
 
@@ -42,7 +43,7 @@ def _queue_approval(workspace_id: str, action_type: str, entity_type: str, data:
                 else f"Error queuing the action for approval: {e}")
 
 
-def _build_tools(workspace_id: str, lang: str, user_role: str = "member", agent_type: str = "general"):
+def _build_tools_raw(workspace_id: str, lang: str, user_role: str = "member", agent_type: str = "general"):
     from langchain_core.tools import tool
     from agents_correspondence import rewrite_official_letter, audit_legal_compliance
 
@@ -288,6 +289,14 @@ def _build_tools(workspace_id: str, lang: str, user_role: str = "member", agent_
     ])
 
 
+def _build_tools(workspace_id: str, lang: str, user_role: str = "member", agent_type: str = "general"):
+    """Assemble the agent's tools, then pass them through the central agent-RBAC
+    capability matrix as a fail-closed, auditable boundary (defense-in-depth on
+    top of the per-tool role checks)."""
+    tools = _build_tools_raw(workspace_id, lang, user_role=user_role, agent_type=agent_type)
+    return agent_rbac.enforce(agent_type, tools)
+
+
 async def _fetch_hr_policy_text(workspace_id: str) -> str:
     try:
         import aiohttp
@@ -385,6 +394,8 @@ async def run_chat_agent(agent_type: str, message: str, context: dict,
             "recursion_limit": 8,
         }
         # Optional Langfuse tracing; None (the default) leaves `config` untouched.
+        # Token-usage tracking is handled by the callback attached to the model
+        # in get_active_llm, so it fires here too without extra wiring.
         langfuse_handler = get_langfuse_handler(
             workspace_id,
             user_id=context.get("user_id"),

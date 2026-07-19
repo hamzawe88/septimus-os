@@ -27,21 +27,26 @@ Septimus OS is built on a clean three-tier architecture with zero direct externa
 
 ### 1. `backend-core/` (Golang 1.23 / Fiber)
 
-- **Real-Time & CRUD API**: Handles authentication, workspace management, attendance geofencing, and entity permissions.
+- **Real-Time & CRUD API**: Handles authentication, workspace management, attendance geofencing (`Haversine distance calculation`), and enterprise RBAC.
+- **Dynamic JSONB Entities (`entities.go`)**: Powers zero-migration custom domain objects (`crm_deal`, `invoice`, `leave_request`) with automatic tenant scope resolution (`workspace_id`) and flexible field aliases (`Type` / `entity_type`).
+- **Correspondence & Templates Engine (`correspondence.go`)**: Manages enterprise letterheads, layout configurations, and formal correspondences with robust multi-alias struct decoding (`Name`/`TemplateName`, `HeaderHTML`/`CompanyHeaderData`).
+- **Workflow Automation (`workflow_executor.go`)**: Executes DAG workflows and custom nodes (`ai_agent`, `send_slack`, `send_chat`) using direct database injection (`InjectSystemMessageDirect`) and `WSHub` real-time broadcasting.
 - **Secure AI Proxy (`/api/v1/ai/*`)**: Proxies AI requests to `ai-sidecar` using `INTERNAL_API_TOKEN` and injects workspace identity (`X-Septimus-Workspace`).
 - **Encrypted Provider Store**: Stores model provider API keys (`ai_providers` jsonb) encrypted at rest using `SETTINGS_ENC_KEY`.
 
 ### 2. `ai-sidecar/` (Python FastAPI / LangChain / LangGraph)
 
 - **Multi-Provider & Tier Routing (`providers.py`)**: Seamlessly routes tasks to `Fast` tier (`gpt-5-mini`, `claude-3-5-haiku`, `gemini-2.5-flash`) or `Strong` tier (`gpt-5`, `claude-sonnet-5`, `gemini-2.5-pro`, Ollama).
-- **Semantic RAG (`knowledge.py`)**: Vector retrieval powered by PostgreSQL (`pgvector`) embeddings.
+- **Semantic RAG (`knowledge.py`)**: Vector retrieval powered by PostgreSQL (`pgvector`) embeddings (`document_embeddings`).
 - **Observability & Cost Tracking (`observability.py`)**: Structured JSON logging (`ai.token.consumption`) and estimated dollar-cost tracking per workspace.
 - **Proactive Auditor (`proactive.py`)**: Continuously monitors system pulse and surfaces strategic insights.
 
 ### 3. `frontend/` (Next.js 15 / React / Tailwind / Lucide)
 
-- **Bilingual UI (AR/EN)**: Complete 1:1 parity between Arabic (RTL) and English (LTR) across all widgets and modals (`i18n_scan.py` verified).
-- **Realtime Centrifugo Channels**: Instant messaging, huddle updates, and live agent token streaming.
+- **Bilingual & Adaptive UI (AR/EN)**: Complete 1:1 parity between Arabic (RTL) and English (LTR). Dynamic forms and SaaS modals automatically collapse redundant bilingual inputs based on the current interface language for a spacious, uncluttered enterprise experience.
+- **Realtime Centrifugo Channels**: Instant messaging, huddle updates, workflow notifications, and live agent token streaming (`WSHub`).
+- **Enterprise Suites**: CRM Kanban, HR & Geofenced Attendance simulators, Financial Invoices, and Workflow Canvas (`React Flow`).
+- **Professional SaaS Management**: Clean `max-w-3xl` modals for managing plans, dynamic themes, and integrated billing configurations.
 
 ---
 

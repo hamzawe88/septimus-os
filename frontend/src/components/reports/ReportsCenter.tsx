@@ -6,13 +6,14 @@ import AttendanceReport from "./AttendanceReport";
 import ProjectsReport from "./ProjectsReport";
 import CommunicationReport from "./CommunicationReport";
 import AiReport from "./AiReport";
+import AiCostReport from "./AiCostReport";
 import OKRsReport from "./OKRsReport";
-import { PieChart, KanbanSquare, MessageSquare, Zap, Target } from "lucide-react";
+import { PieChart, KanbanSquare, MessageSquare, Zap, Target, DollarSign } from "lucide-react";
 import { useLocalization } from "@/contexts/LocalizationContext";
 
 export default function ReportsCenter() {
   const { t } = useLocalization();
-  const [activeTab, setActiveTab] = useState<"attendance" | "projects" | "communication" | "ai" | "okrs">("attendance");
+  const [activeTab, setActiveTab] = useState<"attendance" | "projects" | "communication" | "ai" | "aiCost" | "okrs">("attendance");
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-[#0f0f0f] w-full overflow-hidden transition-colors">
@@ -54,11 +55,17 @@ export default function ReportsCenter() {
             icon={<Zap className="w-4 h-4" />}
             label={t("reports.tabs.aiReport")} 
           />
-          <TabButton 
-            active={activeTab === "okrs"} 
+          <TabButton
+            active={activeTab === "aiCost"}
+            onClick={() => setActiveTab("aiCost")}
+            icon={<DollarSign className="w-4 h-4" />}
+            label={t("reports.tabs.aiCost")}
+          />
+          <TabButton
+            active={activeTab === "okrs"}
             onClick={() => setActiveTab("okrs")}
             icon={<Target className="w-4 h-4" />}
-            label={t("reports.tabs.okrs")} 
+            label={t("reports.tabs.okrs")}
           />
         </div>
       </div>
@@ -69,6 +76,7 @@ export default function ReportsCenter() {
         {activeTab === "projects" && <ProjectsReport />}
         {activeTab === "communication" && <CommunicationReport />}
         {activeTab === "ai" && <AiReport />}
+        {activeTab === "aiCost" && <AiCostReport />}
         {activeTab === "okrs" && <OKRsReport />}
       </div>
     </div>

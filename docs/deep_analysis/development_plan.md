@@ -48,6 +48,10 @@ As detailed in [`database_architecture_and_patterns.md`](file:///Users/hamzwe/De
 
 **Objective**: Connect Septimus OS to the broader enterprise software ecosystem.
 
+- [x] **Dynamic i18n UI**: Collapse dual-language fields (e.g., `features_ar` / `features_en`) based on interface language to offer a wide, professional (`max-w-3xl`) SaaS form experience.
+- [x] **UI/UX Modernization & Layout Reactivity**: Adopted a state-of-the-art Glassmorphism styling paired with Bento Grid widgets. Enhanced sidebar-to-content reactivity (`max-w-full`) for a seamless ultra-wide viewing experience.
+- [x] **Database GORM Mapping Resolution**: Hardcoded struct mappings (`TableName()`) to resolve GORM pluralization bugs that prevented record deletion (e.g., SaaS Plans).
+
 ### 1. Connected Integration Actions (Implemented ✅)
 
 - **WhatsApp Send**: Live API integration via Meta Graph API (`POST /integrations/whatsapp/send`).
@@ -56,11 +60,12 @@ As detailed in [`database_architecture_and_patterns.md`](file:///Users/hamzwe/De
 - **Google Sheets Kanban Export**: Instant export of project tasks to Google Sheets (`POST /integrations/google/export-tasks`).
 - **Geofenced HR Attendance**: Real-time GPS validation (`Haversine distance calculation`) against registered office locations with dynamic simulation tools (`AttendanceView.tsx`).
 
-### 2. Native Business Modules (`JSONB Entity Pattern`)
+### 2. Native Business Modules (`JSONB Entity Pattern` & Core Suites) (Implemented ✅)
 
-- **CRM Module**: Tracking leads, deals, and AI-drafted replies (`CRMDashboard.tsx`, `ChatPanel.tsx` with 👍/👎 feedback).
-- **HR & ERP Module**: Employee 360 views (`Employee360Modal.tsx`), attendance logs, and leave requests.
-- **Finance Module**: Dynamic invoice and expense management (`FinanceView.tsx`, `InvoicesList.tsx`).
+- **CRM Module (Implemented ✅)**: Tracking leads, deals, and AI-drafted replies (`CRMDashboard.tsx`, `ChatPanel.tsx` with 👍/👎 feedback).
+- **HR & ERP Module (Implemented ✅)**: Employee 360 views (`Employee360Modal.tsx`), geofenced attendance logs (`AttendanceView.tsx`), and leave requests.
+- **Finance Module (Implemented ✅)**: Dynamic invoice and expense management (`FinanceView.tsx`, `InvoicesList.tsx`).
+- **Correspondence & Templates Module (Implemented ✅)**: Official corporate letterheads and templates with standardized backend routes (`/correspondence-templates`, `/correspondences`) and dynamic struct alias mapping (`CorrespondenceView.tsx`).
 
 ---
 

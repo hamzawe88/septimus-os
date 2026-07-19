@@ -23,6 +23,16 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   if (response.status === 401) {
     localStorage.removeItem('septimus_token');
     window.location.href = '/';
+  } else if (response.status === 402) {
+    try {
+      const errorData = await response.clone().json();
+      console.warn("[Feature Tier Gate 402 Intercepted]", errorData);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('septimus:tier-gate', { detail: errorData }));
+      }
+    } catch (err) {
+      console.error("[Feature Tier Gate] Unparseable 402 payload", err);
+    }
   } else if (response.status >= 400) {
     try {
       const errorData = await response.clone().json();
@@ -75,7 +85,8 @@ export async function apiDelete<T>(endpoint: string, base: string = API_BASE_URL
     method: 'DELETE',
   });
   if (!res.ok) throw new Error(`DELETE ${endpoint} failed`);
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : ({} as unknown as T);
 }
 
 export function getCurrentWorkspaceId(): string {

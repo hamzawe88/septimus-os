@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/septimus-os/backend-core/models"
 	"gorm.io/driver/postgres"
@@ -12,6 +13,17 @@ import (
 )
 
 var DB *gorm.DB
+
+// GetDB returns a request-scoped GORM transaction if available, otherwise returns the global DB pool
+func GetDB(c *fiber.Ctx) *gorm.DB {
+	if c == nil {
+		return DB
+	}
+	if tx, ok := c.Locals("db_tx").(*gorm.DB); ok && tx != nil {
+		return tx
+	}
+	return DB
+}
 
 func ConnectDB() {
 	dsn := os.Getenv("DB_DSN")
@@ -34,6 +46,10 @@ func ConnectDB() {
 	
 	// Enable pgvector extension for AI RAG embeddings
 	db.Exec(`CREATE EXTENSION IF NOT EXISTS vector;`)
+
+	// Pre-clean duplicate workspace slugs before creating unique index
+	db.Exec(`ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS slug VARCHAR(63) NOT NULL DEFAULT 'default';`)
+	db.Exec(`UPDATE workspaces SET slug = 'ws-' || SUBSTRING(id::text, 1, 8) WHERE ctid NOT IN (SELECT min(ctid) FROM workspaces GROUP BY slug);`)
 
 	// Auto-migrate the schemas
 	err = db.AutoMigrate(
@@ -68,10 +84,30 @@ func ConnectDB() {
 		&models.CorrespondenceTemplate{}, // Added CorrespondenceTemplate
 		&models.Correspondence{},         // Added Correspondence
 		&models.CorrespondenceForwardLog{}, // Added CorrespondenceForwardLog
+		&models.Subscription{},
+		&models.Invoice{},
+		&models.SaaSPlan{}, // Added SaaSPlan
+		&models.PaymentGatewaySettings{}, // Added PaymentGatewaySettings
+		&models.AITokenUsage{},           // AI token usage / cost dashboard
 	)
 	if err != nil {
 		log.Fatalf("Failed to auto-migrate: %v", err)
 	}
+
+	// Enforce PostgreSQL Row-Level Security (RLS) for multi-tenant isolation
+	rlsTables := []string{"entities", "messages", "tasks", "correspondences", "attendance_logs"}
+	for _, tbl := range rlsTables {
+		db.Exec(`ALTER TABLE ` + tbl + ` ENABLE ROW LEVEL SECURITY;`)
+		// Create or replace policy
+		db.Exec(`DROP POLICY IF EXISTS tenant_isolation_policy ON ` + tbl + `;`)
+		db.Exec(`CREATE POLICY tenant_isolation_policy ON ` + tbl + `
+			USING (
+				workspace_id = NULLIF(current_setting('app.current_workspace_id', true), '')::uuid
+				OR current_setting('app.current_workspace_id', true) IS NULL
+				OR current_setting('app.current_workspace_id', true) = ''
+			);`)
+	}
+	log.Println("PostgreSQL Row-Level Security (RLS) policies configured on tenant tables.")
 
 	// Normalize legacy empty-string employee ids to NULL so the unique index
 	// does not block new registrations that omit employee_id
@@ -123,8 +159,44 @@ func ConnectDB() {
 	db.Exec(`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at_brin ON audit_logs USING BRIN (created_at);`)
 
 	SeedRBAC(db)
+	SeedPaymentGateways(db)
 
 	DB = db
+}
+
+func SeedPaymentGateways(db *gorm.DB) {
+	var count int64
+	db.Model(&models.PaymentGatewaySettings{}).Count(&count)
+	if count == 0 {
+		stripe := models.PaymentGatewaySettings{
+			GatewayName: "stripe",
+			IsActive:    true,
+			IsTestMode:  true,
+			Credentials: []byte(`{"publishable_key": "", "secret_key": "", "webhook_secret": ""}`),
+			Currency:    "USD",
+			SortOrder:   1,
+		}
+		moamalat := models.PaymentGatewaySettings{
+			GatewayName: "moamalat",
+			IsActive:    true,
+			IsTestMode:  true,
+			Credentials: []byte(`{"merchant_id": "", "terminal_id": "", "secret_key": ""}`),
+			Currency:    "LYD",
+			SortOrder:   2,
+		}
+		onepay := models.PaymentGatewaySettings{
+			GatewayName: "onepay",
+			IsActive:    false,
+			IsTestMode:  true,
+			Credentials: []byte(`{"app_id": "", "secret_key": ""}`),
+			Currency:    "LYD",
+			SortOrder:   3,
+		}
+		db.Create(&stripe)
+		db.Create(&moamalat)
+		db.Create(&onepay)
+		log.Println("Seeded default Payment Gateway settings")
+	}
 }
 
 func SeedRBAC(db *gorm.DB) {

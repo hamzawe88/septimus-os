@@ -72,7 +72,7 @@ func CreateWebhook(c *fiber.Ctx) error {
 		IsActive:    true,
 	}
 
-	if err := database.DB.Create(&webhook).Error; err != nil {
+	if err := database.GetDB(c).Create(&webhook).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create webhook"})
 	}
 
@@ -83,7 +83,7 @@ func GetWebhooks(c *fiber.Ctx) error {
 	workspaceID := getWebhookWorkspaceID(c)
 
 	var webhooks []models.WebhookSubscription
-	if err := database.DB.Where("workspace_id = ?", workspaceID).Find(&webhooks).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Find(&webhooks).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch webhooks"})
 	}
 
@@ -97,7 +97,7 @@ func DeleteWebhook(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid webhook ID"})
 	}
 
-	if err := database.DB.Delete(&models.WebhookSubscription{}, "id = ?", id).Error; err != nil {
+	if err := database.GetDB(c).Delete(&models.WebhookSubscription{}, "id = ?", id).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete webhook"})
 	}
 
@@ -158,7 +158,7 @@ func HandleZendeskWebhook(c *fiber.Ctx) error {
 		Data:        datatypes.JSON(ticketData),
 	}
 
-	if err := database.DB.Create(&entity).Error; err != nil {
+	if err := database.GetDB(c).Create(&entity).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create CRM ticket"})
 	}
 
@@ -291,7 +291,7 @@ func HandleExternalWebhook(c *fiber.Ctx) error {
 		EntityType:  "webhook_payload",
 		Data:        datatypes.JSON(entityData),
 	}
-	database.DB.Create(&entity)
+	database.GetDB(c).Create(&entity)
 
 	ctxData := make(map[string]interface{})
 	for k, v := range input.Data {

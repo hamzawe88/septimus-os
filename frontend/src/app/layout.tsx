@@ -4,6 +4,7 @@ import "./globals.css";
 import { AppThemeProvider } from "@/components/shared/ThemeProvider";
 import GlobalModals from "@/components/GlobalModals";
 import { LocalizationProvider } from "@/contexts/LocalizationContext";
+import { EntitlementsProvider } from "@/contexts/EntitlementsContext";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -34,8 +35,10 @@ export default function RootLayout({
       <body className="h-screen w-screen overflow-hidden">
         <LocalizationProvider>
           <AppThemeProvider>
-            {children}
-            <GlobalModals />
+            <EntitlementsProvider>
+              {children}
+              <GlobalModals />
+            </EntitlementsProvider>
           </AppThemeProvider>
         </LocalizationProvider>
       </body>

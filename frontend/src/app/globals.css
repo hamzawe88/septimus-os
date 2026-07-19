@@ -963,3 +963,50 @@ body, html.dark body {
 .animate-ios-jiggle {
   animation: ios-jiggle 0.26s ease-in-out infinite;
 }
+
+/* ================================================================
+   UI/UX UPGRADES: GLASSMORPHISM & BENTO GRID
+   ================================================================ */
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-md border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl;
+  }
+  
+  .dark .glass-panel {
+    @apply bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.2)];
+  }
+
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-sm border border-white/50 shadow-sm rounded-xl transition-all duration-300;
+  }
+  
+  .dark .glass-card {
+    @apply bg-black/50 backdrop-blur-md border border-white/10 shadow-sm rounded-xl transition-all duration-300;
+  }
+
+  .glass-card:hover {
+    @apply shadow-lg scale-[1.01] -translate-y-0.5 border-white/80;
+  }
+
+  .dark .glass-card:hover {
+    @apply shadow-2xl scale-[1.01] -translate-y-0.5 border-white/20;
+  }
+
+  .bg-mesh-light {
+    background-color: #f6f8fb;
+    background-image: 
+      radial-gradient(at 40% 20%, hsla(250,100%,94%,1) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, hsla(189,100%,96%,1) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, hsla(355,100%,95%,1) 0px, transparent 50%);
+  }
+  
+  .bg-mesh-dark {
+    background-color: #0f1115;
+    background-image: 
+      radial-gradient(at 40% 20%, hsla(250,50%,15%,1) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, hsla(189,50%,15%,1) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, hsla(355,50%,15%,1) 0px, transparent 50%);
+  }
+}
+

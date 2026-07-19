@@ -23,13 +23,13 @@ func GetCommunicationReport(c *fiber.Ctx) error {
 	}
 
 	// 1. Total Messages
-	if err := database.DB.Model(&models.Message{}).Count(&totalMessages).Error; err != nil {
+	if err := database.GetDB(c).Model(&models.Message{}).Count(&totalMessages).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch total messages"})
 	}
 
 	// 2. Active Channels (Channels that have had messages in the last 30 days)
 	thirtyDaysAgo := time.Now().AddDate(0, 0, -30)
-	if err := database.DB.Model(&models.Message{}).
+	if err := database.GetDB(c).Model(&models.Message{}).
 		Where("created_at > ?", thirtyDaysAgo).
 		Distinct("channel_id").
 		Count(&activeChannels).Error; err != nil {
@@ -37,7 +37,7 @@ func GetCommunicationReport(c *fiber.Ctx) error {
 	}
 
 	// 3. Channels vs DMs (Message distribution by channel type)
-	if err := database.DB.Table("messages").
+	if err := database.GetDB(c).Table("messages").
 		Select("channels.type, count(messages.id) as count").
 		Joins("JOIN channels ON channels.id = messages.channel_id").
 		Group("channels.type").
@@ -51,7 +51,7 @@ func GetCommunicationReport(c *fiber.Ctx) error {
 		Count int64  `json:"count"`
 	}
 	// Note: date(created_at) works in sqlite/postgres depending on dialect. For Postgres:
-	if err := database.DB.Table("messages").
+	if err := database.GetDB(c).Table("messages").
 		Select("DATE(created_at) as date, count(id) as count").
 		Where("created_at > ?", time.Now().AddDate(0, 0, -7)).
 		Group("DATE(created_at)").
@@ -77,12 +77,12 @@ func GetAIReport(c *fiber.Ctx) error {
 	}
 
 	// 1. Total AI Generated Messages
-	if err := database.DB.Model(&models.Message{}).Where("is_ai_generated = ?", true).Count(&totalAIActions).Error; err != nil {
+	if err := database.GetDB(c).Model(&models.Message{}).Where("is_ai_generated = ?", true).Count(&totalAIActions).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch AI messages count"})
 	}
 
 	// 2. Workflow Success vs Failures
-	if err := database.DB.Model(&models.WorkflowRun{}).
+	if err := database.GetDB(c).Model(&models.WorkflowRun{}).
 		Select("status, count(id) as count").
 		Group("status").
 		Scan(&workflowStats).Error; err != nil {
@@ -94,7 +94,7 @@ func GetAIReport(c *fiber.Ctx) error {
 		Date  string `json:"date"`
 		Count int64  `json:"count"`
 	}
-	if err := database.DB.Table("messages").
+	if err := database.GetDB(c).Table("messages").
 		Select("DATE(created_at) as date, count(id) as count").
 		Where("is_ai_generated = ? AND created_at > ?", true, time.Now().AddDate(0, 0, -7)).
 		Group("DATE(created_at)").

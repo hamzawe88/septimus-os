@@ -11,6 +11,7 @@ import WorkflowCanvas from "./WorkflowCanvas";
 import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
 import WorkflowBuilder from '../workflows/WorkflowBuilder';
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { useAppStore } from "@/store/useAppStore";
 
 interface Workflow {
   ID: string;
@@ -80,6 +81,7 @@ const iconBgMap: Record<string, string> = {
 
 export default function AutomationsView() {
   const { isRtl } = useLocalization();
+  const { isSidebarOpen } = useAppStore();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
@@ -315,7 +317,7 @@ export default function AutomationsView() {
 
   return (
     <div className="w-full h-full p-8 overflow-y-auto bg-white font-sans">
-      <div className="max-w-7xl mx-auto">
+      <div className={`mx-auto transition-all duration-300 ${isSidebarOpen ? 'max-w-7xl' : 'max-w-full'}`}>
         {/* Header */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">

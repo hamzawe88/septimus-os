@@ -240,7 +240,7 @@ export default function Home() {
           <div className="flex-1 overflow-hidden bg-white">
             <AuditLogsView />
           </div>
-        ) : ['system_settings', 'roles_settings', 'webhooks_settings', 'apikeys_settings', 'appearance_settings', 'localization_settings', 'company_profile'].includes(currentView) ? (
+        ) : ['system_settings', 'saas_settings', 'roles_settings', 'webhooks_settings', 'apikeys_settings', 'appearance_settings', 'localization_settings', 'company_profile'].includes(currentView) ? (
           <div className="flex-1 overflow-hidden bg-white">
             <SettingsLayout />
           </div>

@@ -16,7 +16,10 @@
 
 ---
 
-## Phase 2: Database Optimizations & Enterprise Security (Active Phase 🚀)
+## Phase 2: Database Optimizations & Enterprise Security (Mostly Done ✅ — verified 2026-07-18)
+
+> [!note] تحقّق مصدري 2026-07-18
+> فهرس `GIN(data)` (`database.go:153`)، الحذف الآمن `DeletedAt` (`models.go:86`)، وفحص القوالب `gojsonschema` (`entities.go:74`) — **مُنجَزة**. المتبقّي: **تقسيم الجداول الفعلي** (يوجد تحضير BRIN فقط، `database.go:156`).
 
 - **Database Performance Upgrades**:
   - GIN Index creation on `entities.data` (`idx_entities_data_gin`).
@@ -28,12 +31,13 @@
 
 ---
 
-## Phase 3: Advanced Business Modules & AI Proactivity (In Progress ⚡)
+## Phase 3: Advanced Business Modules & AI Proactivity (Completed ✅)
 
 - **CRM Domain**: Leads & Deals Kanban, AI-drafted email replies, and 👍/👎 AI evaluation metrics (`CRMDashboard.tsx`, `ChatPanel.tsx`).
 - **HR & Geofenced Attendance**: GPS distance verification using Haversine formulas against registered office radii (`AttendanceView.tsx`).
+- **Correspondence & Templates Engine**: Standardized letterheads (`correspondence-templates`), multi-alias payload decoding, and live template previews (`CorrespondenceView.tsx`).
 - **Realtime Audio & Voice Huddles**: Live meetings (`voice_realtime.py` + `huddle.go`) for voice transcription and action-item extraction.
-- **Workflow Automation Engine**: Visual React Flow canvas (`WorkflowCanvas.tsx`) with custom `ai_agent` and `send_slack` nodes triggered by system events.
+- **Workflow Automation Engine**: Visual React Flow canvas (`WorkflowCanvas.tsx`) with custom `ai_agent`, `send_slack`, and `send_chat` nodes triggered by system events, utilizing direct database injection (`InjectSystemMessageDirect`).
 - **Proactive Morning Briefing Cron**: Automated schedule generating company-wide morning AI reports (`POST /api/v1/ai/proactive/morning-brief`).
 
 ---

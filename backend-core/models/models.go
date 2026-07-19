@@ -10,8 +10,11 @@ import (
 
 type Workspace struct {
 	ID        uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	Slug      string    `gorm:"type:varchar(63);uniqueIndex;not null;default:'default'"`
 	Name      string    `gorm:"type:varchar(255);not null"`
 	Industry  string    `gorm:"type:varchar(100)"`
+	Tier      string    `gorm:"type:varchar(50);not null;default:'free'"`   // 'free', 'starter', 'business', 'enterprise'
+	Status    string    `gorm:"type:varchar(30);not null;default:'active'"` // 'active', 'suspended', 'cancelled'
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -128,16 +131,17 @@ type Message struct {
 	AttachmentType string          `gorm:"type:varchar(50)"`
 	EntityType    string          `gorm:"type:varchar(50)"`
 	EntityID      *uuid.UUID      `gorm:"type:uuid;index"`
-	CreatedAt     time.Time       `gorm:"autoCreateTime"`
+	CreatedAt     time.Time       `gorm:"autoCreateTime;not null"`
 	UpdatedAt     time.Time       `gorm:"autoUpdateTime"`
 }
 
 // ─── Organization & RBAC Domain ──────────────────────────────────────────────
 
 type Department struct {
-	ID        uuid.UUID   `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	Name      string      `gorm:"type:varchar(100);not null"`
-	ParentID  *uuid.UUID  `gorm:"type:uuid;index"`
+	ID          uuid.UUID   `gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	WorkspaceID uuid.UUID   `gorm:"type:uuid;index" json:"workspace_id"`
+	Name        string      `gorm:"type:varchar(100);not null"`
+	ParentID    *uuid.UUID  `gorm:"type:uuid;index"`
 	Parent    *Department `gorm:"foreignKey:ParentID"`
 	ManagerID *uuid.UUID  `gorm:"type:uuid;index"`
 	CreatedAt time.Time
@@ -172,7 +176,7 @@ type AuditLog struct {
 	EntityID   string         `gorm:"type:varchar(50);index"`
 	Details    datatypes.JSON `gorm:"type:jsonb"`
 	IPAddress  string         `gorm:"type:varchar(50)"`
-	CreatedAt  time.Time      `gorm:"autoCreateTime;index"`
+	CreatedAt  time.Time      `gorm:"autoCreateTime;index;not null"`
 }
 
 // ─── Geofenced Attendance Domain ─────────────────────────────────────────────

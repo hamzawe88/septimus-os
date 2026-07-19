@@ -34,7 +34,7 @@ func ConfigAI(c *fiber.Ctx) error {
 	}
 	if wsIDStr == "" || wsIDStr == "nil" {
 		var ws models.Workspace
-		if err := database.DB.First(&ws).Error; err == nil {
+		if err := database.GetDB(c).First(&ws).Error; err == nil {
 			wsIDStr = ws.ID.String()
 		}
 	}
@@ -52,7 +52,7 @@ func ConfigAI(c *fiber.Ctx) error {
 	var setting models.WorkspaceSetting
 	var providers []map[string]interface{}
 
-	if err := database.DB.Where("workspace_id = ? AND key = ?", wsUUID, "ai_providers").First(&setting).Error; err == nil {
+	if err := database.GetDB(c).Where("workspace_id = ? AND key = ?", wsUUID, "ai_providers").First(&setting).Error; err == nil {
 		_ = json.Unmarshal(setting.Value, &providers)
 	}
 
@@ -91,10 +91,10 @@ func ConfigAI(c *fiber.Ctx) error {
 			Key:         "ai_providers",
 			Value:       bytes,
 		}
-		database.DB.Create(&setting)
+		database.GetDB(c).Create(&setting)
 	} else {
 		setting.Value = bytes
-		database.DB.Save(&setting)
+		database.GetDB(c).Save(&setting)
 	}
 
 	return c.JSON(fiber.Map{"status": "saved"})
@@ -104,13 +104,13 @@ func ConfigAI(c *fiber.Ctx) error {
 // GetAgentStatus retrieves the running state, logs, and pending approvals for all agents
 func GetAgentStatus(c *fiber.Ctx) error {
 	var states []models.AgentState
-	database.DB.Find(&states)
+	database.GetDB(c).Find(&states)
 
 	var logs []models.AgentCollaborationLog
-	database.DB.Order("created_at desc").Limit(50).Find(&logs)
+	database.GetDB(c).Order("created_at desc").Limit(50).Find(&logs)
 
 	var pending []models.PendingApproval
-	query := database.DB.Where("status = ?", "pending")
+	query := database.GetDB(c).Where("status = ?", "pending")
 	wsIDStr := ""
 	if val := c.Locals("workspace_id"); val != nil {
 		wsIDStr = fmt.Sprintf("%v", val)
@@ -126,7 +126,7 @@ func GetAgentStatus(c *fiber.Ctx) error {
 
 	if wsIDStr != "" && wsIDStr != "nil" {
 		var setting models.WorkspaceSetting
-		if err := database.DB.Where("workspace_id = ? AND key = ?", database.ParseUUID(wsIDStr), "ai_providers").First(&setting).Error; err == nil {
+		if err := database.GetDB(c).Where("workspace_id = ? AND key = ?", database.ParseUUID(wsIDStr), "ai_providers").First(&setting).Error; err == nil {
 			var providers []struct {
 				Provider      string `json:"provider"`
 				IsActive      bool   `json:"isActive"`
@@ -168,10 +168,10 @@ func KillAgent(c *fiber.Ctx) error {
 	
 	// Find or create state
 	var state models.AgentState
-	if err := database.DB.Where("name = ?", agentName).First(&state).Error; err != nil {
+	if err := database.GetDB(c).Where("name = ?", agentName).First(&state).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			state = models.AgentState{Name: agentName, Status: "killed", LoopCount: 0}
-			database.DB.Create(&state)
+			database.GetDB(c).Create(&state)
 		} else {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -182,7 +182,7 @@ func KillAgent(c *fiber.Ctx) error {
 		} else {
 			state.Status = "running"
 		}
-		database.DB.Save(&state)
+		database.GetDB(c).Save(&state)
 	}
 
 	PublishAgentState(getWorkspaceID(c), &state)
@@ -214,7 +214,7 @@ type approvalPayload struct {
 func GetPendingApprovals(c *fiber.Ctx) error {
 	status := c.Query("status", "pending")
 	var approvals []models.PendingApproval
-	query := database.DB.Model(&models.PendingApproval{})
+	query := database.GetDB(c).Model(&models.PendingApproval{})
 	if status != "all" && status != "*" && status != "" {
 		query = query.Where("status = ?", status)
 	}
@@ -247,7 +247,7 @@ func QueuePendingApproval(c *fiber.Ctx) error {
 		Reason:     req.Reason,
 		Status:     "pending",
 	}
-	if err := database.DB.Create(&pending).Error; err != nil {
+	if err := database.GetDB(c).Create(&pending).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to queue approval"})
 	}
 
@@ -283,7 +283,7 @@ func ApprovePendingAction(c *fiber.Ctx) error {
 	}
 
 	var pending models.PendingApproval
-	if err := database.DB.Where("id = ?", id).First(&pending).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).First(&pending).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Pending action not found"})
 	}
 
@@ -340,8 +340,8 @@ func ApprovePendingAction(c *fiber.Ctx) error {
 		}
 	}
 
-	database.DB.Create(&logEntry)
-	database.DB.Save(&pending)
+	database.GetDB(c).Create(&logEntry)
+	database.GetDB(c).Save(&pending)
 
 	// Live push: the resolved approval leaves the queue and the audit line lands
 	// in the collaboration stream without the client asking for either.

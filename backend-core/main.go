@@ -36,6 +36,7 @@ func main() {
 	// Connect to Database
 	database.ConnectDB()
 	database.SeedDatabase()
+	services.SeedSaaSPlans(database.DB) // baseline plans + entitlements (idempotent)
 
 	// Connect to NATS
 	events.ConnectNATS()
@@ -98,9 +99,21 @@ func main() {
 	api := app.Group("/api/v1")
 	api.Post("/auth/login", handlers.Login)
 	api.Post("/auth/register", handlers.Register)
+	api.Post("/auth/signup-workspace", handlers.SignupWorkspace)
+	api.Post("/webhooks/stripe", handlers.StripeWebhook)
 
-	// Protected routes
-	protected := api.Group("/", middleware.JWTMiddleware())
+	// Protected routes (Protected by JWT and Multi-Tenant RLS isolation enforcer)
+	protected := api.Group("/", middleware.JWTMiddleware(), middleware.TenantEnforcerMiddleware())
+	
+	// Billing & Subscription Management
+	billingGroup := protected.Group("/billing")
+	billingGroup.Post("/checkout", handlers.CreateCheckoutSession)
+	billingGroup.Post("/portal", handlers.CreatePortalSession)
+	billingGroup.Get("/status", handlers.GetBillingStatus)
+	billingGroup.Get("/entitlements", handlers.GetEntitlements)
+	billingGroup.Get("/plans", handlers.GetSaaSPlans)
+	billingGroup.Get("/gateways", handlers.GetActivePaymentGateways)
+
 	protected.Post("/upload", handlers.HandleUpload)
 	protected.Get("/users/search", handlers.SearchUsers)
 	protected.Put("/auth/profile", handlers.UpdateProfile)
@@ -108,7 +121,7 @@ func main() {
 	// Admin & Org
 	adminGroup := protected.Group("/admin", middleware.CheckPermission("admin.manage"))
 	adminGroup.Get("/users", handlers.GetUsersAdmin)
-	adminGroup.Post("/users", handlers.CreateUserAdmin)
+	adminGroup.Post("/users", middleware.QuotaEnforcerMiddleware("users"), handlers.CreateUserAdmin)
 	adminGroup.Put("/users/:id", handlers.UpdateUserAdmin)
 	adminGroup.Delete("/users/:id", handlers.DeleteUserAdmin)
 	adminGroup.Get("/roles", handlers.GetRoles)
@@ -121,6 +134,17 @@ func main() {
 	adminGroup.Delete("/departments/:id", handlers.DeleteDepartment)
 	adminGroup.Get("/org-chart", handlers.GetOrgChartGraph)
 	adminGroup.Get("/audit-logs", handlers.GetAuditLogs)
+
+	// Admin: SaaS Plans Management
+	adminGroup.Get("/entitlement-catalog", handlers.GetEntitlementCatalog)
+	adminGroup.Get("/plans", handlers.GetAllSaaSPlans)
+	adminGroup.Post("/plans", handlers.CreateSaaSPlan)
+	adminGroup.Put("/plans/:id", handlers.UpdateSaaSPlan)
+	adminGroup.Delete("/plans/:id", handlers.DeleteSaaSPlan)
+
+	// Admin: Payment Gateways Management
+	adminGroup.Get("/payment-gateways", handlers.GetPaymentGateways)
+	adminGroup.Put("/payment-gateways/:id", handlers.UpdatePaymentGateway)
 
 	adminGroup.Get("/permissions", handlers.GetPermissions)
 	adminGroup.Post("/permissions", handlers.CreatePermission)
@@ -190,8 +214,8 @@ func main() {
 
 	// AI Sidecar proxy — browsers never reach the sidecar directly. Every
 	// /api/v1/ai/* call is JWT-authenticated here, then forwarded over the
-	// internal network with the shared service token.
-	protected.All("/ai/*", handlers.ProxyToAISidecar)
+	// internal network with the shared service token. Gated to business tier & above.
+	protected.All("/ai/*", middleware.RequireFeature("ai.chat"), handlers.ProxyToAISidecar)
 
 	protected.Post("/channels", handlers.CreateChannel)
 	protected.Get("/channels", handlers.GetChannels)
@@ -223,10 +247,11 @@ func main() {
 	protected.Get("/chat/recap", handlers.RecapChannel)
 	protected.Get("/catchup/feed", handlers.GetCatchUpFeed)
 
-	// Reports
+	// Reports (AI & Finance forecasts require Enterprise plan)
 	protected.Get("/reports/communication", handlers.GetCommunicationReport)
-	protected.Get("/reports/ai", handlers.GetAIReport)
-	protected.Get("/reports/finance-forecast", handlers.GetFinanceForecast)
+	protected.Get("/reports/ai", middleware.RequireFeature("reports.ai"), handlers.GetAIReport)
+	protected.Get("/reports/ai/cost", handlers.GetAICostReport)
+	protected.Get("/reports/finance-forecast", middleware.RequireFeature("reports.finance_forecast"), handlers.GetFinanceForecast)
 
 	// Project Management (Agile/Kanban)
 	protected.Post("/projects", handlers.CreateProject)
@@ -349,6 +374,7 @@ func main() {
 	internal.Get("/facts", handlers.GetInstitutionalFacts)
 	internal.Post("/facts", handlers.SaveInstitutionalFact)
 	internal.Delete("/facts/:id", handlers.DeleteInstitutionalFact)
+	internal.Post("/ai/usage", handlers.IngestAITokenUsage)
 	internal.Post("/analytics/mine", handlers.MineOrganizationalPatterns)
 	internal.Post("/ai/orchestrator/query", handlers.HandleInternalOrchestratorQuery)
 

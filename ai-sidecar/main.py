@@ -235,6 +235,15 @@ async def voice_websocket_endpoint(websocket: WebSocket, workspace_id: str = "",
     )
 
 
+@app.get("/api/v1/ai/agents/capabilities", dependencies=[Depends(verify_internal_token)])
+async def get_agent_capabilities():
+    """Audit view of the agent-RBAC capability matrix — which tools each agent
+    type may use. Read-only; reached from the browser via the Go AI proxy
+    (GET /api/v1/ai/agents/capabilities)."""
+    import agent_rbac
+    return {"capabilities": agent_rbac.describe_capabilities()}
+
+
 @app.post("/api/v1/ai/query", dependencies=[Depends(verify_internal_token)])
 async def query_documents(req: QueryRequest, x_workspace_id: str = Header(default="")):
     """RAG over the shared workspace knowledge base (Doc Chat), answered in the

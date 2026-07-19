@@ -73,7 +73,7 @@ func GetInstitutionalFacts(c *fiber.Ctx) error {
 	}
 
 	var facts []models.DocumentEmbedding
-	if err := database.DB.Where("workspace_id = ? AND entity_type = ?", workspaceID, "fact").Order("created_at desc").Find(&facts).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ? AND entity_type = ?", workspaceID, "fact").Order("created_at desc").Find(&facts).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to fetch facts"})
 	}
 
@@ -101,7 +101,7 @@ func DeleteInstitutionalFact(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid fact uuid"})
 	}
 
-	result := database.DB.Where("id = ? OR entity_id = ?", factUUID, factUUID).Delete(&models.DocumentEmbedding{})
+	result := database.GetDB(c).Where("id = ? OR entity_id = ?", factUUID, factUUID).Delete(&models.DocumentEmbedding{})
 	if result.Error != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to delete fact"})
 	}

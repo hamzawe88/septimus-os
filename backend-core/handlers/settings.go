@@ -52,12 +52,12 @@ func SaveSettings(c *fiber.Ctx) error {
 	}
 
 	var setting models.WorkspaceSetting
-	result := database.DB.Where("workspace_id = ? AND key = ?", workspaceID, key).First(&setting)
+	result := database.GetDB(c).Where("workspace_id = ? AND key = ?", workspaceID, key).First(&setting)
 
 	if result.Error == nil {
 		// Update
 		setting.Value = datatypes.JSON(jsonBytes)
-		if err := database.DB.Save(&setting).Error; err != nil {
+		if err := database.GetDB(c).Save(&setting).Error; err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "failed to update settings"})
 		}
 	} else {
@@ -67,7 +67,7 @@ func SaveSettings(c *fiber.Ctx) error {
 			Key:         key,
 			Value:       datatypes.JSON(jsonBytes),
 		}
-		if err := database.DB.Create(&setting).Error; err != nil {
+		if err := database.GetDB(c).Create(&setting).Error; err != nil {
 			return c.Status(500).JSON(fiber.Map{"error": "failed to create settings"})
 		}
 	}
@@ -115,7 +115,7 @@ func getSettings(c *fiber.Ctx, decrypt bool) error {
 	}
 
 	var setting models.WorkspaceSetting
-	result := database.DB.Where("workspace_id = ? AND key = ?", workspaceID, key).First(&setting)
+	result := database.GetDB(c).Where("workspace_id = ? AND key = ?", workspaceID, key).First(&setting)
 
 	if result.Error != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "settings not found"})

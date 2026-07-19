@@ -38,3 +38,11 @@ eslint-report.json
 # Databases & dumps
 *.sqlite
 *.dump
+
+# Compiled Go binary — never commit (bloats history; repo was already slimmed once)
+backend-core/main
+
+# One-off scratch scripts at repo root (durable maintenance scripts belong in scripts/)
+/fix_*.py
+/rewrite_*.py
+/test_json.go

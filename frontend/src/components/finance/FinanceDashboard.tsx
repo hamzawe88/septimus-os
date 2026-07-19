@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { apiGet } from "@/lib/apiClient";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { useAppStore } from "@/store/useAppStore";
 import DashboardKPIs from "./DashboardKPIs";
 import CashFlowChart from "./charts/CashFlowChart";
 import ExpensesDonutChart from "./charts/ExpensesDonutChart";
@@ -29,6 +30,7 @@ interface ForecastResponse {
 
 export default function FinanceDashboard() {
   const { t } = useLocalization();
+  const { isSidebarOpen } = useAppStore();
   const [invoices, setInvoices] = useState<Entity[]>([]);
   const [expenses, setExpenses] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,7 +112,7 @@ export default function FinanceDashboard() {
 
   return (
     <div className="h-full overflow-y-auto p-8 bg-slate-50 dark:bg-[#121212] transition-colors duration-300">
-      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className={`mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 transition-all ${isSidebarOpen ? 'max-w-7xl' : 'max-w-full'}`}>
         
         {/* Header */}
         <div className="flex justify-between items-end mb-2">

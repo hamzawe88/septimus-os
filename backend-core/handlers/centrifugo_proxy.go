@@ -73,7 +73,7 @@ func CentrifugoSubscribe(c *fiber.Ctx) error {
 			return subscribeDeny(c)
 		}
 		var member models.ChannelMember
-		if err := database.DB.Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error; err != nil {
+		if err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error; err != nil {
 			return subscribeDeny(c)
 		}
 		return subscribeAllow(c)
@@ -84,7 +84,7 @@ func CentrifugoSubscribe(c *fiber.Ctx) error {
 			return subscribeDeny(c)
 		}
 		var user models.User
-		if err := database.DB.Select("id", "workspace_id").Where("id = ?", userID).First(&user).Error; err != nil {
+		if err := database.GetDB(c).Select("id", "workspace_id").Where("id = ?", userID).First(&user).Error; err != nil {
 			return subscribeDeny(c)
 		}
 		if user.WorkspaceID != workspaceID {

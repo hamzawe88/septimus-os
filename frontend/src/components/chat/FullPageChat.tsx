@@ -227,7 +227,7 @@ export default function FullPageChat() {
 
       {/* Messages Scroll Area */}
       <ScrollArea className="flex-1 px-4 lg:px-8">
-        <div className="max-w-5xl mx-auto py-8">
+        <div className="w-full py-8">
           <ChannelWelcome channelName={activeChannel.name} />
 
           <div className="flex items-center justify-center my-8">
@@ -278,7 +278,7 @@ export default function FullPageChat() {
       </ScrollArea>
 
       {/* Floating Input Area (Bento Style) */}
-      <div className="p-4 lg:p-6 lg:pt-0 max-w-5xl mx-auto w-full">
+      <div className="p-4 lg:p-6 lg:pt-0 w-full">
         {(() => {
           const activeTypers = Object.entries(typingUsers)
             .filter(([, isTyping]) => isTyping)

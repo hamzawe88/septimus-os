@@ -98,7 +98,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 
 	// Save or update the token in the database
 	var integration models.WorkspaceIntegration
-	res := database.DB.Where("workspace_id = ? AND provider = ?", workspaceID, "google").First(&integration)
+	res := database.GetDB(c).Where("workspace_id = ? AND provider = ?", workspaceID, "google").First(&integration)
 	
 	if res.Error != nil {
 		// Create new integration
@@ -110,7 +110,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 			RefreshToken: token.RefreshToken,
 			Expiry:       token.Expiry,
 		}
-		if err := database.DB.Create(&integration).Error; err != nil {
+		if err := database.GetDB(c).Create(&integration).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save integration"})
 		}
 	} else {
@@ -121,7 +121,7 @@ func GoogleCallback(c *fiber.Ctx) error {
 		}
 		integration.Expiry = token.Expiry
 		integration.UpdatedAt = time.Now()
-		if err := database.DB.Save(&integration).Error; err != nil {
+		if err := database.GetDB(c).Save(&integration).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update integration"})
 		}
 	}

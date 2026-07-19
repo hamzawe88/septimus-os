@@ -274,17 +274,9 @@ func executeNotifyAction(node WFNode, ctx map[string]interface{}) error {
 		channelID = "00000000-0000-0000-0000-000000000000"
 	}
 	msg := fmt.Sprintf("⚡️ **Workflow: %s**\n%s", node.Data.Label, node.Data.Description)
-	payload, _ := json.Marshal(map[string]interface{}{
-		"channel_id":      channelID,
-		"content":         msg,
-		"is_ai_generated": true,
-		"ai_agent_role":   "Workflow Engine",
-	})
-	resp, err := http.Post("http://localhost:4000/api/v1/system/messages", "application/json", strings.NewReader(string(payload)))
-	if err != nil {
-		return fmt.Errorf("notify action HTTP failed: %w", err)
+	if err := InjectSystemMessageDirect(channelID, msg, "Workflow Engine", true); err != nil {
+		log.Printf("[WF] Notify action failed: %v", err)
 	}
-	defer resp.Body.Close()
 	log.Printf("[WF] Notify sent to channel %s", channelID)
 	return nil
 }
@@ -369,17 +361,9 @@ func executeAIAgentAction(node WFNode, ctx map[string]interface{}) error {
 	}
 	if channelID != "" && channelID != "00000000-0000-0000-0000-000000000000" {
 		msg := fmt.Sprintf("🤖 **Workflow AI (%s):**\n%s", agentType, resData.Reply)
-		payload, _ := json.Marshal(map[string]interface{}{
-			"channel_id":      channelID,
-			"content":         msg,
-			"is_ai_generated": true,
-			"ai_agent_role":   "Workflow AI Node",
-		})
-		port := os.Getenv("PORT")
-		if port == "" {
-			port = "4000"
+		if err := InjectSystemMessageDirect(channelID, msg, "Workflow AI Node", true); err != nil {
+			log.Printf("[WF] AI Agent action chat delivery failed: %v", err)
 		}
-		http.Post(fmt.Sprintf("http://localhost:%s/api/v1/system/messages", port), "application/json", strings.NewReader(string(payload)))
 	}
 
 	// Publish to NATS for observability
@@ -409,21 +393,9 @@ func executeSendChatAction(node WFNode, ctx map[string]interface{}) error {
 	for k, v := range ctx {
 		body = strings.ReplaceAll(body, fmt.Sprintf("{{%s}}", k), fmt.Sprintf("%v", v))
 	}
-	payload, _ := json.Marshal(map[string]interface{}{
-		"channel_id":      channelID,
-		"content":         body,
-		"is_ai_generated": true,
-		"ai_agent_role":   "Workflow Engine",
-	})
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "4000"
-	}
-	resp, err := http.Post(fmt.Sprintf("http://localhost:%s/api/v1/system/messages", port), "application/json", strings.NewReader(string(payload)))
-	if err != nil {
+	if err := InjectSystemMessageDirect(channelID, body, "Workflow Engine", true); err != nil {
 		return fmt.Errorf("send_chat action failed: %w", err)
 	}
-	defer resp.Body.Close()
 	log.Printf("[WF] send_chat action sent to channel %s", channelID)
 	return nil
 }

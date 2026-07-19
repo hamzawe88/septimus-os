@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { Plus, GripVertical, X, RotateCw, LayoutGrid, Sparkles, SlidersHorizontal, Check } from "lucide-react";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { useAppStore } from "@/store/useAppStore";
 
 import TasksWidget from "./widgets/TasksWidget";
 import CRMDealsWidget from "./widgets/CRMDealsWidget";
@@ -114,6 +115,7 @@ const DEFAULT_LAYOUT = ["ai", "tasks", "finance", "hr", "crm"];
 
 export default function LiquidDashboard() {
   const { t } = useLocalization();
+  const { isSidebarOpen } = useAppStore();
   const [activeWidgets, setActiveWidgets] = useState<string[]>(DEFAULT_LAYOUT);
   const [widgetSpans, setWidgetSpans] = useState<Record<string, string>>({});
   const [flippedWidgets, setFlippedWidgets] = useState<Record<string, boolean>>({});
@@ -190,7 +192,7 @@ export default function LiquidDashboard() {
   if (!isMounted) return null;
 
   return (
-    <div className="h-full flex flex-col bg-[#f8fafc] dark:bg-[#121212] p-6 pb-20 overflow-y-auto w-full relative transition-colors">
+    <div className="h-full flex flex-col bg-mesh-light dark:bg-mesh-dark p-6 pb-20 overflow-y-auto w-full relative transition-colors">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
@@ -254,7 +256,7 @@ export default function LiquidDashboard() {
               <div
                 {...provided.droppableProps}
                 ref={provided.innerRef}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-7xl mx-auto"
+                className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full mx-auto transition-all duration-300 ${isSidebarOpen ? 'max-w-7xl' : 'max-w-full'}`}
               >
                 {activeWidgets.map((widgetId, index) => {
                   const WidgetDef = availableWidgets.find((w) => w.id === widgetId);
@@ -279,9 +281,9 @@ export default function LiquidDashboard() {
                             }`}
                           >
                             {/* FRONT FACE */}
-                            <div className="absolute inset-0 [backface-visibility:hidden] bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-sm hover:shadow-lg transition-all flex flex-col overflow-hidden">
+                            <div className="absolute inset-0 [backface-visibility:hidden] glass-card rounded-3xl flex flex-col overflow-hidden">
                               {/* Widget Header Bar */}
-                              <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/60 rounded-t-3xl">
+                              <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/20 dark:border-white/10 bg-white/20 dark:bg-black/20 rounded-t-3xl">
                                 <div
                                   {...provided.dragHandleProps}
                                   className="flex items-center text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-grab active:cursor-grabbing transition"

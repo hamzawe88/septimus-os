@@ -53,12 +53,12 @@ func SubmitMessageFeedback(c *fiber.Ctx) error {
 	}
 
 	var msg models.Message
-	if err := database.DB.First(&msg, "id = ?", msgID).Error; err != nil {
+	if err := database.GetDB(c).First(&msg, "id = ?", msgID).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "message not found"})
 	}
 
 	var fb MessageFeedback
-	database.DB.
+	database.GetDB(c).
 		Where(MessageFeedback{MessageID: msgID, UserID: userID}).
 		Assign(MessageFeedback{Rating: rating}).
 		FirstOrCreate(&fb)

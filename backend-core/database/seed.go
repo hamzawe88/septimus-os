@@ -82,33 +82,46 @@ func SeedDatabase() {
 
 	log.Println("Seeding mock departments and users for Org Chart...")
 	
+	// All seed fixtures belong to the seed admin's workspace so they are never
+	// orphaned (NULL workspace_id) — which used to leak across tenants.
+	seedWS := ParseUUID("dab3d9c9-829a-4f1d-90be-ab70603c5e7d")
+
 	// Create root department
-	itDept := models.Department{Name: "قسم تقنية المعلومات"}
+	itDept := models.Department{WorkspaceID: seedWS, Name: "قسم تقنية المعلومات"}
 	DB.Where("name = ?", itDept.Name).FirstOrCreate(&itDept)
-	
-	devDept := models.Department{Name: "فريق التطوير", ParentID: &itDept.ID}
+	DB.Model(&itDept).Update("workspace_id", seedWS)
+
+	devDept := models.Department{WorkspaceID: seedWS, Name: "فريق التطوير", ParentID: &itDept.ID}
 	DB.Where("name = ?", devDept.Name).FirstOrCreate(&devDept)
-	
-	hrDept := models.Department{Name: "الموارد البشرية"}
+	DB.Model(&devDept).Update("workspace_id", seedWS)
+
+	hrDept := models.Department{WorkspaceID: seedWS, Name: "الموارد البشرية"}
 	DB.Where("name = ?", hrDept.Name).FirstOrCreate(&hrDept)
+	DB.Model(&hrDept).Update("workspace_id", seedWS)
 
 	// Create users via Raw SQL to bypass any GORM struct mapping issues
 	DB.Exec(`
-		INSERT INTO users (email, password_hash, role, department_id, employee_id)
-		VALUES ('ahmed.dev@septimus.local', '123456', 'Developer', ?, 'EMP-001')
-		ON CONFLICT (email) DO NOTHING
+		INSERT INTO users (id, workspace_id, email, password_hash, role, employee_id)
+		VALUES ('2f67ffe1-d96d-4cff-93b3-a8dd743b6907', 'dab3d9c9-829a-4f1d-90be-ab70603c5e7d', 'admin@septimus.local', 'admin123', 'Admin', 'EMP-000')
+		ON CONFLICT (email) DO UPDATE SET password_hash = 'admin123', role = 'Admin';
+	`)
+
+	DB.Exec(`
+		INSERT INTO users (workspace_id, email, password_hash, role, department_id, employee_id)
+		VALUES ('dab3d9c9-829a-4f1d-90be-ab70603c5e7d', 'ahmed.dev@septimus.local', '123456', 'Developer', ?, 'EMP-001')
+		ON CONFLICT (email) DO UPDATE SET password_hash = '123456', workspace_id = 'dab3d9c9-829a-4f1d-90be-ab70603c5e7d';
 	`, devDept.ID)
 
 	DB.Exec(`
-		INSERT INTO users (email, password_hash, role, department_id, employee_id)
-		VALUES ('sara.hr@septimus.local', '123456', 'HR Manager', ?, 'EMP-002')
-		ON CONFLICT (email) DO NOTHING
+		INSERT INTO users (workspace_id, email, password_hash, role, department_id, employee_id)
+		VALUES ('dab3d9c9-829a-4f1d-90be-ab70603c5e7d', 'sara.hr@septimus.local', '123456', 'HR Manager', ?, 'EMP-002')
+		ON CONFLICT (email) DO UPDATE SET password_hash = '123456', workspace_id = 'dab3d9c9-829a-4f1d-90be-ab70603c5e7d';
 	`, hrDept.ID)
 
 	DB.Exec(`
-		INSERT INTO users (email, password_hash, role, department_id, employee_id)
-		VALUES ('cto@septimus.local', '123456', 'CTO', ?, 'EMP-003')
-		ON CONFLICT (email) DO NOTHING
+		INSERT INTO users (workspace_id, email, password_hash, role, department_id, employee_id)
+		VALUES ('dab3d9c9-829a-4f1d-90be-ab70603c5e7d', 'cto@septimus.local', '123456', 'CTO', ?, 'EMP-003')
+		ON CONFLICT (email) DO UPDATE SET password_hash = '123456', workspace_id = 'dab3d9c9-829a-4f1d-90be-ab70603c5e7d';
 	`, itDept.ID)
 	
 	// Fetch the CTO to set as manager

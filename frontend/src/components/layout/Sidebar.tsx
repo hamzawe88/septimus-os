@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { apiGet } from '@/lib/apiClient';
 import { useAppStore } from "@/store/useAppStore";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import Gated from "@/components/billing/Gated";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import ChannelMembersModal from "../chat/ChannelMembersModal";
@@ -32,7 +33,6 @@ import {
   Puzzle,
   Trash2,
   Orbit,
-  Landmark,
   FileSpreadsheet,
   Edit3,
   Archive
@@ -306,13 +306,13 @@ export default function Sidebar() {
   const dms = channels.filter(c => c.Type === "DM");
 
   return (
-    <aside className="sidebar" aria-label="Navigation sidebar">
+    <aside className="sidebar animate-fade-in" aria-label="Navigation sidebar">
       <ScrollArea className="sidebar-scroll">
 
 
         {/* User Status */}
         <div className="relative mb-2" ref={statusMenuRef}>
-          <div className="sidebar-user cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}>
+          <div className="sidebar-user hover-scale-soft cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setIsStatusMenuOpen(!isStatusMenuOpen)}>
             <div className="relative">
               <Avatar className="sidebar-user-avatar rounded-lg border border-slate-200 shadow-sm">
                 {avatarUrl ? (
@@ -523,16 +523,20 @@ export default function Sidebar() {
         )}
 
         {/* === ADMIN CONTEXT === */}
-        {(['admin_dashboard', 'roles_settings', 'audit_logs', 'appearance_settings', 'localization_settings', 'system_settings', 'integrations', 'plugins', 'orchestrator'].includes(currentView)) && (
+        {(['admin_dashboard', 'roles_settings', 'audit_logs', 'appearance_settings', 'localization_settings', 'system_settings', 'saas_settings', 'integrations', 'plugins', 'orchestrator'].includes(currentView)) && (
           <>
             <SidebarSection label={t("sidebar.settings")}>
               <button className={`sidebar-item ${currentView === 'admin_dashboard' ? "active" : ""}`} onClick={() => setCurrentView('admin_dashboard')}>
                 <Shield className="sidebar-item-icon" aria-hidden />
                 <span className="sidebar-item-name">{t("sidebar.adminCenter")}</span>
               </button>
-              <button className={`sidebar-item ${['system_settings', 'appearance_settings', 'localization_settings', 'roles_settings'].includes(currentView) ? "active" : ""}`} onClick={() => setCurrentView('system_settings')}>
+              <button className={`sidebar-item ${['system_settings', 'appearance_settings', 'localization_settings', 'roles_settings', 'company_profile'].includes(currentView) ? "active" : ""}`} onClick={() => setCurrentView('system_settings')}>
                 <Settings className="sidebar-item-icon" aria-hidden />
                 <span className="sidebar-item-name">{t("sidebar.systemSettings")}</span>
+              </button>
+              <button className={`sidebar-item ${currentView === 'saas_settings' ? "active text-brand font-bold" : ""}`} onClick={() => setCurrentView('saas_settings')}>
+                <Sparkles className="sidebar-item-icon text-brand" aria-hidden />
+                <span className="sidebar-item-name">{t("sidebar.saas", "اشتراك الـ SaaS والحصص")}</span>
               </button>
             </SidebarSection>
             
@@ -553,10 +557,12 @@ export default function Sidebar() {
             
             <SidebarSection label={t("sidebar.aiAgents")}>
               <div className="space-y-1">
-                <button className={`sidebar-item ${currentView === 'orchestrator' ? "active" : "text-slate-500 hover:text-slate-800"}`} onClick={() => setCurrentView('orchestrator')}>
-                  <Sparkles className="sidebar-item-icon" aria-hidden />
-                  <span className="sidebar-item-name">{t("sidebar.aiCenter")}</span>
-                </button>
+                <Gated feature="ai.agents" mode="lock">
+                  <button className={`sidebar-item w-full ${currentView === 'orchestrator' ? "active" : "text-slate-500 hover:text-slate-800"}`} onClick={() => setCurrentView('orchestrator')}>
+                    <Sparkles className="sidebar-item-icon" aria-hidden />
+                    <span className="sidebar-item-name">{t("sidebar.aiCenter")}</span>
+                  </button>
+                </Gated>
               </div>
             </SidebarSection>
           </>

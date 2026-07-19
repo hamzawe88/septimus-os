@@ -4,12 +4,38 @@ import React, { useRef, useState } from "react";
 import { useThemeStore, THEME_PRESETS, ThemePreset } from "@/store/useThemeStore";
 import { useToastStore } from "@/store/useToastStore";
 import { useLocalization } from "@/contexts/LocalizationContext";
-import { Settings, Image as ImageIcon, CheckCircle2, Sun, Moon, Monitor } from "lucide-react";
+import { Settings, Image as ImageIcon, CheckCircle2, Sun, Moon, Monitor, Palette, MonitorSmartphone, UploadCloud, PaintBucket } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
+const ColorInput = ({ label, value, onChange, placeholder }: { label: string, value: string, onChange: (v: string) => void, placeholder?: string }) => (
+  <div className="group relative">
+    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{label}</label>
+    <div className="relative flex items-center bg-white/50 dark:bg-[#1a1d21]/50 border border-slate-200/60 dark:border-slate-700/60 rounded-xl overflow-hidden shadow-sm backdrop-blur-sm transition-all focus-within:ring-2 focus-within:ring-brand/30 focus-within:border-brand/50">
+      <div className="relative w-12 h-12 shrink-0 border-r border-slate-200/60 dark:border-slate-700/60 bg-slate-50 dark:bg-[#222529]">
+        <input 
+          type="color" 
+          value={value.startsWith('#') ? value.slice(0, 7) : '#ffffff'} 
+          onChange={(e) => onChange(e.target.value)} 
+          className="absolute inset-[-10px] w-[200%] h-[200%] cursor-pointer opacity-0"
+        />
+        <div className="absolute inset-2 rounded-lg shadow-inner pointer-events-none" style={{ backgroundColor: value }} />
+      </div>
+      <input 
+        type="text" 
+        value={value} 
+        onChange={(e) => onChange(e.target.value)} 
+        placeholder={placeholder}
+        className="w-full bg-transparent border-none px-4 py-3 text-slate-900 dark:text-white font-mono text-sm focus:outline-none" 
+        dir="ltr"
+      />
+    </div>
+  </div>
+);
 
 export default function AppearanceSettings() {
   const { isRtl } = useLocalization();
-  const { mode, setMode, theme, setTheme, primaryColor, setPrimaryColor, fontFamily, setFontFamily, logoUrl, setLogoUrl,
+  const { 
+    mode, setMode, theme, setTheme, primaryColor, setPrimaryColor, fontFamily, setFontFamily, logoUrl, setLogoUrl,
     isAdvancedMode, setIsAdvancedMode,
     customTopbarBg, setCustomTopbarBg,
     customSidebarBg, setCustomSidebarBg,
@@ -46,285 +72,192 @@ export default function AppearanceSettings() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#1a1d21] overflow-y-auto transition-colors">
-      <div className="h-[56px] border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#121016] flex items-center px-8 flex-shrink-0 shadow-sm transition-colors">
-        <h1 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-          <Settings className="w-6 h-6 text-brand" />
-          {isRtl ? "إعدادات المظهر وتوحيد الألوان" : "Appearance & Theme"}
+    <div className="flex-1 flex flex-col h-full bg-slate-50/50 dark:bg-[#0f0e13] overflow-y-auto">
+      {/* Header */}
+      <div className="sticky top-0 z-20 backdrop-blur-xl bg-white/80 dark:bg-[#121016]/80 border-b border-slate-200/60 dark:border-slate-800/60 px-8 py-5 flex items-center justify-between shadow-sm">
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+          <div className="p-2.5 bg-brand/10 dark:bg-brand/20 rounded-xl">
+            <Palette className="w-6 h-6 text-brand" />
+          </div>
+          {isRtl ? "تخصيص المظهر والهوية" : "Appearance & Theme"}
         </h1>
       </div>
 
-      <div className="p-8 max-w-4xl mx-auto w-full space-y-8">
+      <div className="p-8 max-w-5xl mx-auto w-full space-y-8">
 
-        {/* Mode Selection (Light / Dark / System) */}
-        <section className="bg-white dark:bg-[#222529] p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 transition-colors">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">{isRtl ? "نمط الرؤية والإضاءة" : "Theme Mode"}</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">{isRtl ? "اختر بين الوضع المضيء الخالص، الوضع الداكن المريح للعين، أو التزامن التلقائي مع نظامك." : "Choose pure light mode, an eye-friendly dark mode, or automatic sync with your system."}</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button
-              onClick={() => setMode('light')}
-              className={`p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${mode === 'light' ? 'border-brand bg-brand/5 dark:bg-brand/10 shadow-md ring-2 ring-brand/20' : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-[#1a1d21]'}`}
-            >
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
-                <Sun className="w-6 h-6" />
+        {/* Section: Mode & Typography */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <motion.section 
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            className="bg-white/70 dark:bg-[#1a1d21]/70 backdrop-blur-xl p-8 rounded-[2rem] shadow-sm border border-slate-200/60 dark:border-slate-800/60"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-amber-500/10 rounded-lg"><MonitorSmartphone className="w-5 h-5 text-amber-500" /></div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">{isRtl ? "نمط الإضاءة" : "Theme Mode"}</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{isRtl ? "اختر النمط المناسب لعينيك" : "Choose your preferred viewing mode"}</p>
               </div>
-              <div className="text-start rtl:text-end flex-1">
-                <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between">
-                  <span>{isRtl ? "الوضع المضيء" : "Light"}</span>
-                  {mode === 'light' && <CheckCircle2 className="w-4 h-4 text-brand" />}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{isRtl ? "ساطع ونقي ومناسب للعمل النهار" : "Bright and clean, ideal for daytime work"}</div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setMode('dark')}
-              className={`p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${mode === 'dark' ? 'border-brand bg-brand/5 dark:bg-brand/10 shadow-md ring-2 ring-brand/20' : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-[#1a1d21]'}`}
-            >
-              <div className="w-12 h-12 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
-                <Moon className="w-6 h-6" />
-              </div>
-              <div className="text-start rtl:text-end flex-1">
-                <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between">
-                  <span>{isRtl ? "الوضع الداكن" : "Dark"}</span>
-                  {mode === 'dark' && <CheckCircle2 className="w-4 h-4 text-brand" />}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{isRtl ? "مريح للعين ومثالي للبيئات الهادئة" : "Easy on the eyes, ideal for low-light spaces"}</div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setMode('system')}
-              className={`p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${mode === 'system' ? 'border-brand bg-brand/5 dark:bg-brand/10 shadow-md ring-2 ring-brand/20' : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-[#1a1d21]'}`}
-            >
-              <div className="w-12 h-12 rounded-xl bg-slate-500/10 dark:bg-slate-500/20 text-slate-500 dark:text-slate-400 flex items-center justify-center shrink-0">
-                <Monitor className="w-6 h-6" />
-              </div>
-              <div className="text-start rtl:text-end flex-1">
-                <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between">
-                  <span>{isRtl ? "تلقائي" : "System"}</span>
-                  {mode === 'system' && <CheckCircle2 className="w-4 h-4 text-brand" />}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{isRtl ? "يتزامن تلقائياً مع نظام التشغيل" : "Automatically follows your operating system"}</div>
-              </div>
-            </button>
-          </div>
-        </section>
-
-        {/* Theme Presets */}
-        <section className="bg-white dark:bg-[#222529] p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 transition-colors">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">{isRtl ? "الثيمات المسبقة الموحدة" : "Preset Themes"}</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">{isRtl ? "اختر الهوية اللونية المؤسسية المفضلة لمساحة العمل الخاصة بك." : "Pick the corporate color identity you prefer for your workspace."}</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {(Object.keys(THEME_PRESETS) as ThemePreset[]).map((preset) => {
-              const presetData = THEME_PRESETS[preset];
-              const isActive = theme === preset;
-              return (
-                <button
-                  key={preset}
-                  onClick={() => setTheme(preset)}
-                  className={`relative overflow-hidden p-4 rounded-xl border-2 text-start transition-all flex flex-col gap-3 ${isActive ? 'border-brand bg-brand/5 dark:bg-brand/10 shadow-md ring-2 ring-brand/20' : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-[#1a1d21] hover:shadow-sm'}`}
-                >
-                  {isActive && <CheckCircle2 className="absolute top-3 end-3 w-5 h-5 text-brand" />}
-                  <div className="flex gap-2">
-                    <div className="h-4 w-full bg-blue-500 rounded-full shadow-inner" />
-                    <div className="h-4 w-3/4 bg-blue-500/50 rounded-full mt-2" />
-                    <style dangerouslySetInnerHTML={{ __html: `
-                      .preset-color-dot-${preset} { background-color: ${presetData.primaryColor}; }
-                    `}} />
-                    <div
-                      className={`w-6 h-6 rounded-full preset-color-dot-${preset} shadow-sm border border-white dark:border-slate-800`}
-                      title={`Primary: ${presetData.primaryColor}`}
-                    />
-                  </div>
-                  <span className="font-bold text-sm text-slate-800 dark:text-slate-200 capitalize mt-1">{preset.replace('theme-', '')}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Primary Color Customization */}
-        <section className="bg-white dark:bg-[#222529] p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 transition-colors">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">{isRtl ? "تخصيص الألوان المتقدم" : "Advanced Customization"}</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">{isRtl ? "تفعيل هذا الخيار يلغي الثيمات المسبقة ويتيح لك تحكماً كاملاً بألوان النظام." : "Enabling this overrides preset themes and gives you full control over the system colors."}</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" title="Toggle Advanced Mode" checked={isAdvancedMode} onChange={(e) => setIsAdvancedMode(e.target.checked)} className="sr-only peer" />
-              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
+            
+            <div className="flex flex-col gap-3">
+              {[
+                { id: 'light', icon: Sun, label: isRtl ? "الوضع المضيء" : "Light Mode", desc: isRtl ? "مشرق ونقي" : "Bright and clean", color: "text-amber-500", bg: "bg-amber-500/10" },
+                { id: 'dark', icon: Moon, label: isRtl ? "الوضع الداكن" : "Dark Mode", desc: isRtl ? "مريح للعينين" : "Easy on the eyes", color: "text-indigo-400", bg: "bg-indigo-500/10" },
+                { id: 'system', icon: Monitor, label: isRtl ? "تلقائي" : "System", desc: isRtl ? "حسب النظام" : "Follows system", color: "text-slate-500", bg: "bg-slate-500/10" }
+              ].map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setMode(m.id as any)}
+                  className={`relative p-4 rounded-2xl border transition-all flex items-center gap-4 group ${
+                    mode === m.id 
+                      ? 'border-brand bg-brand/5 dark:bg-brand/10 shadow-md ring-1 ring-brand/20' 
+                      : 'border-slate-200/60 dark:border-slate-700/60 hover:border-brand/30 hover:bg-slate-50/50 dark:hover:bg-[#222529]/50'
+                  }`}
+                >
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${m.bg} ${m.color}`}>
+                    <m.icon className="w-6 h-6" />
+                  </div>
+                  <div className="text-start flex-1">
+                    <div className="font-bold text-slate-900 dark:text-white text-base">{m.label}</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">{m.desc}</div>
+                  </div>
+                  {mode === m.id && <CheckCircle2 className="w-5 h-5 text-brand" />}
+                </button>
+              ))}
+            </div>
+          </motion.section>
+
+          <motion.section 
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="bg-white/70 dark:bg-[#1a1d21]/70 backdrop-blur-xl p-8 rounded-[2rem] shadow-sm border border-slate-200/60 dark:border-slate-800/60 flex flex-col"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-emerald-500/10 rounded-lg"><Settings className="w-5 h-5 text-emerald-500" /></div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">{isRtl ? "الخطوط والهوية" : "Typography & Logo"}</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{isRtl ? "تخصيص الخط والشعار" : "Customize font and branding"}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <button
+                onClick={() => setFontFamily('cairo')}
+                className={`font-cairo p-4 rounded-2xl border transition-all text-center flex flex-col items-center gap-2 ${
+                  fontFamily === 'cairo' ? 'border-brand bg-brand/5 shadow-md' : 'border-slate-200/60 dark:border-slate-700/60 hover:border-brand/30'
+                }`}
+              >
+                <span className="text-3xl font-black text-slate-900 dark:text-white">Ag</span>
+                <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Cairo (Arabic)</span>
+              </button>
+              <button
+                onClick={() => setFontFamily('inter')}
+                className={`font-inter p-4 rounded-2xl border transition-all text-center flex flex-col items-center gap-2 ${
+                  fontFamily === 'inter' ? 'border-brand bg-brand/5 shadow-md' : 'border-slate-200/60 dark:border-slate-700/60 hover:border-brand/30'
+                }`}
+              >
+                <span className="text-3xl font-black text-slate-900 dark:text-white">Ag</span>
+                <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Inter (English)</span>
+              </button>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-end">
+              <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">{isRtl ? "شعار مساحة العمل" : "Workspace Logo"}</label>
+              <div className="flex items-center gap-5 p-4 bg-slate-50 dark:bg-[#222529] rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+                <div className="w-16 h-16 bg-white dark:bg-[#121016] rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center overflow-hidden shadow-sm shrink-0">
+                  {logoUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-2" />
+                  ) : (
+                    <ImageIcon className="w-6 h-6 text-slate-400" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <input type="file" ref={fileInputRef} onChange={handleLogoUpload} accept="image/*" className="hidden" />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#1a1d21] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-sm font-bold rounded-lg hover:border-brand hover:text-brand transition-all disabled:opacity-50"
+                  >
+                    <UploadCloud className="w-4 h-4" />
+                    {uploading ? (isRtl ? "جاري الرفع..." : "Uploading...") : (isRtl ? "تغيير الشعار" : "Change Logo")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.section>
+        </div>
+
+        {/* Section: Themes & Colors */}
+        <motion.section 
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+          className="bg-white/70 dark:bg-[#1a1d21]/70 backdrop-blur-xl p-8 rounded-[2rem] shadow-sm border border-slate-200/60 dark:border-slate-800/60"
+        >
+          <div className="flex items-start justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-500/10 rounded-lg"><PaintBucket className="w-5 h-5 text-purple-500" /></div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">{isRtl ? "الهوية اللونية" : "Color Identity"}</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{isRtl ? "تحكم كامل بألوان النظام" : "Full control over system colors"}</p>
+              </div>
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <span className="text-sm font-bold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                {isRtl ? "وضع التخصيص المتقدم" : "Advanced Mode"}
+              </span>
+              <div className="relative inline-flex items-center">
+                <input type="checkbox" checked={isAdvancedMode} onChange={(e) => setIsAdvancedMode(e.target.checked)} className="sr-only peer" />
+                <div className="w-12 h-6 bg-slate-200 dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 dark:after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand shadow-inner"></div>
+              </div>
             </label>
           </div>
 
-          {!isAdvancedMode ? (
-            <>
-              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 mt-4">{isRtl ? "اللون الأساسي فقط" : "Primary Color only"}</h3>
-              <div className="flex items-center gap-4">
-                <input
-                  type="color"
-                  title="Primary Color"
-                  value={primaryColor}
-                  onChange={(e) => setPrimaryColor(e.target.value)}
-                  className="w-14 h-14 rounded-xl cursor-pointer border border-slate-200 dark:border-slate-700 p-1 shadow-sm bg-transparent"
-                />
-                <div className="flex-1 flex items-center gap-2 px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-[#1a1d21] font-mono text-sm font-bold text-slate-700 dark:text-slate-200">
-                  <span dir="ltr">{primaryColor.toUpperCase()}</span>
-                </div>
-                <button
-                  onClick={() => setPrimaryColor(THEME_PRESETS[theme].primaryColor)}
-                  className="px-5 py-3 text-sm font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white rounded-xl transition-all"
-                >
-                  {isRtl ? "إعادة الضبط" : "Reset"}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-6 mt-6 border-t border-slate-100 dark:border-slate-800 pt-6">
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Primary Color */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{isRtl ? "اللون الأساسي" : "Primary Color"}</label>
-                  <div className="flex items-center gap-2">
-                    <input type="color" title="Primary Color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 shrink-0 bg-transparent" />
-                    <input type="text" title="Primary Color Hex" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm font-mono font-bold" dir="ltr" />
-                  </div>
-                </div>
-
-                {/* Topbar BG */}
-                <div className="col-span-1 md:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{isRtl ? "خلفية الشريط العلوي" : "Topbar Background"}</label>
-                  <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
-                    {[
-                      { name: 'Pure White', value: '#ffffff' },
-                      { name: 'Light Slate', value: '#f8fafc' },
-                      { name: 'Dark Slate', value: '#121016' },
-                      { name: 'Ocean Gradient', value: 'linear-gradient(90deg, #0284c7, #2563eb)' },
-                      { name: 'Sunset Gradient', value: 'linear-gradient(90deg, #f97316, #e11d48)' },
-                      { name: 'Midnight Gradient', value: 'linear-gradient(90deg, #312e81, #1e1b4b)' }
-                    ].map(preset => (
+          <AnimatePresence mode="wait">
+            {!isAdvancedMode ? (
+              <motion.div key="presets" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {(Object.keys(THEME_PRESETS) as ThemePreset[]).map((preset) => {
+                    const presetData = THEME_PRESETS[preset];
+                    const isActive = theme === preset;
+                    return (
                       <button
-                        key={preset.name}
-                        onClick={() => setCustomTopbarBg(preset.value)}
-                        className="px-3.5 py-1.5 text-xs font-bold rounded-full border border-slate-200 dark:border-slate-700 hover:border-brand transition-colors whitespace-nowrap shadow-sm"
-                        style={{ background: preset.value, color: preset.value === '#ffffff' || preset.value === '#f8fafc' ? '#1e293b' : 'white' }}
+                        key={preset}
+                        onClick={() => setTheme(preset)}
+                        className={`relative p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 group ${
+                          isActive 
+                            ? 'border-brand bg-brand/5 shadow-md scale-[1.02]' 
+                            : 'border-slate-200/60 dark:border-slate-700/60 hover:border-brand/30 hover:bg-slate-50 dark:hover:bg-[#222529]'
+                        }`}
                       >
-                        {preset.name}
+                        <style dangerouslySetInnerHTML={{ __html: `.preset-color-${preset} { background-color: ${presetData.primaryColor}; }`}} />
+                        <div className={`w-12 h-12 rounded-full preset-color-${preset} shadow-lg ring-4 ${isActive ? 'ring-brand/20' : 'ring-transparent group-hover:ring-brand/10'} transition-all`} />
+                        <span className={`font-bold text-sm capitalize ${isActive ? 'text-brand' : 'text-slate-700 dark:text-slate-300'}`}>
+                          {preset.replace('theme-', '')}
+                        </span>
+                        {isActive && <CheckCircle2 className="absolute top-2 end-2 w-4 h-4 text-brand" />}
                       </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input type="color" title="Topbar Background Color" value={customTopbarBg.startsWith('#') ? customTopbarBg : '#ffffff'} onChange={(e) => setCustomTopbarBg(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 shrink-0 bg-transparent" />
-                    <input type="text" title="Topbar Background Text" value={customTopbarBg} onChange={(e) => setCustomTopbarBg(e.target.value)} placeholder={isRtl ? "مثال: #ffffff أو #121016" : "e.g. #ffffff or #121016"} className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm text-start font-mono" dir="ltr" />
+                    );
+                  })}
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div key="advanced" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 p-6 bg-slate-50 dark:bg-[#121016]/50 rounded-[1.5rem] border border-slate-200/60 dark:border-slate-700/60">
+                  <ColorInput label={isRtl ? "اللون الأساسي" : "Primary Color"} value={primaryColor} onChange={setPrimaryColor} />
+                  <ColorInput label={isRtl ? "الشريط العلوي" : "Topbar Background"} value={customTopbarBg} onChange={setCustomTopbarBg} placeholder="#ffffff" />
+                  <ColorInput label={isRtl ? "الشريط الجانبي" : "Sidebar Background"} value={customSidebarBg} onChange={setCustomSidebarBg} placeholder="#19171D" />
+                  <ColorInput label={isRtl ? "نص الشريط الجانبي" : "Sidebar Text"} value={customSidebarText} onChange={setCustomSidebarText} placeholder="#ffffff" />
+                  
+                  <div className="xl:col-span-4 mt-2">
+                    <ColorInput label={isRtl ? "خلفية النظام" : "App Background"} value={customAppBg} onChange={setCustomAppBg} placeholder="#f8fafc" />
                   </div>
                 </div>
-
-                {/* Sidebar BG */}
-                <div className="col-span-1 md:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{isRtl ? "خلفية الشريط الجانبي" : "Sidebar Background"}</label>
-                  <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
-                    {[
-                      { name: 'Pure White', value: '#ffffff' },
-                      { name: 'Light Gray', value: '#f1f5f9' },
-                      { name: 'Dark Slate', value: '#19171D' },
-                      { name: 'Navy Accent', value: 'linear-gradient(180deg, #1e3a8a, #172554)' },
-                      { name: 'Purple Accent', value: 'linear-gradient(180deg, #581c87, #3b0764)' }
-                    ].map(preset => (
-                      <button
-                        key={preset.name}
-                        onClick={() => setCustomSidebarBg(preset.value)}
-                        className="px-3.5 py-1.5 text-xs font-bold rounded-full border border-slate-200 dark:border-slate-700 hover:border-brand transition-colors whitespace-nowrap shadow-sm"
-                        style={{ background: preset.value, color: preset.value === '#ffffff' || preset.value === '#f1f5f9' ? '#1e293b' : 'white' }}
-                      >
-                        {preset.name}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input type="color" title="Sidebar Background Color" value={customSidebarBg.startsWith('#') ? customSidebarBg : '#ffffff'} onChange={(e) => setCustomSidebarBg(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 shrink-0 bg-transparent" />
-                    <input type="text" title="Sidebar Background Text" value={customSidebarBg} onChange={(e) => setCustomSidebarBg(e.target.value)} placeholder={isRtl ? "مثال: #ffffff أو #19171D" : "e.g. #ffffff or #19171D"} className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm text-start font-mono" dir="ltr" />
-                  </div>
-                </div>
-
-                {/* Sidebar Text */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{isRtl ? "لون نصوص الشريط الجانبي" : "Sidebar Text Color"}</label>
-                  <div className="flex items-center gap-2">
-                    <input type="color" title="Sidebar Text Color" value={customSidebarText} onChange={(e) => setCustomSidebarText(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 shrink-0 bg-transparent" />
-                    <input type="text" title="Sidebar Text Color Hex" value={customSidebarText} onChange={(e) => setCustomSidebarText(e.target.value)} className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm text-start font-mono font-bold" dir="ltr" />
-                  </div>
-                </div>
-
-                {/* App Background */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">{isRtl ? "لون خلفية النظام" : "App Background"}</label>
-                  <div className="flex items-center gap-2">
-                    <input type="color" title="App Background Color" value={customAppBg.startsWith('#') ? customAppBg : '#f8fafc'} onChange={(e) => setCustomAppBg(e.target.value)} className="w-10 h-10 rounded-lg cursor-pointer border-0 p-0 shrink-0 bg-transparent" />
-                    <input type="text" title="App Background Text" value={customAppBg} onChange={(e) => setCustomAppBg(e.target.value)} placeholder="#f8fafc / #1A1D21" className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-[#1a1d21] text-slate-900 dark:text-white text-sm text-start font-mono font-bold" dir="ltr" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Font Family */}
-        <section className="bg-white dark:bg-[#222529] p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 transition-colors">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-4">{isRtl ? "خطوط النظام" : "Typography"}</h2>
-          <div className="flex gap-4">
-            <button
-              onClick={() => setFontFamily('cairo')}
-              className={`font-cairo flex-1 py-5 flex flex-col items-center justify-center gap-2 rounded-xl border-2 transition-all ${fontFamily === 'cairo' ? 'border-brand bg-brand/5 dark:bg-brand/10 shadow-sm ring-2 ring-brand/20' : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-[#1a1d21] hover:shadow-sm'}`}
-            >
-              <span className="text-2xl font-black text-slate-900 dark:text-white">{isRtl ? "خط كايرو" : "Cairo Font"}</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{isRtl ? "عربي مؤسسي متطور وجميل" : "Elegant Arabic corporate typography"}</span>
-            </button>
-            <button
-              onClick={() => setFontFamily('inter')}
-              className={`font-inter flex-1 py-5 flex flex-col items-center justify-center gap-2 rounded-xl border-2 transition-all ${fontFamily === 'inter' ? 'border-brand bg-brand/5 dark:bg-brand/10 shadow-sm ring-2 ring-brand/20' : 'border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-[#1a1d21] hover:shadow-sm'}`}
-            >
-              <span className="text-2xl font-black text-slate-900 dark:text-white">Inter Font</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Standard clean English typography</span>
-            </button>
-          </div>
-        </section>
-
-        {/* Logo Upload */}
-        <section className="bg-white dark:bg-[#222529] p-6 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800/80 transition-colors">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">{isRtl ? "شعار مساحة العمل" : "Workspace Logo"}</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{isRtl ? "قم برفع شعار مؤسستك ليظهر في الزاوية العلوية للنظام." : "Upload your organization's logo to appear in the top corner of the system."}</p>
-          <div className="flex items-center gap-6">
-            <div className="w-20 h-20 bg-slate-50 dark:bg-[#1a1d21] rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
-              {logoUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={logoUrl} alt="Workspace Logo" className="w-full h-full object-contain p-2" />
-              ) : (
-                <ImageIcon className="w-8 h-8 text-slate-400 dark:text-slate-500" />
-              )}
-            </div>
-            <div className="flex-1 space-y-3">
-              <input
-                type="file"
-                title="Upload Logo"
-                ref={fileInputRef}
-                onChange={handleLogoUpload}
-                accept="image/*"
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="px-5 py-2.5 bg-brand text-white text-sm font-bold rounded-xl hover:bg-brand/90 transition-all disabled:opacity-50 shadow-sm"
-              >
-                {uploading ? (isRtl ? "جاري الرفع..." : "Uploading...") : (isRtl ? "اختر صورة" : "Upload File")}
-              </button>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{isRtl ? "ينصح باستخدام صور مربعة بخلفية شفافة (PNG أو SVG)." : "Square images with a transparent background (PNG or SVG) are recommended."}</p>
-            </div>
-          </div>
-        </section>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.section>
 
       </div>
     </div>
   );
 }
+

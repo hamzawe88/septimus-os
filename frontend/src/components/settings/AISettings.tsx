@@ -198,161 +198,173 @@ export default function AISettings() {
   };
 
   return (
-    <div className="w-full p-8">
-      <div className="max-w-5xl mx-auto space-y-8">
-        
-        {/* Sticky Action Bar */}
-        <div className="sticky top-0 z-20 bg-white/95 dark:bg-[#1a1a2e]/95 backdrop-blur-md py-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 -mx-8 px-8 shadow-sm">
-          <div>
-            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white flex items-center gap-3">
-              <Bot className="w-7 h-7 text-[var(--primary-hex)]" />
-              {t("ai_settings.title")}
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-              {t("ai_settings.subtitle")}
-            </p>
-          </div>
-          <button 
-            onClick={saveSettings}
-            disabled={isSaving}
-            className="px-6 py-3 bg-gradient-to-r from-[var(--primary-hex)] to-purple-600 text-white rounded-xl shadow-lg shadow-indigo-500/25 font-bold hover:opacity-90 transition-all flex items-center gap-2 disabled:opacity-70 transform hover:-translate-y-0.5 active:translate-y-0 shrink-0"
-          >
-            {isSaving ? (
-              <span className="animate-pulse flex items-center gap-2"><span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> {t("ai_settings.saving")}</span>
-            ) : saveSuccess ? (
-              <><CheckCircle2 className="w-5 h-5 text-green-300" /> {t("ai_settings.saved")}</>
-            ) : (
-              <><Save className="w-5 h-5" /> {t("ai_settings.save_btn")}</>
-            )}
-          </button>
+    <div className="flex-1 flex flex-col h-full bg-slate-50/50 dark:bg-[#0f0e13] overflow-y-auto">
+      {/* Sticky Action Bar */}
+      <div className="sticky top-0 z-20 backdrop-blur-xl bg-white/80 dark:bg-[#121016]/80 border-b border-slate-200/60 dark:border-slate-800/60 px-8 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+            <div className="p-2.5 bg-brand/10 dark:bg-brand/20 rounded-xl">
+              <Bot className="w-6 h-6 text-brand" />
+            </div>
+            {t("ai_settings.title")}
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+            {t("ai_settings.subtitle")}
+          </p>
         </div>
+        <button 
+          onClick={saveSettings}
+          disabled={isSaving}
+          className="flex items-center gap-2 px-6 py-2.5 bg-brand hover:opacity-90 text-white rounded-xl font-bold shadow-lg shadow-brand/20 transition-all active:scale-95 disabled:opacity-70 shrink-0"
+        >
+          {isSaving ? (
+            <span className="flex items-center gap-2"><span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> {t("ai_settings.saving")}</span>
+          ) : saveSuccess ? (
+            <><CheckCircle2 className="w-5 h-5 text-white" /> {t("ai_settings.saved")}</>
+          ) : (
+            <><Save className="w-5 h-5" /> {t("ai_settings.save_btn")}</>
+          )}
+        </button>
+      </div>
 
+      <div className="p-8 max-w-5xl mx-auto w-full space-y-8">
+        
         {/* Model Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {models.map((model) => {
             const availableModels = PROVIDER_MODELS[model.provider] || [];
             const strongValue = model.selectedModelStrong || model.selectedModel || "";
             const fastValue = model.selectedModelFast || "";
             
             return (
-              <div 
+              <section 
                 key={model.id}
-                className={`p-6 rounded-2xl border-2 transition-all relative overflow-hidden ${
+                className={`bg-white/70 dark:bg-[#1a1d21]/70 backdrop-blur-xl p-8 rounded-[2rem] border transition-all relative overflow-hidden flex flex-col ${
                   model.isActive 
-                    ? 'border-[var(--primary-hex)] bg-[var(--primary-hex)]/5 dark:bg-[var(--primary-hex)]/10 shadow-2xl shadow-[var(--primary-hex)]/10 ring-2 ring-[var(--primary-hex)]/20' 
-                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-[#1e1e2e] shadow-sm hover:shadow-md'
+                    ? 'border-brand/40 shadow-xl shadow-brand/5 ring-1 ring-brand/20' 
+                    : 'border-slate-200/60 dark:border-slate-800/60 shadow-sm hover:shadow-md'
                 }`}
               >
                 {model.isActive && (
-                  <div className="absolute top-0 end-0 bg-gradient-to-r from-[var(--primary-hex)] to-purple-600 text-white text-xs font-black px-3.5 py-1 rounded-es-xl shadow-md flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-ping" />
+                  <div className="absolute top-0 end-0 bg-brand text-white text-xs font-black px-4 py-1.5 rounded-es-2xl shadow-md flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                     {t("ai_settings.active_badge")}
                   </div>
                 )}
 
                 {/* Provider Header */}
-                <div className="flex items-start justify-between mb-5">
+                <div className="flex items-start justify-between mb-8">
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold shadow-sm transition-transform transform hover:scale-105 ${getProviderGradient(model.provider, model.isActive)}`}>
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold shadow-inner ${getProviderGradient(model.provider, model.isActive)}`}>
                       {model.icon}
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-slate-900 dark:text-white">{model.name}</h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-0.5">{t(model.description)}</p>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">{model.name}</h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{t(model.description)}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  {/* Per-tier model selectors: strong (reasoning/chat) + fast (light tasks) */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                      <Cpu className="w-4 h-4 text-[var(--primary-hex)]" /> {t("ai_settings.strong_model")} 🧠
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={strongValue}
-                        onChange={(e) => handleSelectTierModel(model.id, "strong", e.target.value)}
-                        className="w-full appearance-none bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pe-10 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[var(--primary-hex)]/50 focus:bg-white dark:focus:bg-slate-700 transition-all text-sm font-medium cursor-pointer"
-                      >
-                        {availableModels.map((am) => (
-                          <option key={am.id} value={am.id}>
-                            {am.label} {am.tier === "fast" ? `⚡` : `🧠`}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <div className="space-y-6 flex-1 flex flex-col justify-between">
+                  <div className="space-y-6">
+                    {/* Per-tier model selectors: strong (reasoning/chat) + fast (light tasks) */}
+                    <div className="group">
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                        <Cpu className="w-4 h-4 text-brand" /> {t("ai_settings.strong_model")} 🧠
+                      </label>
+                      <div className="relative flex items-center bg-white/50 dark:bg-[#1a1d21]/50 border border-slate-200/60 dark:border-slate-700/60 rounded-xl overflow-hidden shadow-sm backdrop-blur-sm transition-all focus-within:ring-2 focus-within:ring-brand/30 focus-within:border-brand/50">
+                        <select
+                          value={strongValue}
+                          onChange={(e) => handleSelectTierModel(model.id, "strong", e.target.value)}
+                          className="w-full appearance-none bg-transparent border-none px-4 py-3 pe-10 text-slate-900 dark:text-white text-sm font-medium focus:outline-none cursor-pointer"
+                        >
+                          {availableModels.map((am) => (
+                            <option key={am.id} value={am.id} className="dark:bg-[#1a1d21]">
+                              {am.label} {am.tier === "fast" ? `⚡` : `🧠`}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute end-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      </div>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t("ai_settings.strong_model_hint")}</p>
                     </div>
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500">{t("ai_settings.strong_model_hint")}</p>
+
+                    <div className="group">
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                        <Cpu className="w-4 h-4 text-amber-500" /> {t("ai_settings.fast_model")} ⚡
+                      </label>
+                      <div className="relative flex items-center bg-white/50 dark:bg-[#1a1d21]/50 border border-slate-200/60 dark:border-slate-700/60 rounded-xl overflow-hidden shadow-sm backdrop-blur-sm transition-all focus-within:ring-2 focus-within:ring-brand/30 focus-within:border-brand/50">
+                        <select
+                          value={fastValue}
+                          onChange={(e) => handleSelectTierModel(model.id, "fast", e.target.value)}
+                          className="w-full appearance-none bg-transparent border-none px-4 py-3 pe-10 text-slate-900 dark:text-white text-sm font-medium focus:outline-none cursor-pointer"
+                        >
+                          <option value="" className="dark:bg-[#1a1d21]">{t("ai_settings.fast_model_auto")}</option>
+                          {availableModels.map((am) => (
+                            <option key={am.id} value={am.id} className="dark:bg-[#1a1d21]">
+                              {am.label} {am.tier === "fast" ? `⚡` : `🧠`}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute end-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      </div>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t("ai_settings.fast_model_hint")}</p>
+                    </div>
+
+                    {/* API Key / Base URL */}
+                    {model.provider !== 'ollama' ? (
+                      <div className="group">
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                          <Key className="w-4 h-4 text-brand" /> {t("ai_settings.api_key")}
+                        </label>
+                        <div className="relative flex items-center bg-white/50 dark:bg-[#1a1d21]/50 border border-slate-200/60 dark:border-slate-700/60 rounded-xl overflow-hidden shadow-sm backdrop-blur-sm transition-all focus-within:ring-2 focus-within:ring-brand/30 focus-within:border-brand/50">
+                          <input
+                            type="password"
+                            value={model.apiKey}
+                            onChange={(e) => handleUpdateKey(model.id, e.target.value)}
+                            onFocus={() => handleFocusKey(model.id)}
+                            placeholder={model.hasApiKey ? t("ai_settings.key_saved_placeholder") : `${t("ai_settings.enter_key")} ${model.name}`}
+                            className="w-full bg-transparent border-none px-4 py-3 text-slate-900 dark:text-white font-mono text-sm focus:outline-none"
+                            dir="ltr"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="group">
+                        <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                          <Server className="w-4 h-4 text-brand" /> {t("ai_settings.base_url")}
+                        </label>
+                        <div className="relative flex items-center bg-white/50 dark:bg-[#1a1d21]/50 border border-slate-200/60 dark:border-slate-700/60 rounded-xl overflow-hidden shadow-sm backdrop-blur-sm transition-all focus-within:ring-2 focus-within:ring-brand/30 focus-within:border-brand/50">
+                          <input 
+                            type="text"
+                            value={model.baseUrl}
+                            onChange={(e) => handleUpdateUrl(model.id, e.target.value)}
+                            placeholder="http://localhost:11434"
+                            className="w-full bg-transparent border-none px-4 py-3 text-slate-900 dark:text-white font-mono text-sm focus:outline-none"
+                            dir="ltr"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                      <Cpu className="w-4 h-4 text-amber-500" /> {t("ai_settings.fast_model")} ⚡
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={fastValue}
-                        onChange={(e) => handleSelectTierModel(model.id, "fast", e.target.value)}
-                        className="w-full appearance-none bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pe-10 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[var(--primary-hex)]/50 focus:bg-white dark:focus:bg-slate-700 transition-all text-sm font-medium cursor-pointer"
-                      >
-                        <option value="">{t("ai_settings.fast_model_auto")}</option>
-                        {availableModels.map((am) => (
-                          <option key={am.id} value={am.id}>
-                            {am.label} {am.tier === "fast" ? `⚡` : `🧠`}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                    </div>
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500">{t("ai_settings.fast_model_hint")}</p>
+                  <div className="pt-6">
+                    {/* Set Active Button */}
+                    <button 
+                      onClick={() => handleSetActive(model.id)}
+                      disabled={model.isActive}
+                      className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all border
+                        ${model.isActive 
+                          ? 'bg-brand/10 text-brand border-brand/20 cursor-default' 
+                          : 'bg-white/50 dark:bg-[#222529]/50 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-700/60 hover:bg-white dark:hover:bg-[#2a2d32] hover:text-slate-900 dark:hover:text-white active:scale-[0.98]'
+                        }`}
+                    >
+                      {model.isActive ? `✓ ${t("ai_settings.active_model")}` : t("ai_settings.set_active")}
+                    </button>
                   </div>
-
-                  {/* API Key / Base URL */}
-                  {model.provider !== 'ollama' ? (
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                        <Key className="w-4 h-4 text-[var(--primary-hex)]" /> {t("ai_settings.api_key")}
-                      </label>
-                      <input
-                        type="password"
-                        value={model.apiKey}
-                        onChange={(e) => handleUpdateKey(model.id, e.target.value)}
-                        onFocus={() => handleFocusKey(model.id)}
-                        placeholder={model.hasApiKey ? t("ai_settings.key_saved_placeholder") : `${t("ai_settings.enter_key")} ${model.name}`}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[var(--primary-hex)]/50 focus:bg-white dark:focus:bg-slate-700 transition-all font-mono text-sm"
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                        <Server className="w-4 h-4 text-[var(--primary-hex)]" /> {t("ai_settings.base_url")}
-                      </label>
-                      <input 
-                        type="text"
-                        value={model.baseUrl}
-                        onChange={(e) => handleUpdateUrl(model.id, e.target.value)}
-                        placeholder="http://localhost:11434"
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[var(--primary-hex)]/50 focus:bg-white dark:focus:bg-slate-700 transition-all font-mono text-sm"
-                      />
-                    </div>
-                  )}
-
-                  {/* Set Active Button */}
-                  <button 
-                    onClick={() => handleSetActive(model.id)}
-                    disabled={model.isActive}
-                    className={`w-full py-3 rounded-xl font-bold text-sm transition-all border
-                      ${model.isActive 
-                        ? 'bg-[var(--primary-hex)] text-white shadow-md shadow-[var(--primary-hex)]/20 cursor-default border-[var(--primary-hex)]' 
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-[0.99]'
-                      }`}
-                  >
-                    {model.isActive ? `✓ ${t("ai_settings.active_model")}` : t("ai_settings.set_active")}
-                  </button>
                 </div>
 
-              </div>
+              </section>
             );
           })}
         </div>

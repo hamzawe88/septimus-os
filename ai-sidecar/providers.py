@@ -66,6 +66,17 @@ async def get_active_llm(workspace_id: str, tier: str = "strong"):
     provider configured" message) instead of building a client that errors
     mid-generation with 'Missing credentials'.
     """
+    # Attach a usage-tracking callback at construction so EVERY invocation of
+    # the returned model — direct ainvoke or inside a create_react_agent — feeds
+    # the cost dashboard. One attachment here covers all inference paths.
+    def _cb(provider):
+        try:
+            from observability import make_usage_callback
+            c = make_usage_callback(workspace_id, provider, tier)
+            return [c] if c else None
+        except Exception:
+            return None
+
     p = _active_provider(workspace_id)
     if p:
         provider_name = p.get("provider")
@@ -74,15 +85,15 @@ async def get_active_llm(workspace_id: str, tier: str = "strong"):
 
         if provider_name == "openai" and api_key:
             model_id = _model_for("openai", tier, selected_model, provider_cfg=p)
-            return ChatOpenAI(model=model_id, openai_api_key=api_key)
+            return ChatOpenAI(model=model_id, openai_api_key=api_key, callbacks=_cb("openai"))
         elif provider_name == "gemini" and (api_key or GOOGLE_API_KEY):
             model_id = _model_for("gemini", tier, selected_model, provider_cfg=p)
-            return ChatGoogleGenerativeAI(model=model_id, google_api_key=api_key or GOOGLE_API_KEY)
+            return ChatGoogleGenerativeAI(model=model_id, google_api_key=api_key or GOOGLE_API_KEY, callbacks=_cb("gemini"))
         elif provider_name == "anthropic" and api_key:
             model_id = _model_for("anthropic", tier, selected_model, provider_cfg=p)
             try:
                 from langchain_anthropic import ChatAnthropic
-                return ChatAnthropic(model=model_id, anthropic_api_key=api_key)
+                return ChatAnthropic(model=model_id, anthropic_api_key=api_key, callbacks=_cb("anthropic"))
             except ImportError:
                 print("langchain_anthropic not installed or unavailable")
         elif provider_name == "ollama":
@@ -90,26 +101,26 @@ async def get_active_llm(workspace_id: str, tier: str = "strong"):
             base_url = p.get("baseUrl") or os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
             try:
                 from langchain_ollama import ChatOllama
-                return ChatOllama(model=model_id, base_url=base_url)
+                return ChatOllama(model=model_id, base_url=base_url, callbacks=_cb("ollama"))
             except ImportError:
                 print("langchain_ollama not installed or unavailable")
 
     # Fallback to env vars
     print("Falling back to environment variables for LLM")
     if GOOGLE_API_KEY:
-        return ChatGoogleGenerativeAI(model=_model_for("gemini", tier), google_api_key=GOOGLE_API_KEY)
+        return ChatGoogleGenerativeAI(model=_model_for("gemini", tier), google_api_key=GOOGLE_API_KEY, callbacks=_cb("gemini"))
     elif OPENAI_API_KEY:
-        return ChatOpenAI(model=_model_for("openai", tier), openai_api_key=OPENAI_API_KEY)
+        return ChatOpenAI(model=_model_for("openai", tier), openai_api_key=OPENAI_API_KEY, callbacks=_cb("openai"))
     elif os.getenv("ANTHROPIC_API_KEY"):
         try:
             from langchain_anthropic import ChatAnthropic
-            return ChatAnthropic(model=_model_for("anthropic", tier), anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"))
+            return ChatAnthropic(model=_model_for("anthropic", tier), anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"), callbacks=_cb("anthropic"))
         except ImportError:
             pass
     elif os.getenv("OLLAMA_BASE_URL"):
         try:
             from langchain_ollama import ChatOllama
-            return ChatOllama(model=_model_for("ollama", tier), base_url=os.getenv("OLLAMA_BASE_URL"))
+            return ChatOllama(model=_model_for("ollama", tier), base_url=os.getenv("OLLAMA_BASE_URL"), callbacks=_cb("ollama"))
         except ImportError:
             pass
     return None

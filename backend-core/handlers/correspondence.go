@@ -22,9 +22,11 @@ type CreateCorrespondenceRequest struct {
 	Title             string `json:"title"`
 	Content           string `json:"content"`
 	SenderType        string `json:"sender_type"`
+	Type              string `json:"type"`
 	SenderDetails     string `json:"sender_details"`     // JSON string
 	RecipientDetails  string `json:"recipient_details"`  // JSON string
 	SecurityLevel     string `json:"security_level"`
+	Confidentiality   string `json:"confidentiality"`
 	Status            string `json:"status"`
 	Attachments       string `json:"attachments"`        // JSON array string
 	ExternalReference string `json:"external_reference"`
@@ -97,6 +99,12 @@ func CreateCorrespondence(c *fiber.Ctx) error {
 	if req.Attachments == "" {
 		req.Attachments = "[]"
 	}
+	if req.SecurityLevel == "" && req.Confidentiality != "" {
+		req.SecurityLevel = req.Confidentiality
+	}
+	if req.SenderType == "" && req.Type != "" {
+		req.SenderType = req.Type
+	}
 	if req.SecurityLevel == "" {
 		req.SecurityLevel = "normal"
 	}
@@ -140,7 +148,7 @@ func CreateCorrespondence(c *fiber.Ctx) error {
 		CurrentHolderID:   currentHolderID,
 	}
 
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
+	err := database.GetDB(c).Transaction(func(tx *gorm.DB) error {
 		if req.Status != "draft" || req.AssignSerial || req.DeptCode != "" {
 			correspondence.SerialNumber = GenerateSerialNumber(tx, workspaceID, req.DeptCode)
 		}
@@ -162,7 +170,7 @@ func GetCorrespondences(c *fiber.Ctx) error {
 	}
 	workspaceID := database.ParseUUID(workspaceIDStr)
 
-	query := database.DB.Where("workspace_id = ?", workspaceID)
+	query := database.GetDB(c).Where("workspace_id = ?", workspaceID)
 
 	// Filter by status
 	if status := c.Query("status"); status != "" {
@@ -208,14 +216,14 @@ func GetCorrespondenceByID(c *fiber.Ctx) error {
 	}
 
 	var correspondence models.Correspondence
-	if err := database.DB.Where("id = ? AND workspace_id = ?", id, workspaceID).
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).
 		Preload("Template").Preload("CreatedBy").Preload("CurrentHolder").
 		First(&correspondence).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "correspondence not found"})
 	}
 
 	var forwardLogs []models.CorrespondenceForwardLog
-	database.DB.Where("correspondence_id = ?", id).
+	database.GetDB(c).Where("correspondence_id = ?", id).
 		Preload("FromUser").Preload("ToUser").
 		Order("forwarded_at ASC").Find(&forwardLogs)
 
@@ -237,7 +245,7 @@ func UpdateCorrespondence(c *fiber.Ctx) error {
 	id := database.ParseUUID(idStr)
 
 	var correspondence models.Correspondence
-	if err := database.DB.Where("id = ? AND workspace_id = ?", id, workspaceID).First(&correspondence).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).First(&correspondence).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "correspondence not found"})
 	}
 
@@ -260,6 +268,12 @@ func UpdateCorrespondence(c *fiber.Ctx) error {
 	}
 	if req.RecipientDetails != "" {
 		correspondence.RecipientDetails = datatypes.JSON([]byte(req.RecipientDetails))
+	}
+	if req.SecurityLevel == "" && req.Confidentiality != "" {
+		req.SecurityLevel = req.Confidentiality
+	}
+	if req.SenderType == "" && req.Type != "" {
+		req.SenderType = req.Type
 	}
 	if req.SecurityLevel != "" {
 		correspondence.SecurityLevel = req.SecurityLevel
@@ -286,7 +300,7 @@ func UpdateCorrespondence(c *fiber.Ctx) error {
 		}
 	}
 
-	if err := database.DB.Save(&correspondence).Error; err != nil {
+	if err := database.GetDB(c).Save(&correspondence).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update correspondence"})
 	}
 
@@ -317,7 +331,7 @@ func ForwardCorrespondence(c *fiber.Ctx) error {
 	}
 
 	var correspondence models.Correspondence
-	if err := database.DB.Where("id = ? AND workspace_id = ?", id, workspaceID).First(&correspondence).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).First(&correspondence).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "correspondence not found"})
 	}
 
@@ -353,7 +367,7 @@ func ForwardCorrespondence(c *fiber.Ctx) error {
 		}
 	}
 
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
+	err := database.GetDB(c).Transaction(func(tx *gorm.DB) error {
 		correspondence.Path = newPath
 		correspondence.CurrentHolderID = toUserID
 		if correspondence.Status == "draft" {
@@ -410,7 +424,7 @@ func SignCorrespondence(c *fiber.Ctx) error {
 	_ = c.BodyParser(&req)
 
 	var correspondence models.Correspondence
-	if err := database.DB.Where("id = ? AND workspace_id = ?", id, workspaceID).First(&correspondence).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).First(&correspondence).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "correspondence not found"})
 	}
 
@@ -420,7 +434,7 @@ func SignCorrespondence(c *fiber.Ctx) error {
 
 	now := time.Now()
 
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
+	err := database.GetDB(c).Transaction(func(tx *gorm.DB) error {
 		// Generate serial number if not already generated
 		if correspondence.SerialNumber == "" {
 			correspondence.SerialNumber = GenerateSerialNumber(tx, workspaceID, req.DeptCode)
@@ -463,7 +477,7 @@ func ArchiveCorrespondence(c *fiber.Ctx) error {
 	id := database.ParseUUID(idStr)
 
 	var correspondence models.Correspondence
-	if err := database.DB.Where("id = ? AND workspace_id = ?", id, workspaceID).First(&correspondence).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).First(&correspondence).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "correspondence not found"})
 	}
 
@@ -471,7 +485,7 @@ func ArchiveCorrespondence(c *fiber.Ctx) error {
 	correspondence.Status = "archived"
 	correspondence.ArchivedAt = &now
 
-	if err := database.DB.Save(&correspondence).Error; err != nil {
+	if err := database.GetDB(c).Save(&correspondence).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to archive correspondence"})
 	}
 

@@ -121,7 +121,7 @@ export default function AIOrchestratorWidget() {
   return (
     <div className="flex flex-col justify-between h-full space-y-3">
       {/* ── Header with Neural Mesh Status ── */}
-      <div className="flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-purple-600/10 border border-indigo-500/20 dark:border-indigo-500/30">
+      <div className="flex items-center justify-between p-3 rounded-2xl glass-card bg-indigo-500/5 dark:bg-indigo-500/10 border-indigo-500/20 dark:border-indigo-500/30">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
             <Brain className="w-5 h-5" />
@@ -167,7 +167,7 @@ export default function AIOrchestratorWidget() {
                 className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border transition flex items-center gap-1.5 ${
                   isActive
                     ? "bg-indigo-100 dark:bg-indigo-950/50 border-indigo-400 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300"
-                    : "bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-600 dark:hover:text-indigo-400 border-slate-200/60 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                    : "glass-card bg-white/40 dark:bg-slate-800/40 hover:bg-white/60 dark:hover:bg-slate-800/60 hover:border-indigo-400 dark:hover:border-indigo-500 border-slate-200/50 dark:border-slate-700/50 text-slate-700 dark:text-slate-300"
                 }`}
               >
                 <span>{meta.emoji}</span>
@@ -187,7 +187,7 @@ export default function AIOrchestratorWidget() {
           onChange={(e) => setPromptInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleRunCommand()}
           placeholder={t("dashboard.ai.placeholder", "اسأل العقل المركزي أو اختر شخصية مؤسسية...")}
-          className="w-full ltr:pl-3.5 ltr:pr-24 rtl:pr-3.5 rtl:pl-24 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition font-medium"
+          className="w-full ltr:pl-3.5 ltr:pr-24 rtl:pr-3.5 rtl:pl-24 py-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md border border-slate-200/50 dark:border-slate-700/50 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition font-medium shadow-inner"
         />
         <button
           onClick={() => handleRunCommand()}

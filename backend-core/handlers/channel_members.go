@@ -28,7 +28,7 @@ func UpdateMemberRole(c *fiber.Ctx) error {
 
 	// Check if the current user has permission
 	var adminMember models.ChannelMember
-	if err := database.DB.Where("channel_id = ? AND user_id = ?", channelID, adminID).First(&adminMember).Error; err != nil {
+	if err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, adminID).First(&adminMember).Error; err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You are not a member of this channel"})
 	}
 
@@ -38,7 +38,7 @@ func UpdateMemberRole(c *fiber.Ctx) error {
 
 	// Prevent downgrading the OWNER unless by another OWNER (or prevent it altogether for simplicity)
 	var targetMember models.ChannelMember
-	if err := database.DB.Where("channel_id = ? AND user_id = ?", channelID, req.UserID).First(&targetMember).Error; err != nil {
+	if err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, req.UserID).First(&targetMember).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Target user is not a member of this channel"})
 	}
 
@@ -52,7 +52,7 @@ func UpdateMemberRole(c *fiber.Ctx) error {
 	}
 
 	targetMember.Role = req.Role
-	if err := database.DB.Save(&targetMember).Error; err != nil {
+	if err := database.GetDB(c).Save(&targetMember).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update role"})
 	}
 
@@ -70,7 +70,7 @@ func MuteMember(c *fiber.Ctx) error {
 	}
 
 	var adminMember models.ChannelMember
-	if err := database.DB.Where("channel_id = ? AND user_id = ?", channelID, adminID).First(&adminMember).Error; err != nil {
+	if err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, adminID).First(&adminMember).Error; err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You are not a member of this channel"})
 	}
 
@@ -79,7 +79,7 @@ func MuteMember(c *fiber.Ctx) error {
 	}
 
 	var targetMember models.ChannelMember
-	if err := database.DB.Where("channel_id = ? AND user_id = ?", channelID, req.UserID).First(&targetMember).Error; err != nil {
+	if err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, req.UserID).First(&targetMember).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Target user is not a member of this channel"})
 	}
 
@@ -92,7 +92,7 @@ func MuteMember(c *fiber.Ctx) error {
 	}
 
 	targetMember.IsMuted = req.IsMuted
-	if err := database.DB.Save(&targetMember).Error; err != nil {
+	if err := database.GetDB(c).Save(&targetMember).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update mute status"})
 	}
 

@@ -241,8 +241,7 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
       fetchTemplates: async () => {
         set({ loading: true });
         try {
-          const workspaceId = getCurrentWorkspaceId();
-          const res = await apiGet<{ data?: CorrespondenceTemplate[] } | CorrespondenceTemplate[]>(`/protected/workspaces/${workspaceId}/correspondence/templates`);
+          const res = await apiGet<{ data?: CorrespondenceTemplate[] } | CorrespondenceTemplate[]>('/correspondence-templates');
           const list = ('data' in res && Array.isArray(res.data)) ? res.data : (Array.isArray(res) ? res : []);
           if (list.length > 0) {
             set({ templates: list });
@@ -262,8 +261,7 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
       createTemplate: async (data) => {
         set({ loading: true });
         try {
-          const workspaceId = getCurrentWorkspaceId();
-          const res = await apiPost<{ data?: CorrespondenceTemplate } | CorrespondenceTemplate>(`/protected/workspaces/${workspaceId}/correspondence/templates`, data);
+          const res = await apiPost<{ data?: CorrespondenceTemplate } | CorrespondenceTemplate>('/correspondence-templates', data);
           const newTpl = ('data' in res && res.data) ? res.data : (res as CorrespondenceTemplate);
           set((state) => ({ templates: [newTpl, ...state.templates], selectedTemplate: newTpl }));
           return newTpl;
@@ -290,8 +288,7 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
       updateTemplate: async (id, data) => {
         set({ loading: true });
         try {
-          const workspaceId = getCurrentWorkspaceId();
-          const res = await apiPut<{ data?: CorrespondenceTemplate } | CorrespondenceTemplate>(`/protected/workspaces/${workspaceId}/correspondence/templates/${id}`, data);
+          const res = await apiPut<{ data?: CorrespondenceTemplate } | CorrespondenceTemplate>(`/correspondence-templates/${id}`, data);
           const updated = ('data' in res && res.data) ? res.data : (res as CorrespondenceTemplate);
           set((state) => ({
             templates: state.templates.map((t) => (t.id === id ? updated : t)),
@@ -333,8 +330,7 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
       deleteTemplate: async (id) => {
         set({ loading: true });
         try {
-          const workspaceId = getCurrentWorkspaceId();
-          await apiDelete(`/protected/workspaces/${workspaceId}/correspondence/templates/${id}`);
+          await apiDelete(`/correspondence-templates/${id}`);
         } catch (err) {
           console.warn('API error deleting template, deleting locally via local-first fallback:', err);
         } finally {
@@ -349,7 +345,6 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
   fetchCorrespondences: async (params) => {
     set({ loading: true });
     try {
-      const workspaceId = getCurrentWorkspaceId();
       let query = '';
       if (params) {
         const qParams = new URLSearchParams();
@@ -358,7 +353,7 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
         if (params.limit) qParams.append('limit', params.limit.toString());
         query = qParams.toString() ? `?${qParams.toString()}` : '';
       }
-      const res = await apiGet<{ data?: Correspondence[] } | Correspondence[]>(`/protected/workspaces/${workspaceId}/correspondence${query}`);
+      const res = await apiGet<{ data?: Correspondence[] } | Correspondence[]>(`/correspondences${query}`);
       const list = ('data' in res && Array.isArray(res.data)) ? res.data : (Array.isArray(res) ? res : []);
       set({ correspondences: list });
     } catch (err) {
@@ -371,8 +366,7 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
   fetchCorrespondenceById: async (id) => {
     set({ loading: true });
     try {
-      const workspaceId = getCurrentWorkspaceId();
-      const res = await apiGet<{ data?: Correspondence } | Correspondence>(`/protected/workspaces/${workspaceId}/correspondence/${id}`);
+      const res = await apiGet<{ data?: Correspondence } | Correspondence>(`/correspondences/${id}`);
       const item = ('data' in res && res.data) ? res.data : (res as Correspondence);
       set({ selectedCorrespondence: item });
       return item;
@@ -384,8 +378,7 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
   createCorrespondence: async (data) => {
     set({ loading: true });
     try {
-      const workspaceId = getCurrentWorkspaceId();
-      const res = await apiPost<{ data?: Correspondence } | Correspondence>(`/protected/workspaces/${workspaceId}/correspondence`, data);
+      const res = await apiPost<{ data?: Correspondence } | Correspondence>('/correspondences', data);
       const newItem = ('data' in res && res.data) ? res.data : (res as Correspondence);
       set((state) => ({
         correspondences: [newItem, ...state.correspondences],
@@ -400,8 +393,7 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
   signCorrespondence: async (id) => {
     set({ loading: true });
     try {
-      const workspaceId = getCurrentWorkspaceId();
-      const res = await apiPost<{ data?: { qr_code: string; signed_at: string }; qr_code?: string; signed_at?: string }>(`/protected/workspaces/${workspaceId}/correspondence/${id}/sign`, {});
+      const res = await apiPost<{ data?: { qr_code: string; signed_at: string }; qr_code?: string; signed_at?: string }>(`/correspondences/${id}/sign`, {});
       const result = ('data' in res && res.data) ? res.data : { qr_code: res.qr_code || '', signed_at: res.signed_at || '' };
       set((state) => ({
         correspondences: state.correspondences.map((c) =>
@@ -421,8 +413,7 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
   forwardCorrespondence: async (id, data) => {
     set({ loading: true });
     try {
-      const workspaceId = getCurrentWorkspaceId();
-      await apiPost(`/protected/workspaces/${workspaceId}/correspondence/${id}/forward`, data);
+      await apiPost(`/correspondences/${id}/forward`, data);
       await get().fetchCorrespondenceById(id);
     } finally {
       set({ loading: false });
@@ -432,8 +423,7 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
   archiveCorrespondence: async (id) => {
     set({ loading: true });
     try {
-      const workspaceId = getCurrentWorkspaceId();
-      await apiPost(`/protected/workspaces/${workspaceId}/correspondence/${id}/archive`, {});
+      await apiPost(`/correspondences/${id}/archive`, {});
       set((state) => ({
         correspondences: state.correspondences.map((c) => (c.id === id ? { ...c, status: 'archived' } : c)),
         selectedCorrespondence:

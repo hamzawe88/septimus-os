@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/septimus-os/backend-core/database"
@@ -9,12 +12,16 @@ import (
 )
 
 type CreateTemplateRequest struct {
-	TemplateName      string `json:"template_name"`
-	LogoURL           string `json:"logo_url"`
-	CompanyHeaderData string `json:"company_header_data"` // JSON string
-	CompanyFooterData string `json:"company_footer_data"` // JSON string
-	StylingConfig     string `json:"styling_config"`      // JSON string
-	IsDefault         bool   `json:"is_default"`
+	TemplateName      string                 `json:"template_name"`
+	Name              string                 `json:"name"`
+	LogoURL           string                 `json:"logo_url"`
+	CompanyHeaderData string                 `json:"company_header_data"` // JSON string
+	HeaderHTML        string                 `json:"header_html"`
+	CompanyFooterData string                 `json:"company_footer_data"` // JSON string
+	FooterHTML        string                 `json:"footer_html"`
+	StylingConfig     string                 `json:"styling_config"`      // JSON string
+	LayoutConfig      map[string]interface{} `json:"layout_config"`
+	IsDefault         bool                   `json:"is_default"`
 }
 
 // CreateTemplate creates a new correspondence template
@@ -33,23 +40,42 @@ func CreateTemplate(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 
+	if req.TemplateName == "" && req.Name != "" {
+		req.TemplateName = req.Name
+	}
 	if req.TemplateName == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "template_name is required"})
 	}
 
 	if req.CompanyHeaderData == "" {
-		req.CompanyHeaderData = "{}"
+		if req.HeaderHTML != "" {
+			req.CompanyHeaderData = fmt.Sprintf(`{"html":%q}`, req.HeaderHTML)
+		} else {
+			req.CompanyHeaderData = "{}"
+		}
 	}
 	if req.CompanyFooterData == "" {
-		req.CompanyFooterData = "{}"
+		if req.FooterHTML != "" {
+			req.CompanyFooterData = fmt.Sprintf(`{"html":%q}`, req.FooterHTML)
+		} else {
+			req.CompanyFooterData = "{}"
+		}
 	}
 	if req.StylingConfig == "" {
-		req.StylingConfig = "{}"
+		if len(req.LayoutConfig) > 0 {
+			if cfgBytes, err := json.Marshal(req.LayoutConfig); err == nil {
+				req.StylingConfig = string(cfgBytes)
+			} else {
+				req.StylingConfig = "{}"
+			}
+		} else {
+			req.StylingConfig = "{}"
+		}
 	}
 
 	// If marked as default, unset other defaults in workspace
 	if req.IsDefault {
-		database.DB.Model(&models.CorrespondenceTemplate{}).
+		database.GetDB(c).Model(&models.CorrespondenceTemplate{}).
 			Where("workspace_id = ?", workspaceID).
 			Update("is_default", false)
 	}
@@ -64,7 +90,7 @@ func CreateTemplate(c *fiber.Ctx) error {
 		IsDefault:         req.IsDefault,
 	}
 
-	if err := database.DB.Create(&template).Error; err != nil {
+	if err := database.GetDB(c).Create(&template).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to create template: " + err.Error()})
 	}
 
@@ -80,7 +106,7 @@ func GetTemplates(c *fiber.Ctx) error {
 	workspaceID := database.ParseUUID(workspaceIDStr)
 
 	var templates []models.CorrespondenceTemplate
-	if err := database.DB.Where("workspace_id = ?", workspaceID).Order("is_default DESC, created_at DESC").Find(&templates).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Order("is_default DESC, created_at DESC").Find(&templates).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to fetch templates"})
 	}
 
@@ -102,7 +128,7 @@ func UpdateTemplate(c *fiber.Ctx) error {
 	}
 
 	var template models.CorrespondenceTemplate
-	if err := database.DB.Where("id = ? AND workspace_id = ?", templateID, workspaceID).First(&template).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", templateID, workspaceID).First(&template).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "template not found"})
 	}
 
@@ -111,24 +137,38 @@ func UpdateTemplate(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 
+	if req.TemplateName == "" && req.Name != "" {
+		req.TemplateName = req.Name
+	}
 	if req.TemplateName != "" {
 		template.TemplateName = req.TemplateName
 	}
 	if req.LogoURL != "" {
 		template.LogoURL = req.LogoURL
 	}
+	if req.CompanyHeaderData == "" && req.HeaderHTML != "" {
+		req.CompanyHeaderData = fmt.Sprintf(`{"html":%q}`, req.HeaderHTML)
+	}
 	if req.CompanyHeaderData != "" {
 		template.CompanyHeaderData = datatypes.JSON([]byte(req.CompanyHeaderData))
 	}
+	if req.CompanyFooterData == "" && req.FooterHTML != "" {
+		req.CompanyFooterData = fmt.Sprintf(`{"html":%q}`, req.FooterHTML)
+	}
 	if req.CompanyFooterData != "" {
 		template.CompanyFooterData = datatypes.JSON([]byte(req.CompanyFooterData))
+	}
+	if req.StylingConfig == "" && len(req.LayoutConfig) > 0 {
+		if cfgBytes, err := json.Marshal(req.LayoutConfig); err == nil {
+			req.StylingConfig = string(cfgBytes)
+		}
 	}
 	if req.StylingConfig != "" {
 		template.StylingConfig = datatypes.JSON([]byte(req.StylingConfig))
 	}
 
 	if req.IsDefault && !template.IsDefault {
-		database.DB.Model(&models.CorrespondenceTemplate{}).
+		database.GetDB(c).Model(&models.CorrespondenceTemplate{}).
 			Where("workspace_id = ? AND id != ?", workspaceID, templateID).
 			Update("is_default", false)
 		template.IsDefault = true
@@ -136,7 +176,7 @@ func UpdateTemplate(c *fiber.Ctx) error {
 		template.IsDefault = req.IsDefault
 	}
 
-	if err := database.DB.Save(&template).Error; err != nil {
+	if err := database.GetDB(c).Save(&template).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update template"})
 	}
 
@@ -157,7 +197,7 @@ func DeleteTemplate(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid template id"})
 	}
 
-	if err := database.DB.Where("id = ? AND workspace_id = ?", templateID, workspaceID).Delete(&models.CorrespondenceTemplate{}).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", templateID, workspaceID).Delete(&models.CorrespondenceTemplate{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to delete template"})
 	}
 

@@ -116,7 +116,7 @@ export default function FinanceKPIsWidget() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-2.5">
-        <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-teal-50/50 dark:from-slate-800 dark:to-slate-800/80 border border-emerald-200/60 dark:border-slate-700 flex flex-col justify-between">
+        <div className="p-3 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/20 border border-emerald-200/50 dark:border-emerald-800/50 backdrop-blur-md shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
               {t("dashboard.monthlyRevenue", "Revenue")}
@@ -132,7 +132,7 @@ export default function FinanceKPIsWidget() {
           </span>
         </div>
 
-        <div className="p-3 rounded-2xl bg-gradient-to-br from-rose-50/80 to-orange-50/50 dark:from-slate-800 dark:to-slate-800/80 border border-rose-200/60 dark:border-slate-700 flex flex-col justify-between">
+        <div className="p-3 rounded-2xl bg-rose-50/50 dark:bg-rose-900/20 border border-rose-200/50 dark:border-rose-800/50 backdrop-blur-md shadow-sm flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400">
               {t("dashboard.monthlyExpenses", "Expenses")}
@@ -150,7 +150,7 @@ export default function FinanceKPIsWidget() {
       </div>
 
       {/* Net Burn & Quick Action */}
-      <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex flex-col gap-2">
+      <div className="p-3 rounded-2xl bg-white/40 dark:bg-black/20 border border-white/30 dark:border-white/10 backdrop-blur-md shadow-sm flex flex-col gap-2">
         <div className="flex items-center justify-between text-xs font-bold">
           <span className="text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
             <Activity className="w-3.5 h-3.5 text-blue-500" />

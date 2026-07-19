@@ -44,19 +44,19 @@ export default function HRPulseWidget() {
     <div className="flex flex-col justify-between h-full space-y-4">
       {/* Attendance Radar Summary */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex flex-col items-center text-center">
+        <div className="p-3 rounded-2xl glass-card bg-emerald-50/50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/60 flex flex-col items-center text-center">
           <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">42</span>
           <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase mt-0.5">
             {t("dashboard.hr.present", "Present")}
           </span>
         </div>
-        <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 flex flex-col items-center text-center">
+        <div className="p-3 rounded-2xl glass-card bg-blue-50/50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/60 flex flex-col items-center text-center">
           <span className="text-xl font-black text-blue-600 dark:text-blue-400">12</span>
           <span className="text-[10px] font-bold text-blue-800 dark:text-blue-300 uppercase mt-0.5">
             {t("dashboard.hr.remote", "Remote")}
           </span>
         </div>
-        <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex flex-col items-center text-center">
+        <div className="p-3 rounded-2xl glass-card bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/60 flex flex-col items-center text-center">
           <span className="text-xl font-black text-amber-600 dark:text-amber-400">3</span>
           <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase mt-0.5">
             {t("dashboard.hr.onLeave", "On Leave")}
@@ -77,7 +77,7 @@ export default function HRPulseWidget() {
         </div>
 
         {pendingLeavesList.length === 0 ? (
-          <div className="flex-1 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center p-4 text-center">
+          <div className="flex-1 rounded-2xl glass-card bg-white/30 dark:bg-slate-800/30 border border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center p-4 text-center">
             <UserCheck className="w-8 h-8 text-emerald-500 mb-1" />
             <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
               {t("dashboard.hr.allClear", "All leaves caught up!")}
@@ -91,7 +91,7 @@ export default function HRPulseWidget() {
             {pendingLeavesList.map((leave) => (
               <div
                 key={leave.id}
-                className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2"
+                className="p-3 rounded-xl glass-card bg-white/40 dark:bg-slate-800/40 border-slate-200/50 dark:border-slate-700/50 flex items-center justify-between gap-2"
               >
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{leave.name}</p>

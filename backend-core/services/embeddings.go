@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/google/generative-ai-go/genai"
@@ -156,4 +157,99 @@ func SearchSimilarByType(workspaceID uuid.UUID, entityType string, query string,
 	err = queryDB.Limit(limit).Find(&results).Error
 
 	return results, err
+}
+
+// SearchHybrid combines dense (pgvector cosine) and lexical (Postgres full-text)
+// retrieval via Reciprocal Rank Fusion. It improves recall — especially for
+// Arabic and exact-term/identifier queries where pure embeddings under-retrieve.
+// Each arm is best-effort: if one errors or returns nothing, the other still
+// answers, so hybrid is never worse than the previous dense-only search.
+func SearchHybrid(workspaceID uuid.UUID, entityType string, query string, limit int) ([]models.DocumentEmbedding, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	// Pull a wider candidate pool from each arm before fusing down to `limit`.
+	pool := limit * 4
+	if pool < 20 {
+		pool = 20
+	}
+
+	dense, denseErr := SearchSimilarByType(workspaceID, entityType, query, pool)
+	lexical := searchLexical(workspaceID, entityType, query, pool)
+
+	if len(lexical) == 0 {
+		if denseErr != nil {
+			return dense, denseErr
+		}
+		return capResults(dense, limit), nil
+	}
+	if len(dense) == 0 {
+		return capResults(lexical, limit), nil
+	}
+	return reciprocalRankFusion(limit, dense, lexical), nil
+}
+
+// searchLexical runs a language-agnostic full-text search over the embedded
+// content. The 'simple' config tokenizes without a stemming dictionary, which
+// is the correct choice for Arabic (Postgres ships no Arabic FTS dictionary).
+func searchLexical(workspaceID uuid.UUID, entityType, query string, limit int) []models.DocumentEmbedding {
+	var results []models.DocumentEmbedding
+	q := database.DB.
+		Where("workspace_id = ?", workspaceID).
+		Where("to_tsvector('simple', content) @@ plainto_tsquery('simple', ?)", query).
+		Order(clause.Expr{
+			SQL:  "ts_rank_cd(to_tsvector('simple', content), plainto_tsquery('simple', ?)) DESC",
+			Vars: []interface{}{query},
+		})
+	if entityType != "" {
+		q = q.Where("entity_type = ?", entityType)
+	}
+	_ = q.Limit(limit).Find(&results).Error
+	return results
+}
+
+// reciprocalRankFusion merges ranked lists: score(d) = Σ 1/(k + rank), k=60.
+// Documents are keyed by EntityID (falling back to row ID) so the same source
+// ranked by both arms accumulates a higher fused score.
+func reciprocalRankFusion(limit int, lists ...[]models.DocumentEmbedding) []models.DocumentEmbedding {
+	const k = 60.0
+	type scored struct {
+		doc   models.DocumentEmbedding
+		score float64
+	}
+	byKey := map[uuid.UUID]*scored{}
+	order := []uuid.UUID{}
+	for _, list := range lists {
+		for rank, d := range list {
+			key := d.EntityID
+			if key == uuid.Nil {
+				key = d.ID
+			}
+			s, ok := byKey[key]
+			if !ok {
+				s = &scored{doc: d}
+				byKey[key] = s
+				order = append(order, key)
+			}
+			s.score += 1.0 / (k + float64(rank+1))
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		return byKey[order[i]].score > byKey[order[j]].score
+	})
+	out := make([]models.DocumentEmbedding, 0, limit)
+	for _, key := range order {
+		out = append(out, byKey[key].doc)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out
+}
+
+func capResults(list []models.DocumentEmbedding, limit int) []models.DocumentEmbedding {
+	if len(list) > limit {
+		return list[:limit]
+	}
+	return list
 }

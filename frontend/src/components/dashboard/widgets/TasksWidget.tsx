@@ -132,8 +132,8 @@ export default function TasksWidget() {
                 onClick={() => handleToggleStatus(task.id)}
                 className={`group flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
                   isDone
-                    ? "bg-slate-50 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800 opacity-75"
-                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm hover:border-blue-400 dark:hover:border-blue-500"
+                    ? "bg-white/20 dark:bg-black/10 border-slate-200/40 dark:border-slate-800 opacity-60 backdrop-blur-sm"
+                    : "glass-card bg-white/50 dark:bg-slate-900/40 hover:border-blue-400 dark:hover:border-blue-500"
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">

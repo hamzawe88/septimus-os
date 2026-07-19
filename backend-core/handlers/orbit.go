@@ -82,7 +82,7 @@ func GetOrbitTasks(c *fiber.Ctx) error {
 	}
 
 	var entities []models.Entity
-	err := database.DB.Where("workspace_id = ? AND entity_type = ? AND data->>'user_id' = ?",
+	err := database.GetDB(c).Where("workspace_id = ? AND entity_type = ? AND data->>'user_id' = ?",
 		workspaceID, "user_orbit_task", userID).Find(&entities).Error
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch orbit tasks"})
@@ -182,7 +182,7 @@ func CreateOrbitTask(c *fiber.Ctx) error {
 		Data:        datatypes.JSON(dataBytes),
 	}
 
-	if err := database.DB.Create(&entity).Error; err != nil {
+	if err := database.GetDB(c).Create(&entity).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save orbit task"})
 	}
 
@@ -200,7 +200,7 @@ func UpdateOrbitTask(c *fiber.Ctx) error {
 	taskID := c.Params("id")
 
 	var entity models.Entity
-	err := database.DB.Where("workspace_id = ? AND entity_type = ? AND data->>'id' = ? AND data->>'user_id' = ?",
+	err := database.GetDB(c).Where("workspace_id = ? AND entity_type = ? AND data->>'id' = ? AND data->>'user_id' = ?",
 		workspaceID, "user_orbit_task", taskID, userID).First(&entity).Error
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Orbit task not found"})
@@ -256,7 +256,7 @@ func UpdateOrbitTask(c *fiber.Ctx) error {
 
 	updatedBytes, _ := json.Marshal(task)
 	entity.Data = datatypes.JSON(updatedBytes)
-	if err := database.DB.Save(&entity).Error; err != nil {
+	if err := database.GetDB(c).Save(&entity).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update orbit task"})
 	}
 
@@ -273,7 +273,7 @@ func DeleteOrbitTask(c *fiber.Ctx) error {
 	workspaceID := database.ParseUUID(workspaceIDStr)
 	taskID := c.Params("id")
 
-	err := database.DB.Where("workspace_id = ? AND entity_type = ? AND data->>'id' = ? AND data->>'user_id' = ?",
+	err := database.GetDB(c).Where("workspace_id = ? AND entity_type = ? AND data->>'id' = ? AND data->>'user_id' = ?",
 		workspaceID, "user_orbit_task", taskID, userID).Delete(&models.Entity{}).Error
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete task"})
@@ -295,7 +295,7 @@ func GetOrbitProfile(c *fiber.Ctx) error {
 	}
 
 	var entity models.Entity
-	err := database.DB.Where("workspace_id = ? AND entity_type = ? AND data->>'user_id' = ?",
+	err := database.GetDB(c).Where("workspace_id = ? AND entity_type = ? AND data->>'user_id' = ?",
 		workspaceID, "user_orbit_profile", userID).First(&entity).Error
 
 	var profile OrbitProfileData
@@ -320,7 +320,7 @@ func GetOrbitProfile(c *fiber.Ctx) error {
 			EntityType:  "user_orbit_profile",
 			Data:        datatypes.JSON(dataBytes),
 		}
-		database.DB.Create(&newEntity)
+		database.GetDB(c).Create(&newEntity)
 	} else {
 		json.Unmarshal(entity.Data, &profile)
 		// Ensure level title sync
@@ -330,7 +330,7 @@ func GetOrbitProfile(c *fiber.Ctx) error {
 			profile.LevelTitle = title
 			dataBytes, _ := json.Marshal(profile)
 			entity.Data = datatypes.JSON(dataBytes)
-			database.DB.Save(&entity)
+			database.GetDB(c).Save(&entity)
 		}
 	}
 
@@ -347,7 +347,7 @@ func UpdateOrbitProfile(c *fiber.Ctx) error {
 	workspaceID := database.ParseUUID(workspaceIDStr)
 
 	var entity models.Entity
-	err := database.DB.Where("workspace_id = ? AND entity_type = ? AND data->>'user_id' = ?",
+	err := database.GetDB(c).Where("workspace_id = ? AND entity_type = ? AND data->>'user_id' = ?",
 		workspaceID, "user_orbit_profile", userID).First(&entity).Error
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Profile not found. Call GET first."})
@@ -402,7 +402,7 @@ func UpdateOrbitProfile(c *fiber.Ctx) error {
 
 	dataBytes, _ := json.Marshal(profile)
 	entity.Data = datatypes.JSON(dataBytes)
-	if err := database.DB.Save(&entity).Error; err != nil {
+	if err := database.GetDB(c).Save(&entity).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update orbit profile"})
 	}
 
@@ -473,7 +473,7 @@ func GenerateWeeklyHarvest(c *fiber.Ctx) error {
 	}
 
 	var entities []models.Entity
-	err := database.DB.Where("workspace_id = ? AND entity_type = ? AND data->>'user_id' = ?",
+	err := database.GetDB(c).Where("workspace_id = ? AND entity_type = ? AND data->>'user_id' = ?",
 		workspaceID, "user_orbit_task", userID).Find(&entities).Error
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to query tasks"})

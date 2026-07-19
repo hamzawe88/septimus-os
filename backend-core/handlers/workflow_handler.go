@@ -103,14 +103,14 @@ func SaveWorkflow(c *fiber.Ctx) error {
 
 	if isUpdate {
 		wfID := database.ParseUUID(payload.ID)
-		if err := database.DB.First(&workflow, "id = ?", wfID).Error; err != nil {
+		if err := database.GetDB(c).First(&workflow, "id = ?", wfID).Error; err != nil {
 			return c.Status(404).JSON(fiber.Map{"error": "workflow not found for update"})
 		}
 		workflow.Name = payload.Name
 		workflow.IsActive = payload.IsActive
 		workflow.Nodes = nodesBytes
 		workflow.Edges = edgesBytes
-		if err := database.DB.Save(&workflow).Error; err != nil {
+		if err := database.GetDB(c).Save(&workflow).Error; err != nil {
 			log.Printf("Failed to update workflow: %v", err)
 			return c.Status(500).JSON(fiber.Map{"error": "failed to update workflow"})
 		}
@@ -122,7 +122,7 @@ func SaveWorkflow(c *fiber.Ctx) error {
 			Nodes:       nodesBytes,
 			Edges:       edgesBytes,
 		}
-		if err := database.DB.Create(&workflow).Error; err != nil {
+		if err := database.GetDB(c).Create(&workflow).Error; err != nil {
 			log.Printf("Failed to save workflow: %v", err)
 			return c.Status(500).JSON(fiber.Map{"error": "failed to save workflow"})
 		}
@@ -147,7 +147,7 @@ func GetWorkflows(c *fiber.Ctx) error {
 	}
 
 	var workflows []models.Workflow
-	if err := database.DB.Where("workspace_id = ?", workspaceIDStr).Find(&workflows).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceIDStr).Find(&workflows).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to fetch workflows"})
 	}
 
@@ -168,7 +168,7 @@ func TriggerWorkflowManually(c *fiber.Ctx) error {
 
 	// Fetch workflow
 	var wf models.Workflow
-	if err := database.DB.First(&wf, "id = ?", workflowID).Error; err != nil {
+	if err := database.GetDB(c).First(&wf, "id = ?", workflowID).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "workflow not found"})
 	}
 
@@ -217,7 +217,7 @@ func PatchWorkflow(c *fiber.Ctx) error {
 	}
 
 	var wf models.Workflow
-	if err := database.DB.First(&wf, "id = ?", workflowID).Error; err != nil {
+	if err := database.GetDB(c).First(&wf, "id = ?", workflowID).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "workflow not found"})
 	}
 
@@ -228,7 +228,7 @@ func PatchWorkflow(c *fiber.Ctx) error {
 		wf.IsActive = *req.IsActive
 	}
 
-	if err := database.DB.Save(&wf).Error; err != nil {
+	if err := database.GetDB(c).Save(&wf).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to update workflow"})
 	}
 
@@ -258,7 +258,7 @@ func GetWorkflowRuns(c *fiber.Ctx) error {
 	}
 
 	var runs []models.WorkflowRun
-	if err := database.DB.Where("workflow_id = ?", workflowIDStr).Order("created_at desc").Limit(50).Find(&runs).Error; err != nil {
+	if err := database.GetDB(c).Where("workflow_id = ?", workflowIDStr).Order("created_at desc").Limit(50).Find(&runs).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to fetch workflow runs"})
 	}
 

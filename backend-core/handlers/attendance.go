@@ -55,7 +55,7 @@ func CheckIn(c *fiber.Ctx) error {
 	}
 
 	var office models.OfficeLocation
-	if err := database.DB.First(&office, "id = ?", officeID).Error; err != nil {
+	if err := database.GetDB(c).First(&office, "id = ?", officeID).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Office not found"})
 	}
 
@@ -63,7 +63,7 @@ func CheckIn(c *fiber.Ctx) error {
 	// attendance record with no check-out yet) must check out before checking
 	// in again. Without this the same account could log in 2nd, 3rd, 4th time.
 	var openLog models.AttendanceLog
-	if err := database.DB.Where("user_id = ? AND check_out_time IS NULL", userID).
+	if err := database.GetDB(c).Where("user_id = ? AND check_out_time IS NULL", userID).
 		Order("check_in_time desc").First(&openLog).Error; err == nil {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
 			"error": "You are already checked in. Please check out first.",
@@ -90,7 +90,7 @@ func CheckIn(c *fiber.Ctx) error {
 		Status:      "present",
 	}
 
-	if err := database.DB.Create(&log).Error; err != nil {
+	if err := database.GetDB(c).Create(&log).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to check in"})
 	}
 
@@ -111,7 +111,7 @@ func CheckIn(c *fiber.Ctx) error {
 
 func GetOffices(c *fiber.Ctx) error {
 	var offices []models.OfficeLocation
-	if err := database.DB.Find(&offices).Error; err != nil {
+	if err := database.GetDB(c).Find(&offices).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch offices"})
 	}
 	return c.JSON(offices)
@@ -122,7 +122,7 @@ func CreateOffice(c *fiber.Ctx) error {
 	if err := c.BodyParser(&office); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 	}
-	if err := database.DB.Create(&office).Error; err != nil {
+	if err := database.GetDB(c).Create(&office).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create office"})
 	}
 	return c.JSON(office)
@@ -136,7 +136,7 @@ func UpdateOffice(c *fiber.Ctx) error {
 	}
 
 	var office models.OfficeLocation
-	if err := database.DB.Where("id = ?", id).First(&office).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).First(&office).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Office not found"})
 	}
 
@@ -145,7 +145,7 @@ func UpdateOffice(c *fiber.Ctx) error {
 	office.Longitude = req.Longitude
 	office.RadiusMeters = req.RadiusMeters
 
-	if err := database.DB.Save(&office).Error; err != nil {
+	if err := database.GetDB(c).Save(&office).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update office"})
 	}
 	return c.JSON(office)
@@ -153,7 +153,7 @@ func UpdateOffice(c *fiber.Ctx) error {
 
 func DeleteOffice(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if err := database.DB.Where("id = ?", id).Delete(&models.OfficeLocation{}).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", id).Delete(&models.OfficeLocation{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete office"})
 	}
 	return c.JSON(fiber.Map{"message": "Office deleted successfully"})
@@ -161,7 +161,7 @@ func DeleteOffice(c *fiber.Ctx) error {
 
 func GetAttendanceLogs(c *fiber.Ctx) error {
 	var logs []models.AttendanceLog
-	if err := database.DB.Preload("User").Preload("Office").Order("check_in_time desc").Find(&logs).Error; err != nil {
+	if err := database.GetDB(c).Preload("User").Preload("Office").Order("check_in_time desc").Find(&logs).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch attendance logs"})
 	}
 	return c.JSON(logs)
@@ -185,7 +185,7 @@ func CheckOut(c *fiber.Ctx) error {
 	}
 
 	var office models.OfficeLocation
-	if err := database.DB.First(&office, "id = ?", officeID).Error; err != nil {
+	if err := database.GetDB(c).First(&office, "id = ?", officeID).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Office not found"})
 	}
 
@@ -199,7 +199,7 @@ func CheckOut(c *fiber.Ctx) error {
 
 	// Find the latest open attendance log for this user
 	var logRecord models.AttendanceLog
-	if err := database.DB.Where("user_id = ? AND check_out_time IS NULL", userID).Order("check_in_time desc").First(&logRecord).Error; err != nil {
+	if err := database.GetDB(c).Where("user_id = ? AND check_out_time IS NULL", userID).Order("check_in_time desc").First(&logRecord).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "No open check-in found to check out from"})
 	}
 
@@ -208,7 +208,7 @@ func CheckOut(c *fiber.Ctx) error {
 	logRecord.CheckOutLat = &req.Latitude
 	logRecord.CheckOutLng = &req.Longitude
 
-	if err := database.DB.Save(&logRecord).Error; err != nil {
+	if err := database.GetDB(c).Save(&logRecord).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to check out"})
 	}
 
@@ -235,7 +235,7 @@ func CheckOut(c *fiber.Ctx) error {
 				meta := map[string]interface{}{"spreadsheet_id": id}
 				b, _ := json.Marshal(meta)
 				integration.Metadata = datatypes.JSON(b)
-				database.DB.Save(integration)
+				database.GetDB(c).Save(integration)
 
 				// Optionally add headers
 				services.AppendToSheet(c.Context(), token, spreadsheetID, "Sheet1!A1:G1", []interface{}{

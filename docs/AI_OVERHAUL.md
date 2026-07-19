@@ -1,5 +1,8 @@
 # Septimus OS — AI Overhaul (Phases 0–3)
 
+> [!warning] SUPERSEDED / متجاوَز جزئياً (2026-07-18)
+> بعض بنود "still-open" هنا **متأخّرة عن الكود**. تحقّق مصدري في 2026-07-18 أكّد أن مزوّدَي **Anthropic + Ollama** مُنفَّذان (`providers.py:81-95`)، والنماذج جيل 2026 (`MODEL_TIERS`)، والذاكرة الحوارية `AsyncPostgresSaver`، وذاكرة الحقائق المؤسسية — كلها مُطبَّقة. مصدر الحقيقة الحالي: vault wiki `Septimus OS/` (`Comprehensive Review — 2026-07` + `Future Development Plan`).
+
 > Full record of the AI layer rework. Phases 0–3 are **done and live-verified via Docker** (2026-07-10/11). Only realtime voice remains (needs an OpenAI key).
 > Nothing here needs re-discovery — this file is the source of truth for what changed and how to verify it.
 >

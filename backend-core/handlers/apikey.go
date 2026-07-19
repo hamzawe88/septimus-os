@@ -65,7 +65,7 @@ func CreateAPIKey(c *fiber.Ctx) error {
 		IsActive:    true,
 	}
 
-	if err := database.DB.Create(&apiKey).Error; err != nil {
+	if err := database.GetDB(c).Create(&apiKey).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create API key"})
 	}
 
@@ -86,7 +86,7 @@ func GetAPIKeys(c *fiber.Ctx) error {
 	}
 
 	var keys []models.APIKey
-	if err := database.DB.Where("workspace_id = ?", workspaceID).Find(&keys).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Find(&keys).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch API keys"})
 	}
 
@@ -97,7 +97,7 @@ func RevokeAPIKey(c *fiber.Ctx) error {
 	idStr := c.Params("id")
 	workspaceIDStr, _ := c.Locals("workspace_id").(string)
 
-	if err := database.DB.Model(&models.APIKey{}).
+	if err := database.GetDB(c).Model(&models.APIKey{}).
 		Where("id = ? AND workspace_id = ?", idStr, workspaceIDStr).
 		Update("is_active", false).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to revoke API key"})

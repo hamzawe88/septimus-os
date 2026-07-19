@@ -49,6 +49,7 @@ type CreateEntityRequest struct {
 	WorkspaceID string                 `json:"workspace_id"`
 	ProjectID   string                 `json:"project_id"`
 	EntityType  string                 `json:"entity_type"`
+	Type        string                 `json:"type"`
 	Data        map[string]interface{} `json:"data"`
 }
 
@@ -119,10 +120,15 @@ func CreateEntity(c *fiber.Ctx) error {
 	}
 
 	// The frontend (like GetEntities/UpdateEntity/DeleteEntity) passes workspace_id
-	// as a query param; fall back to the body for backward compatibility.
+	// as a query param; fall back to the body or JWT locals.
 	workspaceIDStr := c.Query("workspace_id")
 	if workspaceIDStr == "" {
 		workspaceIDStr = req.WorkspaceID
+	}
+	if workspaceIDStr == "" {
+		if ws, ok := c.Locals("workspace_id").(string); ok {
+			workspaceIDStr = ws
+		}
 	}
 	workspaceID, err := uuid.Parse(workspaceIDStr)
 	if err != nil {
@@ -130,6 +136,9 @@ func CreateEntity(c *fiber.Ctx) error {
 	}
 
 	// ✅ Validate entity_type against allowlist
+	if req.EntityType == "" && req.Type != "" {
+		req.EntityType = req.Type
+	}
 	if req.EntityType == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "entity_type is required"})
 	}
@@ -138,7 +147,7 @@ func CreateEntity(c *fiber.Ctx) error {
 	if !isValidType {
 		// Check if it's a dynamic schema created by the user
 		var schemaCount int64
-		database.DB.Model(&models.Entity{}).Where("workspace_id = ? AND entity_type = ? AND data->>'name' = ?", workspaceID, "schema", req.EntityType).Count(&schemaCount)
+		database.GetDB(c).Model(&models.Entity{}).Where("workspace_id = ? AND entity_type = ? AND data->>'name' = ?", workspaceID, "schema", req.EntityType).Count(&schemaCount)
 		if schemaCount > 0 {
 			isValidType = true
 		}
@@ -172,7 +181,7 @@ func CreateEntity(c *fiber.Ctx) error {
 	}
 
 	// Save to DB
-	if result := database.DB.Create(&entity); result.Error != nil {
+	if result := database.GetDB(c).Create(&entity); result.Error != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create entity"})
 	}
 
@@ -194,6 +203,11 @@ func CreateEntity(c *fiber.Ctx) error {
 // GET /api/v1/entities?workspace_id=UUID&type=task
 func GetEntities(c *fiber.Ctx) error {
 	workspaceIDStr := c.Query("workspace_id")
+	if workspaceIDStr == "" {
+		if ws, ok := c.Locals("workspace_id").(string); ok {
+			workspaceIDStr = ws
+		}
+	}
 	entityType := c.Query("type")
 
 	page := c.QueryInt("page", 1)
@@ -208,7 +222,7 @@ func GetEntities(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid workspace_id"})
 	}
 
-	query := database.DB.Model(&models.Entity{}).Where("workspace_id = ?", workspaceID)
+	query := database.GetDB(c).Model(&models.Entity{}).Where("workspace_id = ?", workspaceID)
 	if entityType != "" {
 		query = query.Where("entity_type = ?", entityType)
 	}
@@ -246,6 +260,11 @@ type UpdateEntityRequest struct {
 func UpdateEntity(c *fiber.Ctx) error {
 	id := c.Params("id")
 	workspaceIDStr := c.Query("workspace_id")
+	if workspaceIDStr == "" {
+		if ws, ok := c.Locals("workspace_id").(string); ok {
+			workspaceIDStr = ws
+		}
+	}
 
 	if workspaceIDStr == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "workspace_id is required"})
@@ -267,7 +286,7 @@ func UpdateEntity(c *fiber.Ctx) error {
 	}
 
 	var entity models.Entity
-	if err := database.DB.Where("id = ? AND workspace_id = ?", entityID, workspaceID).First(&entity).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", entityID, workspaceID).First(&entity).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Entity not found"})
 	}
 
@@ -288,7 +307,7 @@ func UpdateEntity(c *fiber.Ctx) error {
 		entity.Data = datatypes.JSON(dataBytes)
 	}
 
-	if err := database.DB.Save(&entity).Error; err != nil {
+	if err := database.GetDB(c).Save(&entity).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to update entity"})
 	}
 
@@ -311,6 +330,11 @@ func UpdateEntity(c *fiber.Ctx) error {
 func DeleteEntity(c *fiber.Ctx) error {
 	id := c.Params("id")
 	workspaceIDStr := c.Query("workspace_id")
+	if workspaceIDStr == "" {
+		if ws, ok := c.Locals("workspace_id").(string); ok {
+			workspaceIDStr = ws
+		}
+	}
 
 	if workspaceIDStr == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "workspace_id is required"})
@@ -327,11 +351,11 @@ func DeleteEntity(c *fiber.Ctx) error {
 	}
 
 	var entity models.Entity
-	if err := database.DB.Where("id = ? AND workspace_id = ?", entityID, workspaceID).First(&entity).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", entityID, workspaceID).First(&entity).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Entity not found"})
 	}
 
-	if err := database.DB.Delete(&entity).Error; err != nil {
+	if err := database.GetDB(c).Delete(&entity).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to delete entity"})
 	}
 

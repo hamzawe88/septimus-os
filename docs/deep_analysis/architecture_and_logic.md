@@ -20,8 +20,9 @@
 2. **نطاق إدارة المشاريع الأجايل (`Agile PM`)**: إدارة المشاريع، السكروم (`Sprint`)، المهام الشجرية باستخدام `ltree`، وسجل التعديلات (`pm.go`, `pm_update.go`, `sprint.go`, `workdocs.go`).
 3. **نطاق التعاون والمحادثات اللحظية (`Chat & Real-time`)**: الغرف، سلاسل الردود (`Threads`)، البحث الكامل الفوري (`tsvector`)، إدارة جلسات الويب سوكت (`websocket.go`) والغرف الصوتية (`huddle.go`).
 4. **نطاق الحضور والموارد البشرية (`HR Attendance & Geofencing`)**: إدارة الفروع والإحداثيات، تسجيل الحضور وحساب المسافات الجغرافي (`haversine distance`) مع محاكي فحص النطاق (`attendance.go`).
-5. **نطاق الأتمتة وسير العمل (`Workflows & Integrations`)**: محرك تنفيذ المخططات (`DAG Executor`) الداعم للعقد المخصصة (`ai_agent`, `send_slack`, `send_email`) مع مشغلات ناتجة عن أحداث النظام (`workflow_executor.go`).
-6. **نطاق الكيانات الديناميكية (`Entities - JSONB Engine`)**: معالجة الكيانات المرنة (`entities.go`) مثل الفواتير، صفقات الـ CRM، وطلبات الإجازات بمرونة دون الحاجة لـ Migrations.
+5. **نطاق الأتمتة وسير العمل (`Workflows & Integrations`)**: محرك تنفيذ المخططات (`DAG Executor`) الداعم للعقد المخصصة (`ai_agent`, `send_slack`, `send_chat`) مع مشغلات ناتجة عن أحداث النظام (`workflow_executor.go`). يدعم الحقن المباشر للرسائل عبر `InjectSystemMessageDirect` لبث التنبيهات لحظياً على قنوات `Centrifugo` دون استدعاءات شبكية دائرية.
+6. **نطاق الكيانات الديناميكية (`Entities - JSONB Engine`)**: معالجة الكيانات المرنة (`entities.go`) مع استخلاص عزل مساحة العمل (`workspace_id`) تلقائياً من جلسة الـ JWT ودعم المرادفات البرمجية (`Aliases`) للحقول البرمجية.
+7. **نطاق المراسلات الرسمية والقوالب (`Correspondence & Templates Engine`)**: إدارة القوالب والترويسات والتذيلات الموحدة للشركات وتوليد الخطابات الموثقة (`correspondence.go`, `correspondence_templates.go`).
 
 ---
 

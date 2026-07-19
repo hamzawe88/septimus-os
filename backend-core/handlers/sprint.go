@@ -42,12 +42,12 @@ func CreateSprint(c *fiber.Ctx) error {
 		EndDate:   req.EndDate,
 	}
 
-	if err := database.DB.Create(&sprint).Error; err != nil {
+	if err := database.GetDB(c).Create(&sprint).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create sprint"})
 	}
 
 	var project models.Project
-	if err := database.DB.First(&project, "id = ?", projectID).Error; err == nil {
+	if err := database.GetDB(c).First(&project, "id = ?", projectID).Error; err == nil {
 		if integration, active := GetActiveIntegration(project.WorkspaceID, "google_calendar"); active {
 			token := services.GetClient(integration.AccessToken, integration.RefreshToken, integration.Expiry)
 			
@@ -64,7 +64,7 @@ func CreateSprint(c *fiber.Ctx) error {
 			eventID, htmlLink, err := services.CreateCalendarEvent(c.Context(), token, sprint.Name, sprint.Goal, startStr, endStr)
 			if err == nil {
 				sprint.CalendarEventLink = htmlLink
-				database.DB.Save(&sprint)
+				database.GetDB(c).Save(&sprint)
 			} else {
 				log.Printf("Failed to create Google Calendar event: %v", err)
 			}
@@ -95,7 +95,7 @@ func GetSprints(c *fiber.Ctx) error {
 	}
 
 	var sprints []models.Sprint
-	if err := database.DB.Where("project_id = ?", pid).Order("created_at desc").Find(&sprints).Error; err != nil {
+	if err := database.GetDB(c).Where("project_id = ?", pid).Order("created_at desc").Find(&sprints).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch sprints"})
 	}
 
@@ -111,7 +111,7 @@ func StartSprint(c *fiber.Ctx) error {
 	}
 
 	var sprint models.Sprint
-	if err := database.DB.First(&sprint, "id = ?", sprintID).Error; err != nil {
+	if err := database.GetDB(c).First(&sprint, "id = ?", sprintID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Sprint not found"})
 	}
 
@@ -125,7 +125,7 @@ func StartSprint(c *fiber.Ctx) error {
 		sprint.StartDate = &now
 	}
 
-	if err := database.DB.Save(&sprint).Error; err != nil {
+	if err := database.GetDB(c).Save(&sprint).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to start sprint"})
 	}
 
@@ -141,7 +141,7 @@ func CompleteSprint(c *fiber.Ctx) error {
 	}
 
 	var sprint models.Sprint
-	if err := database.DB.First(&sprint, "id = ?", sprintID).Error; err != nil {
+	if err := database.GetDB(c).First(&sprint, "id = ?", sprintID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Sprint not found"})
 	}
 
@@ -155,7 +155,7 @@ func CompleteSprint(c *fiber.Ctx) error {
 		sprint.EndDate = &now
 	}
 
-	if err := database.DB.Save(&sprint).Error; err != nil {
+	if err := database.GetDB(c).Save(&sprint).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to complete sprint"})
 	}
 

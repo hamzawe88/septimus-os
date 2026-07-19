@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Users, Shield, Building2, Search, Plus } from "lucide-react";
+import { Users, Shield, Building2, Search, Plus, Sparkles, Activity } from "lucide-react";
 import { apiGet, apiPut, apiPost } from "@/lib/apiClient";
 import { Button } from "@/components/ui/button";
+import SaaSPlansManager from "./SaaSPlansManager";
+import PaymentSettings from "./PaymentSettings";
+import AuditLogsView from "./AuditLogsView";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +19,7 @@ import {
 import PermissionsMatrix from "./PermissionsMatrix";
 import OrgChartContainer from "../org/OrgChartContainer";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { useAppStore } from "@/store/useAppStore";
 
 interface User {
   ID: string;
@@ -28,12 +32,13 @@ interface User {
 }
 
 export default function AdminDashboard() {
-  const { t } = useLocalization();
+  const { t, isRtl } = useLocalization();
+  const { isSidebarOpen } = useAppStore();
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<{ID: string, Name: string}[]>([]);
   const [roles, setRoles] = useState<{ID: string, Name: string}[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("users"); // users, roles, departments
+  const [activeTab, setActiveTab] = useState("users"); // users, roles, departments, logs, saas
   const [searchQuery, setSearchQuery] = useState("");
   const [newDeptName, setNewDeptName] = useState("");
   const [isAddDeptOpen, setIsAddDeptOpen] = useState(false);
@@ -121,97 +126,121 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#f8fafc] dark:bg-[#0f0f0f]">
-      {/* Header */}
-      <div className="flex-none p-8 pb-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1a1a] transition-colors">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("admin.title")}</h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">{t("admin.subtitle")}</p>
-        
-        {/* Tabs */}
-        <div className="flex gap-4 mt-6">
-          <TabButton 
-            active={activeTab === "users"} 
-            onClick={() => setActiveTab("users")} 
-            icon={<Users size={18} />} 
-            label={t("admin.usersTab")} 
-          />
-          <TabButton 
-            active={activeTab === "roles"} 
-            onClick={() => setActiveTab("roles")} 
-            icon={<Shield size={18} />} 
-            label={t("admin.rolesTab")} 
-          />
-          <TabButton 
-            active={activeTab === "departments"} 
-            onClick={() => setActiveTab("departments")} 
-            icon={<Building2 size={18} />} 
-            label={t("admin.departmentsTab")} 
-          />
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-900 transition-colors" dir={isRtl ? "rtl" : "ltr"}>
+      {/* Premium Header */}
+      <div className="flex-none p-8 md:p-10 border-b border-slate-200/50 dark:border-slate-800/50 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl transition-colors relative overflow-hidden">
+        <div className="absolute -top-40 -end-40 w-96 h-96 bg-brand/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="relative z-10">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+            <Shield className="w-8 h-8 text-brand" />
+            {t("admin.title")}
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium max-w-2xl">{t("admin.subtitle")}</p>
+          
+          {/* Tabs */}
+          <div className="flex gap-2 md:gap-4 mt-8 overflow-x-auto pb-2 scrollbar-none">
+            <TabButton 
+              active={activeTab === "users"} 
+              onClick={() => setActiveTab("users")} 
+              icon={<Users size={18} />} 
+              label={t("admin.usersTab")} 
+            />
+            <TabButton 
+              active={activeTab === "roles"} 
+              onClick={() => setActiveTab("roles")} 
+              icon={<Shield size={18} />} 
+              label={t("admin.rolesTab")} 
+            />
+            <TabButton 
+              active={activeTab === "departments"} 
+              onClick={() => setActiveTab("departments")} 
+              icon={<Building2 size={18} />} 
+              label={t("admin.departmentsTab")} 
+            />
+            <TabButton 
+              active={activeTab === "logs"} 
+              onClick={() => setActiveTab("logs")} 
+              icon={<Activity size={18} />} 
+              label={t('admin.logsTab')} 
+            />
+            <TabButton 
+              active={activeTab === "saas"} 
+              onClick={() => setActiveTab("saas")} 
+              icon={<Sparkles size={18} />} 
+              label={t('admin.saasTab', 'SaaS Plans')} 
+            />
+            <TabButton 
+              active={activeTab === "gateways"} 
+              onClick={() => setActiveTab("gateways")} 
+              icon={<Building2 size={18} />} 
+              label={t('admin.gatewaysTab', 'Payment Gateways')} 
+            />
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 overflow-y-auto p-4 md:p-8">
         {activeTab === "users" && (
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-              <div className="relative">
-                <Search className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+          <div className={`bg-white/80 dark:bg-[#222529] backdrop-blur-xl rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all duration-300 mx-auto ${isSidebarOpen ? 'max-w-7xl' : 'max-w-full'}`}>
+            <div className="p-6 md:p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+              <div className="relative w-full md:w-auto">
+                <Search className="absolute end-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
                 <input 
                   type="text" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t("admin.searchUser")} 
-                  className="ps-4 pe-10 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand w-64 bg-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                  className="w-full md:w-80 px-5 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 transition-all shadow-inner"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-3 w-full md:w-auto">
                 <Dialog open={isAddDeptOpen} onOpenChange={setIsAddDeptOpen}>
-                  <DialogTrigger className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center gap-2 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
-                    <Building2 size={16} />
+                  <DialogTrigger className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-2 h-12 px-6 rounded-xl font-bold transition-all shadow-sm flex-1 md:flex-none">
+                    <Building2 size={18} />
                     {t("admin.addDept")}
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]" dir="rtl">
-                    <DialogHeader>
-                      <DialogTitle>{t("admin.addNewDept")}</DialogTitle>
+                  <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 shadow-2xl rounded-[2rem]" dir={isRtl ? "rtl" : "ltr"}>
+                    <DialogHeader className="p-6 pb-0 md:p-8 md:pb-0">
+                      <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white">{t("admin.addNewDept")}</DialogTitle>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <label className="text-end text-sm font-medium">{t("admin.deptName")}</label>
-                        <input title={t("admin.deptName")} aria-label={t("admin.deptName")} value={newDeptName} onChange={e => setNewDeptName(e.target.value)} className="col-span-3 flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm dark:text-slate-100" placeholder={t("admin.deptNamePlaceholder")} />
+                    <div className="p-6 md:p-8 space-y-5">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">{t("admin.deptName")}</label>
+                        <input title={t("admin.deptName")} aria-label={t("admin.deptName")} value={newDeptName} onChange={e => setNewDeptName(e.target.value)} className="w-full px-4 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all" placeholder={t("admin.deptNamePlaceholder")} />
                       </div>
                     </div>
-                    <DialogFooter>
-                      <Button onClick={handleAddDepartment} className="bg-brand hover:bg-brand text-white w-full">{t("admin.saveDept")}</Button>
+                    <DialogFooter className="p-6 md:p-8 pt-0 border-t border-slate-100 dark:border-slate-800 mt-4">
+                      <Button onClick={handleAddDepartment} className="bg-brand hover:bg-brand/90 text-white w-full rounded-xl h-12 font-bold shadow-md shadow-brand/20 text-base">{t("admin.saveDept")}</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
 
                 <Dialog>
-                  <DialogTrigger className="bg-brand hover:bg-brand text-white flex items-center gap-2 h-10 px-4 py-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
-                    <Plus size={16} />
+                  <DialogTrigger className="bg-brand hover:bg-brand/90 text-white flex items-center justify-center gap-2 h-12 px-6 rounded-xl font-bold transition-all shadow-md shadow-brand/20 flex-1 md:flex-none">
+                    <Plus size={18} />
                     {t("admin.addUser")}
                   </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]" dir="rtl">
+                <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 shadow-2xl rounded-[2rem]" dir={isRtl ? "rtl" : "ltr"}>
                   <form onSubmit={handleAddUser}>
-                    <DialogHeader>
-                      <DialogTitle>{t("admin.addNewUser")}</DialogTitle>
-                      <DialogDescription>
+                    <DialogHeader className="p-6 pb-0 md:p-8 md:pb-0">
+                      <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white">{t("admin.addNewUser")}</DialogTitle>
+                      <DialogDescription className="mt-2 text-slate-500 font-medium">
                         {t("admin.addNewUserDesc")}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <label htmlFor="name" className="text-end text-sm font-medium">{t("admin.name")}</label>
-                        <input id="name" name="name" required className="col-span-3 flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 dark:text-slate-100" placeholder={t("admin.namePlaceholder")} />
+                    <div className="p-6 md:p-8 space-y-5">
+                      <div>
+                        <label htmlFor="name" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">{t("admin.name")}</label>
+                        <input id="name" name="name" required className="w-full px-4 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all text-slate-900 dark:text-slate-100" placeholder={t("admin.namePlaceholder")} />
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <label htmlFor="email" className="text-end text-sm font-medium">{t("admin.email")}</label>
-                        <input id="email" name="email" required type="email" className="col-span-3 flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 dark:text-slate-100" placeholder="ahmed@septimus.local" />
+                      <div>
+                        <label htmlFor="email" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">{t("admin.email")}</label>
+                        <input id="email" name="email" required type="email" className="w-full px-4 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all text-slate-900 dark:text-slate-100" placeholder="ahmed@septimus.local" />
                       </div>
                     </div>
-                    <DialogFooter>
-                      <Button type="submit" className="bg-brand hover:bg-brand text-white w-full">{t("admin.saveUser")}</Button>
+                    <DialogFooter className="p-6 md:p-8 pt-0 border-t border-slate-100 dark:border-slate-800 mt-4">
+                      <Button type="submit" className="bg-brand hover:bg-brand/90 text-white w-full rounded-xl h-12 font-bold shadow-md shadow-brand/20 text-base">{t("admin.saveUser")}</Button>
                     </DialogFooter>
                   </form>
                 </DialogContent>
@@ -219,86 +248,86 @@ export default function AdminDashboard() {
               </div>
             </div>
             
-            <div className="overflow-x-auto">
-              <table className="w-full text-end">
-                <thead className="bg-slate-50 dark:bg-[#121212] border-b border-slate-200 dark:border-slate-800">
-                  <tr>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">{t("admin.name")}</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">{t("admin.emailColumn")}</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">{t("admin.deptColumn")}</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">{t("admin.roleColumn")}</th>
-                    <th className="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">{t("admin.actionsColumn")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400">{t("admin.loading")}</td>
-                    </tr>
-                  ) : filteredUsers.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400">{t("admin.noUsers")}</td>
-                    </tr>
-                  ) : (
-                    filteredUsers.map(user => (
-                      <tr key={user.ID} className="hover:bg-slate-50 dark:hover:bg-[#121212] transition-colors">
-                        <td className="px-6 py-4 text-sm text-slate-800 dark:text-slate-100 font-medium">{user.Name || user.Email.split('@')[0]}</td>
-                        <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{user.Email}</td>
-                        <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{user.Department?.Name || t("admin.noDept")}</td>
-                        <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">
-                          <span className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-medium">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {isLoading ? (
+                <div className="p-12 flex justify-center">
+                  <div className="w-8 h-8 border-4 border-brand/30 border-t-brand rounded-full animate-spin" />
+                </div>
+              ) : filteredUsers.length === 0 ? (
+                <div className="p-16 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                  <Users className="w-12 h-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">{t("admin.noUsers")}</p>
+                </div>
+              ) : (
+                filteredUsers.map(user => (
+                  <div key={user.ID} className="p-6 md:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full">
+                      <div>
+                        <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">{user.Name || user.Email.split('@')[0]}</h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{user.Email}</p>
+                      </div>
+                      <div className="flex flex-col justify-center">
+                        <span className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">{t("admin.deptColumn")}</span>
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          {user.Department?.Name || t("admin.noDept")}
+                        </span>
+                      </div>
+                      <div className="flex flex-col justify-center">
+                        <span className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">{t("admin.roleColumn")}</span>
+                        <div>
+                          <span className="px-3 py-1 rounded-full bg-brand/10 text-brand text-xs font-bold shadow-sm inline-block">
                             {typeof user.Role === 'string' ? user.Role : (user.Role?.Name || t("admin.regularMember"))}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          <Dialog>
-                            <DialogTrigger className="text-brand hover:text-brand hover:bg-brand-light px-3 py-1 rounded-md text-sm font-medium transition-colors">
-                              {t("admin.edit")}
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-[425px]" dir="rtl">
-                              <form onSubmit={(e) => handleUpdateUser(e, user.ID)}>
-                                <DialogHeader>
-                                  <DialogTitle>{t("admin.editUser")}</DialogTitle>
-                                  <DialogDescription>
-                                    {t("admin.editUserDesc")} {user.Name || user.Email.split('@')[0]}
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                    <label className="text-end text-sm font-medium">{t("admin.name")}</label>
-                                    <input title={t("admin.name")} aria-label={t("admin.name")} name="name" defaultValue={user.Name || user.Email.split('@')[0]} className="col-span-3 flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm dark:text-slate-100" />
-                                  </div>
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                    <label className="text-end text-sm font-medium">{t("admin.email")}</label>
-                                    <input title={t("admin.email")} aria-label={t("admin.email")} name="email" type="email" defaultValue={user.Email} className="col-span-3 flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm dark:text-slate-100" />
-                                  </div>
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                    <label className="text-end text-sm font-medium">{t("admin.deptColumn")}</label>
-                                    <select title={t("admin.deptColumn")} aria-label={t("admin.deptColumn")} name="department" defaultValue={user.DepartmentID || ""} className="col-span-3 flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm dark:text-slate-100">
-                                      <option value="">{t("admin.noDept")}</option>
-                                      {departments.map(d => <option key={d.ID} value={d.ID}>{d.Name}</option>)}
-                                    </select>
-                                  </div>
-                                  <div className="grid grid-cols-4 items-center gap-4">
-                                    <label className="text-end text-sm font-medium">{t("admin.roleColumn")}</label>
-                                    <select title={t("admin.roleColumn")} aria-label={t("admin.roleColumn")} name="role" defaultValue={user.RoleID || ""} className="col-span-3 flex h-10 w-full rounded-md border border-slate-300 dark:border-slate-600 bg-transparent px-3 py-2 text-sm dark:text-slate-100">
-                                      <option value="">{t("admin.noRole")}</option>
-                                      {roles.map(r => <option key={r.ID} value={r.ID}>{r.Name}</option>)}
-                                    </select>
-                                  </div>
-                                </div>
-                                <DialogFooter>
-                                  <Button type="submit" className="bg-brand hover:bg-brand text-white w-full">{t("admin.saveChanges")}</Button>
-                                </DialogFooter>
-                              </form>
-                            </DialogContent>
-                          </Dialog>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center w-full sm:w-auto mt-4 sm:mt-0">
+                      <Dialog>
+                        <DialogTrigger className="w-full sm:w-auto rounded-xl h-10 px-6 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                          {t("admin.edit")}
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 shadow-2xl rounded-[2rem]" dir={isRtl ? "rtl" : "ltr"}>
+                          <form onSubmit={(e) => handleUpdateUser(e, user.ID)}>
+                            <DialogHeader className="p-6 pb-0 md:p-8 md:pb-0">
+                              <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white">{t("admin.editUser")}</DialogTitle>
+                              <DialogDescription className="mt-2 text-slate-500 font-medium">
+                                {t("admin.editUserDesc")} {user.Name || user.Email.split('@')[0]}
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="p-6 md:p-8 space-y-5">
+                              <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">{t("admin.name")}</label>
+                                <input title={t("admin.name")} aria-label={t("admin.name")} name="name" defaultValue={user.Name || user.Email.split('@')[0]} className="w-full px-4 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all text-slate-900 dark:text-slate-100" />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">{t("admin.email")}</label>
+                                <input title={t("admin.email")} aria-label={t("admin.email")} name="email" type="email" defaultValue={user.Email} className="w-full px-4 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all text-slate-900 dark:text-slate-100" />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">{t("admin.deptColumn")}</label>
+                                <select title={t("admin.deptColumn")} aria-label={t("admin.deptColumn")} name="department" defaultValue={user.DepartmentID || ""} className="w-full px-4 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all text-slate-900 dark:text-slate-100 cursor-pointer">
+                                  <option value="">{t("admin.noDept")}</option>
+                                  {departments.map(d => <option key={d.ID} value={d.ID}>{d.Name}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">{t("admin.roleColumn")}</label>
+                                <select title={t("admin.roleColumn")} aria-label={t("admin.roleColumn")} name="role" defaultValue={user.RoleID || ""} className="w-full px-4 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all text-slate-900 dark:text-slate-100 cursor-pointer">
+                                  <option value="">{t("admin.noRole")}</option>
+                                  {roles.map(r => <option key={r.ID} value={r.ID}>{r.Name}</option>)}
+                                </select>
+                              </div>
+                            </div>
+                            <DialogFooter className="p-6 md:p-8 pt-0 border-t border-slate-100 dark:border-slate-800 mt-4">
+                              <Button type="submit" className="bg-brand hover:bg-brand/90 text-white w-full rounded-xl h-12 font-bold shadow-md shadow-brand/20 text-base">{t("admin.saveChanges")}</Button>
+                            </DialogFooter>
+                          </form>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
@@ -314,6 +343,24 @@ export default function AdminDashboard() {
             <OrgChartContainer />
           </div>
         )}
+
+        {activeTab === "logs" && (
+          <div className="h-full min-h-[600px]">
+            <AuditLogsView />
+          </div>
+        )}
+
+        {activeTab === "saas" && (
+          <div className="h-full min-h-[600px]">
+            <SaaSPlansManager />
+          </div>
+        )}
+
+        {activeTab === "gateways" && (
+          <div className="h-full min-h-[600px]">
+            <PaymentSettings />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -323,10 +370,10 @@ function TabButton({ active, onClick, icon, label }: { active: boolean, onClick:
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors font-medium text-sm ${
+      className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all font-bold text-sm whitespace-nowrap ${
         active 
-          ? "border-brand text-brand" 
-          : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-300"
+          ? "bg-brand text-white shadow-md shadow-brand/30" 
+          : "bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200"
       }`}
     >
       {icon}

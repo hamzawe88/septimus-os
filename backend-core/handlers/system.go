@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
@@ -33,7 +34,7 @@ func InjectSystemMessage(c *fiber.Ctx) error {
 
 	channelID := database.ParseUUID(req.ChannelID)
 	var channel models.Channel
-	if err := database.DB.Where("id = ?", channelID).First(&channel).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", channelID).First(&channel).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Channel not found"})
 	}
 
@@ -63,7 +64,7 @@ func InjectSystemMessage(c *fiber.Ctx) error {
 		dbMsg.AIProposal = &propJSON
 	}
 
-	if err := database.DB.Create(&dbMsg).Error; err != nil {
+	if err := database.GetDB(c).Create(&dbMsg).Error; err != nil {
 		log.Printf("[InjectSystemMessage] failed to create message: %v", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create message"})
 	}
@@ -91,4 +92,46 @@ func InjectSystemMessage(c *fiber.Ctx) error {
 	WSHub.BroadcastToChannel(req.ChannelID, out)
 
 	return c.Status(fiber.StatusCreated).JSON(dbMsg)
+}
+
+// InjectSystemMessageDirect allows internal Go functions in handlers package (like workflow_executor) to inject a message without an HTTP loopback.
+func InjectSystemMessageDirect(channelIDStr, content, aiAgentRole string, isAI bool) error {
+	channelID := database.ParseUUID(channelIDStr)
+	var channel models.Channel
+	if err := database.DB.Where("id = ?", channelID).First(&channel).Error; err != nil {
+		return fmt.Errorf("channel not found: %w", err)
+	}
+
+	senderID, err := aiSystemUserID(channel.WorkspaceID)
+	if err != nil {
+		return fmt.Errorf("cannot resolve AI sender user: %w", err)
+	}
+
+	dbMsg := models.Message{
+		ChannelID:     channelID,
+		SenderID:      senderID,
+		Content:       content,
+		IsAIGenerated: isAI,
+		AIAgentRole:   aiAgentRole,
+	}
+
+	if err := database.DB.Create(&dbMsg).Error; err != nil {
+		return fmt.Errorf("failed to create message: %w", err)
+	}
+
+	outPayload := map[string]interface{}{
+		"ID":            dbMsg.ID,
+		"CreatedAt":     dbMsg.CreatedAt,
+		"Content":       dbMsg.Content,
+		"ChannelID":     dbMsg.ChannelID,
+		"type":          "chat_message",
+		"IsAIGenerated": dbMsg.IsAIGenerated,
+		"AIAgentRole":   dbMsg.AIAgentRole,
+		"User": map[string]interface{}{
+			"Email": aiAgentRole,
+		},
+	}
+	out, _ := json.Marshal(outPayload)
+	WSHub.BroadcastToChannel(channelIDStr, out)
+	return nil
 }

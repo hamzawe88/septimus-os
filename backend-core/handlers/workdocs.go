@@ -47,7 +47,7 @@ func CreateWorkDoc(c *fiber.Ctx) error {
 		CreatedBy:    userUUID,
 	}
 
-	if err := database.DB.Create(&doc).Error; err != nil {
+	if err := database.GetDB(c).Create(&doc).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create document"})
 	}
 
@@ -67,7 +67,7 @@ func GetWorkDocs(c *fiber.Ctx) error {
 	}
 
 	var docs []models.WorkDoc
-	if err := database.DB.Where("project_id = ?", pUUID).Order("created_at desc").Find(&docs).Error; err != nil {
+	if err := database.GetDB(c).Where("project_id = ?", pUUID).Order("created_at desc").Find(&docs).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch documents"})
 	}
 
@@ -82,7 +82,7 @@ func GetWorkDoc(c *fiber.Ctx) error {
 	}
 
 	var doc models.WorkDoc
-	if err := database.DB.Where("id = ?", docID).First(&doc).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", docID).First(&doc).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 	}
 
@@ -97,7 +97,7 @@ func DeleteWorkDoc(c *fiber.Ctx) error {
 	}
 
 	var doc models.WorkDoc
-	if err := database.DB.Where("id = ?", docID).First(&doc).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", docID).First(&doc).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 	}
 
@@ -107,7 +107,7 @@ func DeleteWorkDoc(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not have permission to delete this document"})
 	}
 
-	if err := database.DB.Where("id = ?", docID).Delete(&models.WorkDoc{}).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", docID).Delete(&models.WorkDoc{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete document"})
 	}
 
@@ -129,7 +129,7 @@ func UpdateWorkDoc(c *fiber.Ctx) error {
 	}
 
 	var doc models.WorkDoc
-	if err := database.DB.Where("id = ?", docID).First(&doc).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ?", docID).First(&doc).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 	}
 
@@ -143,7 +143,7 @@ func UpdateWorkDoc(c *fiber.Ctx) error {
 		doc.Title = req.Title
 	}
 
-	if err := database.DB.Save(&doc).Error; err != nil {
+	if err := database.GetDB(c).Save(&doc).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update document"})
 	}
 
