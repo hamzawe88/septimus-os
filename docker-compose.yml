@@ -123,6 +123,10 @@ services:
       # Secrets live in the environment, never in the committed config.json, so
       # they can be rotated without leaking into git. Centrifugo v5 overrides any
       # flat config key with CENTRIFUGO_<KEY>.
+      # Explicit origin allow-list for the WebSocket handshake (space-separated).
+      # Add LAN/staging origins here (e.g. "http://localhost:3000 http://192.168.1.5:3000")
+      # — same rule as CORS_ALLOW_ORIGINS on backend-core.
+      - CENTRIFUGO_ALLOWED_ORIGINS=${CENTRIFUGO_ALLOWED_ORIGINS:-http://localhost:3000}
       - CENTRIFUGO_TOKEN_HMAC_SECRET_KEY=${CENTRIFUGO_SECRET:-supersecretcentrifugokey}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:-supersecretapikey}
       - CENTRIFUGO_ADMIN_PASSWORD=${CENTRIFUGO_ADMIN_PASSWORD:-admin}

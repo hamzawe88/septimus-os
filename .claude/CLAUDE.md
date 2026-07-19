@@ -11,7 +11,7 @@
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-07-17 (commit ed9a4fe). Confidence: 100%.
+Last indexed: 2026-07-19 (commit 843e78c). Confidence: 100%.
 ### Entry Points
 - `ai-sidecar/main.py`
 - `backend-core/main.go`
@@ -45,24 +45,24 @@ Last indexed: 2026-07-17 (commit ed9a4fe). Confidence: 100%.
 ### Hotspots (High Churn)
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `frontend/src/locales/ar.json` | 100.0th %ile | 8 | HaMzWe |
-| `frontend/src/locales/en.json` | 99.7th %ile | 8 | HaMzWe |
-| `ai-sidecar/main.py` | 99.4th %ile | 6 | HaMzWe |
-| `frontend/src/components/layout/TopBar.tsx` | 99.1th %ile | 4 | HaMzWe |
-| `frontend/src/components/layout/SettingsModal.tsx` | 98.8th %ile | 3 | HaMzWe |
+| `frontend/src/locales/ar.json` | 100.0th %ile | 9 | HaMzWe |
+| `frontend/src/locales/en.json` | 99.7th %ile | 9 | HaMzWe |
+| `frontend/src/components/settings/AISettings.tsx` | 99.5th %ile | 4 | HaMzWe |
+| `ai-sidecar/main.py` | 99.2th %ile | 7 | HaMzWe |
+| `frontend/src/components/layout/TopBar.tsx` | 99.0th %ile | 5 | HaMzWe |
 
 ## Code health
 Three signals: **defect risk** (the overall score), **maintainability** (smells that hurt readability/change-cost without predicting bugs), and **performance** (static performance RISK: I/O-in-loop / N+1 shapes that waste work, high-precision/low-recall). Maintainability and performance are co-equal views, never blended into the defect headline. See `docs/CODE_HEALTH.md`.
 
-Defect risk, Hotspot health: 7.85/10 (stable) ·
-Average: 8.4/10 ·
-Worst: 2.28/10 (`backend-core/handlers/integrations.go`)
-Maintainability, Average: 8.88/10
-Performance risk, Average: 9.96/10
+Defect risk, Hotspot health: 7.52/10 (stable) ·
+Average: 8.22/10 ·
+Worst: 1.0/10 (`backend-core/handlers/agent_api.go`)
+Maintainability, Average: 8.84/10
+Performance risk, Average: 9.95/10
 
 ### Critical biomarkers
-- `backend-core/handlers/integrations.go` — change entropy — impact −2.5
 - `backend-core/models/models.go` — untested hotspot — impact −2.0
+- `backend-core/services/embeddings.go` — untested hotspot — impact −2.0
 - `frontend/src/components/crm/Customer360Modal.tsx` — change entropy — impact −1.8
 - `backend-core/main.go` — large method (main) — impact −1.0
 - `frontend/src/store/useCorrespondenceStore.ts` — brain method (persist callback) — impact −1.0
