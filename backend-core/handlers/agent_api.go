@@ -28,15 +28,23 @@ func ConfigAI(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	wsIDStr := c.Get("X-Workspace-ID")
+	// Resolve the tenant from the session first. Falling back to "the first
+	// workspace in the database" (the old behaviour) wrote one tenant's provider
+	// key into another tenant's settings.
+	wsIDStr := ""
+	if val := c.Locals("workspace_id"); val != nil {
+		if s, ok := val.(string); ok && s != "" && s != "nil" {
+			wsIDStr = s
+		}
+	}
+	if wsIDStr == "" {
+		wsIDStr = c.Get("X-Workspace-ID")
+	}
 	if wsIDStr == "" {
 		wsIDStr = c.Query("workspace_id")
 	}
 	if wsIDStr == "" || wsIDStr == "nil" {
-		var ws models.Workspace
-		if err := database.GetDB(c).First(&ws).Error; err == nil {
-			wsIDStr = ws.ID.String()
-		}
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing workspace context"})
 	}
 
 	encKey := input.APIKey
@@ -100,25 +108,28 @@ func ConfigAI(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"status": "saved"})
 }
 
-
 // GetAgentStatus retrieves the running state, logs, and pending approvals for all agents
 func GetAgentStatus(c *fiber.Ctx) error {
-	var states []models.AgentState
-	database.GetDB(c).Find(&states)
-
-	var logs []models.AgentCollaborationLog
-	database.GetDB(c).Order("created_at desc").Limit(50).Find(&logs)
-
-	var pending []models.PendingApproval
-	query := database.GetDB(c).Where("status = ?", "pending")
+	// Everything here is tenant data: agent names repeat across workspaces and
+	// collaboration logs quote real content, so all three reads are scoped to the
+	// caller's workspace (they used to return every tenant's rows).
+	wsID := getWorkspaceID(c)
 	wsIDStr := ""
 	if val := c.Locals("workspace_id"); val != nil {
 		wsIDStr = fmt.Sprintf("%v", val)
-		if wsIDStr != "" && wsIDStr != "nil" {
-			query = query.Where("payload->>'workspace_id' = ?", wsIDStr)
+		if wsIDStr == "nil" {
+			wsIDStr = ""
 		}
 	}
-	query.Find(&pending)
+
+	var states []models.AgentState
+	database.GetDB(c).Where("workspace_id = ?", wsID).Find(&states)
+
+	var logs []models.AgentCollaborationLog
+	database.GetDB(c).Where("workspace_id = ?", wsID).Order("created_at desc").Limit(50).Find(&logs)
+
+	var pending []models.PendingApproval
+	database.GetDB(c).Where("status = ? AND workspace_id = ?", "pending", wsID).Find(&pending)
 
 	// Also get config without API Key, checking unified settings first
 	provider := "openai"
@@ -146,7 +157,6 @@ func GetAgentStatus(c *fiber.Ctx) error {
 		}
 	}
 
-
 	return c.JSON(fiber.Map{
 		"config": fiber.Map{
 			"provider": provider,
@@ -165,12 +175,14 @@ func GetAgentStatus(c *fiber.Ctx) error {
 // KillAgent flips the kill switch for an agent
 func KillAgent(c *fiber.Ctx) error {
 	agentName := c.Params("name")
-	
-	// Find or create state
+	wsID := getWorkspaceID(c)
+
+	// Find or create state — scoped to the caller's workspace, otherwise killing
+	// "crm" would flip whichever tenant's row happened to be found first.
 	var state models.AgentState
-	if err := database.GetDB(c).Where("name = ?", agentName).First(&state).Error; err != nil {
+	if err := database.GetDB(c).Where("name = ? AND workspace_id = ?", agentName, wsID).First(&state).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			state = models.AgentState{Name: agentName, Status: "killed", LoopCount: 0}
+			state = models.AgentState{WorkspaceID: wsID, Name: agentName, Status: "killed", LoopCount: 0}
 			database.GetDB(c).Create(&state)
 		} else {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
@@ -214,7 +226,8 @@ type approvalPayload struct {
 func GetPendingApprovals(c *fiber.Ctx) error {
 	status := c.Query("status", "pending")
 	var approvals []models.PendingApproval
-	query := database.GetDB(c).Model(&models.PendingApproval{})
+	// Workspace-scoped: an approval carries the proposed write of one tenant.
+	query := database.GetDB(c).Model(&models.PendingApproval{}).Where("workspace_id = ?", getWorkspaceID(c))
 	if status != "all" && status != "*" && status != "" {
 		query = query.Where("status = ?", status)
 	}
@@ -241,11 +254,12 @@ func QueuePendingApproval(c *fiber.Ctx) error {
 	})
 
 	pending := models.PendingApproval{
-		AgentName:  req.AgentName,
-		ActionType: req.ActionType,
-		Payload:    string(payloadBytes),
-		Reason:     req.Reason,
-		Status:     "pending",
+		WorkspaceID: database.ParseUUID(req.WorkspaceID),
+		AgentName:   req.AgentName,
+		ActionType:  req.ActionType,
+		Payload:     string(payloadBytes),
+		Reason:      req.Reason,
+		Status:      "pending",
 	}
 	if err := database.GetDB(c).Create(&pending).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to queue approval"})
@@ -282,8 +296,10 @@ func ApprovePendingAction(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
+	// Scoped: without the workspace filter one tenant's admin could approve (and
+	// therefore execute) an action queued in another tenant.
 	var pending models.PendingApproval
-	if err := database.GetDB(c).Where("id = ?", id).First(&pending).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, getWorkspaceID(c)).First(&pending).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Pending action not found"})
 	}
 
@@ -323,20 +339,22 @@ func ApprovePendingAction(c *fiber.Ctx) error {
 		}
 
 		logEntry = models.AgentCollaborationLog{
-			AgentName:  pending.AgentName,
-			Action:     "Admin Approved Action",
-			InputData:  pending.ActionType,
-			OutputData: outcome,
-			Status:     status,
+			WorkspaceID: wsUUID,
+			AgentName:   pending.AgentName,
+			Action:      "Admin Approved Action",
+			InputData:   pending.ActionType,
+			OutputData:  outcome,
+			Status:      status,
 		}
 	} else {
 		pending.Status = "rejected"
 		logEntry = models.AgentCollaborationLog{
-			AgentName:  pending.AgentName,
-			Action:     "Admin Rejected Action",
-			InputData:  pending.Reason,
-			OutputData: "Action cancelled",
-			Status:     "failed",
+			WorkspaceID: wsUUID,
+			AgentName:   pending.AgentName,
+			Action:      "Admin Rejected Action",
+			InputData:   pending.Reason,
+			OutputData:  "Action cancelled",
+			Status:      "failed",
 		}
 	}
 

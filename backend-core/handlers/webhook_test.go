@@ -24,9 +24,9 @@ func setupWebhookTestDB(t *testing.T) {
 	createTables := []string{
 		`CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT, industry TEXT, created_at DATETIME, updated_at DATETIME);`,
 		`CREATE TABLE IF NOT EXISTS entities (id TEXT PRIMARY KEY, workspace_id TEXT, project_id TEXT, entity_type TEXT, data TEXT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME);`,
-		`CREATE TABLE IF NOT EXISTS pending_approvals (id TEXT PRIMARY KEY, agent_name TEXT, action_type TEXT, payload TEXT, reason TEXT, status TEXT, requested_at DATETIME, resolved_at DATETIME, resolved_by TEXT);`,
+		`CREATE TABLE IF NOT EXISTS pending_approvals (id TEXT PRIMARY KEY, workspace_id TEXT, agent_name TEXT, action_type TEXT, payload TEXT, reason TEXT, status TEXT, requested_at DATETIME, resolved_at DATETIME, resolved_by TEXT);`,
 		`CREATE TABLE IF NOT EXISTS workflows (id TEXT PRIMARY KEY, workspace_id TEXT, name TEXT, trigger_type TEXT, trigger_config TEXT, steps TEXT, is_active BOOLEAN, created_at DATETIME, updated_at DATETIME);`,
-		`CREATE TABLE IF NOT EXISTS agent_collaboration_logs (id TEXT PRIMARY KEY, session_id TEXT, agent_name TEXT, action TEXT, input_data TEXT, output_data TEXT, loop_count INTEGER, status TEXT, created_at DATETIME);`,
+		`CREATE TABLE IF NOT EXISTS agent_collaboration_logs (id TEXT PRIMARY KEY, workspace_id TEXT, session_id TEXT, agent_name TEXT, action TEXT, input_data TEXT, output_data TEXT, loop_count INTEGER, status TEXT, created_at DATETIME);`,
 	}
 
 	for _, query := range createTables {

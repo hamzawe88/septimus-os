@@ -42,14 +42,23 @@ func (ar *AgentRunners) StartAll() {
 }
 
 // checkKillSwitch reads from the database to see if the agent should be stopped
-func (ar *AgentRunners) checkKillSwitch(agentName string) bool {
+// workspaceOf extracts just the tenant from an agent task payload, so the kill
+// switch can be checked before the full parse without crossing tenants.
+func workspaceOf(data []byte) uuid.UUID {
+	_, ws, _ := parseAgentTask(data)
+	return ws
+}
+
+// checkKillSwitch is workspace-scoped: agent names repeat across tenants, so an
+// unscoped lookup would read (and create) another tenant's agent row.
+func (ar *AgentRunners) checkKillSwitch(workspaceID uuid.UUID, agentName string) bool {
 	var state models.AgentState
-	if err := ar.db.Where("name = ?", agentName).First(&state).Error; err != nil {
+	if err := ar.db.Where("name = ? AND workspace_id = ?", agentName, workspaceID).First(&state).Error; err != nil {
 		// If not found, assume running and create it
 		if err == gorm.ErrRecordNotFound {
 			// Config is a jsonb column — an empty string is invalid JSON and the
 			// insert would fail silently, leaving the agent invisible. Seed "{}".
-			ar.db.Create(&models.AgentState{Name: agentName, Status: "running", LoopCount: 0, Config: "{}"})
+			ar.db.Create(&models.AgentState{WorkspaceID: workspaceID, Name: agentName, Status: "running", LoopCount: 0, Config: "{}"})
 			return false
 		}
 		return false
@@ -58,19 +67,20 @@ func (ar *AgentRunners) checkKillSwitch(agentName string) bool {
 }
 
 func (ar *AgentRunners) incrementLoopCount(workspaceID uuid.UUID, agentName string) {
-	ar.db.Model(&models.AgentState{}).Where("name = ?", agentName).UpdateColumn("loop_count", gorm.Expr("loop_count + ?", 1))
+	ar.db.Model(&models.AgentState{}).Where("name = ? AND workspace_id = ?", agentName, workspaceID).UpdateColumn("loop_count", gorm.Expr("loop_count + ?", 1))
 
 	// Read back the row the UI renders and push it, so the loop counter and the
 	// status dot move the moment the agent picks the task up. One extra SELECT
 	// per dispatch — dispatches are user-initiated and rare.
 	var state models.AgentState
-	if err := ar.db.Where("name = ?", agentName).First(&state).Error; err == nil {
+	if err := ar.db.Where("name = ? AND workspace_id = ?", agentName, workspaceID).First(&state).Error; err == nil {
 		handlers.PublishAgentState(workspaceID, &state)
 	}
 }
 
 // createLog records the opening line of an agent run and streams it live.
 func (ar *AgentRunners) createLog(workspaceID uuid.UUID, entry *models.AgentCollaborationLog) {
+	entry.WorkspaceID = workspaceID
 	ar.db.Create(entry)
 	handlers.PublishAgentLog(workspaceID, entry)
 }
@@ -118,7 +128,7 @@ func (ar *AgentRunners) runCRMAgent() {
 	agentName := "crm"
 
 	_, err := ar.nc.Subscribe("agents.crm", func(msg *nats.Msg) {
-		if ar.checkKillSwitch(agentName) {
+		if ar.checkKillSwitch(workspaceOf(msg.Data), agentName) {
 			log.Printf("[%s] Agent killed, ignoring message", agentName)
 			return
 		}
@@ -136,7 +146,7 @@ func (ar *AgentRunners) runCRMAgent() {
 		ar.createLog(workspaceID, &logEntry)
 
 		// Kill switch re-check before the real (DB) work.
-		if ar.checkKillSwitch(agentName) {
+		if ar.checkKillSwitch(workspaceOf(msg.Data), agentName) {
 			ar.finishLog(workspaceID, &logEntry, "killed", "Terminated by kill switch")
 			return
 		}
@@ -191,7 +201,7 @@ func (ar *AgentRunners) runTaskAgent() {
 	agentName := "task"
 
 	_, err := ar.nc.Subscribe("agents.task", func(msg *nats.Msg) {
-		if ar.checkKillSwitch(agentName) {
+		if ar.checkKillSwitch(workspaceOf(msg.Data), agentName) {
 			log.Printf("[%s] Agent killed, ignoring message", agentName)
 			return
 		}
@@ -208,7 +218,7 @@ func (ar *AgentRunners) runTaskAgent() {
 		}
 		ar.createLog(workspaceID, &logEntry)
 
-		if ar.checkKillSwitch(agentName) {
+		if ar.checkKillSwitch(workspaceOf(msg.Data), agentName) {
 			ar.finishLog(workspaceID, &logEntry, "killed", "Terminated by kill switch")
 			return
 		}
@@ -258,7 +268,7 @@ func (ar *AgentRunners) runCommAgent() {
 	agentName := "comm"
 
 	_, err := ar.nc.Subscribe("agents.comm", func(msg *nats.Msg) {
-		if ar.checkKillSwitch(agentName) {
+		if ar.checkKillSwitch(workspaceOf(msg.Data), agentName) {
 			log.Printf("[%s] Agent killed, ignoring message", agentName)
 			return
 		}
@@ -292,11 +302,12 @@ func (ar *AgentRunners) runCommAgent() {
 			})
 
 			pending := models.PendingApproval{
-				AgentName:  agentName,
-				ActionType: "Send External Message",
-				Payload:    string(payloadBytes),
-				Reason:     "Sensitive keywords detected (refund/apology). Requires manual review.",
-				Status:     "pending",
+				WorkspaceID: workspaceID,
+				AgentName:   agentName,
+				ActionType:  "Send External Message",
+				Payload:     string(payloadBytes),
+				Reason:      "Sensitive keywords detected (refund/apology). Requires manual review.",
+				Status:      "pending",
 			}
 			ar.db.Create(&pending)
 			handlers.PublishAgentApproval(workspaceID, &pending, false)
@@ -307,7 +318,7 @@ func (ar *AgentRunners) runCommAgent() {
 			return
 		}
 
-		if ar.checkKillSwitch(agentName) {
+		if ar.checkKillSwitch(workspaceOf(msg.Data), agentName) {
 			ar.finishLog(workspaceID, &logEntry, "killed", "Terminated by kill switch")
 			return
 		}

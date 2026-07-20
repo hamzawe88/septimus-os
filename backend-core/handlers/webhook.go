@@ -380,20 +380,22 @@ func resolveHITLFromWebhook(workspaceID uuid.UUID, event string, data map[string
 		}
 
 		database.DB.Create(&models.AgentCollaborationLog{
-			AgentName:  pending.AgentName,
-			Action:     "Webhook Approved Action",
-			InputData:  pending.ActionType,
-			OutputData: outcome,
-			Status:     status,
+			WorkspaceID: pending.WorkspaceID,
+			AgentName:   pending.AgentName,
+			Action:      "Webhook Approved Action",
+			InputData:   pending.ActionType,
+			OutputData:  outcome,
+			Status:      status,
 		})
 	} else {
 		pending.Status = "rejected"
 		database.DB.Create(&models.AgentCollaborationLog{
-			AgentName:  pending.AgentName,
-			Action:     "Webhook Rejected Action",
-			InputData:  pending.Reason,
-			OutputData: "Action cancelled via external webhook",
-			Status:     "failed",
+			WorkspaceID: pending.WorkspaceID,
+			AgentName:   pending.AgentName,
+			Action:      "Webhook Rejected Action",
+			InputData:   pending.Reason,
+			OutputData:  "Action cancelled via external webhook",
+			Status:      "failed",
 		})
 	}
 

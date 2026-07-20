@@ -89,10 +89,11 @@ func DeployAgent(c *fiber.Ctx) error {
 	}
 
 	agent := models.AgentState{
-		Name:   payload.Name,
-		Role:   payload.Role,
-		Status: "running",
-		Config: string(configBytes),
+		WorkspaceID: getWorkspaceID(c),
+		Name:        payload.Name,
+		Role:        payload.Role,
+		Status:      "running",
+		Config:      string(configBytes),
 	}
 
 	if err := database.GetDB(c).Create(&agent).Error; err != nil {

@@ -207,11 +207,12 @@ func runMCPTool(workspaceID uuid.UUID, name string, args map[string]interface{})
 			Data:        map[string]interface{}{"title": title, "description": argStr("description"), "status": "Todo", "priority": 1, "points": 0},
 		})
 		pending := models.PendingApproval{
-			AgentName:  "mcp",
-			ActionType: "Create Task",
-			Payload:    string(payloadBytes),
-			Reason:     "External agent (MCP) proposed creating a task; awaiting human approval.",
-			Status:     "pending",
+			WorkspaceID: workspaceID,
+			AgentName:   "mcp",
+			ActionType:  "Create Task",
+			Payload:     string(payloadBytes),
+			Reason:      "External agent (MCP) proposed creating a task; awaiting human approval.",
+			Status:      "pending",
 		}
 		if err := database.DB.Create(&pending).Error; err != nil {
 			return "", fmt.Errorf("failed to queue task for approval")
