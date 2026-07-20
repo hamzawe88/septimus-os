@@ -11,7 +11,7 @@
 > (documentation, ownership, history, decisions). **Always verify against
 > actual source files before making changes** — the index may be stale.
 
-Last indexed: 2026-07-20 (commit b57fdce). Confidence: 100%.
+Last indexed: 2026-07-20 (commit b2b64f0). Confidence: 100%.
 ### Entry Points
 - `ai-sidecar/main.py`
 - `backend-core/main.go`
@@ -54,8 +54,8 @@ Last indexed: 2026-07-20 (commit b57fdce). Confidence: 100%.
 ## Code health
 Three signals: **defect risk** (the overall score), **maintainability** (smells that hurt readability/change-cost without predicting bugs), and **performance** (static performance RISK: I/O-in-loop / N+1 shapes that waste work, high-precision/low-recall). Maintainability and performance are co-equal views, never blended into the defect headline. See `docs/CODE_HEALTH.md`.
 
-Defect risk, Hotspot health: 7.52/10 (stable) ·
-Average: 8.22/10 ·
+Defect risk, Hotspot health: 7.51/10 (stable) ·
+Average: 8.21/10 ·
 Worst: 1.0/10 (`backend-core/handlers/agent_api.go`)
 Maintainability, Average: 8.84/10
 Performance risk, Average: 9.95/10

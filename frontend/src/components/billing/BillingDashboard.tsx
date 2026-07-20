@@ -195,9 +195,11 @@ export default function BillingDashboard() {
   }
 
   const currentTier = data.workspace.Tier || "free";
-  const userPct = Math.min(100, (data.usage.users.current / (data.usage.users.max || 1)) * 100);
-  const storagePct = Math.min(100, (data.usage.storage_gb.current / (data.usage.storage_gb.max || 1)) * 100);
-  const aiPct = Math.min(100, (data.usage.ai_queries.current / (data.usage.ai_queries.max || 1)) * 100);
+  const userPct = Math.min(100, ((data.usage?.users?.current ?? 0) / (data.usage?.users?.max || 1)) * 100);
+  const storagePct = Math.min(100, ((data.usage?.storage_gb?.current ?? 0) / (data.usage?.storage_gb?.max || 1)) * 100);
+  // Backend now reports real token consumption (ai_tokens) instead of the old
+  // estimated ai_queries counter; a 0/unlimited cap must not divide by zero.
+  const aiPct = Math.min(100, ((data.usage?.ai_tokens?.current ?? 0) / (data.usage?.ai_tokens?.max || 1)) * 100);
 
   return (
     <div dir={isRtl ? "rtl" : "ltr"} className={`space-y-8 pb-12 text-slate-800 dark:text-slate-100 mx-auto transition-all duration-300 ${isSidebarOpen ? 'max-w-7xl' : 'max-w-full'}`}>
@@ -314,9 +316,9 @@ export default function BillingDashboard() {
             </div>
             <div>
               <div className="flex justify-between items-end mb-3">
-                <span className="text-4xl font-black tracking-tight">{data.usage.users.current}</span>
+                <span className="text-4xl font-black tracking-tight">{data.usage?.users?.current ?? 0}</span>
                 <span className="text-sm font-semibold text-slate-400 mb-1">
-                  / {data.usage.users.max > 10000 ? "∞" : data.usage.users.max} {t('billingDashboard.usersCount')}
+                  / {(data.usage?.users?.max ?? 0) > 10000 || (data.usage?.users?.max ?? 0) < 0 ? "∞" : data.usage?.users?.max ?? 0} {t('billingDashboard.usersCount')}
                 </span>
               </div>
               <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
@@ -343,9 +345,9 @@ export default function BillingDashboard() {
             </div>
             <div>
               <div className="flex justify-between items-end mb-3">
-                <span className="text-4xl font-black tracking-tight">{data.usage.storage_gb.current}<span className="text-lg text-slate-400 ms-1">GB</span></span>
+                <span className="text-4xl font-black tracking-tight">{data.usage?.storage_gb?.current ?? 0}<span className="text-lg text-slate-400 ms-1">GB</span></span>
                 <span className="text-sm font-semibold text-slate-400 mb-1">
-                  / {data.usage.storage_gb.max} GB
+                  / {data.usage?.storage_gb?.max ?? 0} GB
                 </span>
               </div>
               <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
@@ -368,14 +370,14 @@ export default function BillingDashboard() {
                 <Sparkles className="w-5 h-5" />
               </div>
               <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                {t('billingDashboard.aiQueries')}
+                {t('billingDashboard.aiTokens')}
               </span>
             </div>
             <div className="relative z-10">
               <div className="flex justify-between items-end mb-3">
-                <span className="text-4xl font-black tracking-tight">{data.usage.ai_queries.current}</span>
+                <span className="text-4xl font-black tracking-tight">{(data.usage?.ai_tokens?.current ?? 0).toLocaleString()}</span>
                 <span className="text-sm font-semibold text-slate-400 mb-1">
-                  / {data.usage.ai_queries.max} {t('billingDashboard.queriesCount')}
+                  / {(data.usage?.ai_tokens?.max ?? 0) < 0 ? "∞" : (data.usage?.ai_tokens?.max ?? 0).toLocaleString()} {t('billingDashboard.tokensCount')}
                 </span>
               </div>
               <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">

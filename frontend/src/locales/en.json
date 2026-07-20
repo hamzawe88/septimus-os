@@ -1852,6 +1852,8 @@
     "rlsIsolation": "PostgreSQL RLS Data Isolation",
     "rlsDesc": "Your workspace is cryptographically isolated via Postgres Row-Level Security. No account outside your Tenant ID can read or write any record, even at the raw socket level.",
     "subdomainTelemetry": "Subdomain Slug & Sovereign Telemetry",
-    "telemetryDesc": "Your sessions are securely routed across distributed Septimus OS nodes, keeping all sensitive AI Sidecar processing local and fully sovereign."
+    "telemetryDesc": "Your sessions are securely routed across distributed Septimus OS nodes, keeping all sensitive AI Sidecar processing local and fully sovereign.",
+    "aiTokens": "AI Tokens (this month)",
+    "tokensCount": "tokens"
   }
 }

@@ -28,8 +28,12 @@ export interface QuotaItem {
 
 export interface BillingUsage {
   users: QuotaItem;
+  projects: QuotaItem;
   storage_gb: QuotaItem;
-  ai_queries: QuotaItem;
+  /** Real LLM tokens consumed this month (from ai_token_usages), replacing the
+   *  old estimated `ai_queries` counter. Optional so a shape change degrades
+   *  instead of crashing the dashboard. */
+  ai_tokens?: QuotaItem;
 }
 
 export interface WorkspaceTenantInfo {
