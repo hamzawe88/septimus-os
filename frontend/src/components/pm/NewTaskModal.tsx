@@ -1,10 +1,13 @@
 import React, { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { apiPost } from "@/lib/apiClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { FormField } from "@/components/ui/form-field";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { Plus } from "lucide-react";
 
 interface NewTaskModalProps {
   isOpen: boolean;
@@ -14,18 +17,20 @@ interface NewTaskModalProps {
 }
 
 export default function NewTaskModal({ isOpen, onClose, onTaskCreated, projectId }: NewTaskModalProps) {
-  const { isRtl } = useLocalization();
+  const { t } = useLocalization();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState(0);
   const [storyPoints, setStoryPoints] = useState<number | "">("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
     setIsSubmitting(true);
+    setErrorMessage("");
     try {
       await apiPost("/tasks", {
         project_id: projectId,
@@ -43,69 +48,72 @@ export default function NewTaskModal({ isOpen, onClose, onTaskCreated, projectId
       onClose();
     } catch (err) {
       console.error(err);
+      setErrorMessage(t("pm.newTask.createFailed"));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-white border border-slate-200 text-slate-900 sm:max-w-[425px]">
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{isRtl ? "إنشاء مهمة جديدة" : "Create New Task"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><Plus className="size-5 text-brand" />{t("pm.newTask.title")}</DialogTitle>
+          <DialogDescription>{t("pm.newTask.description")}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">{isRtl ? "العنوان" : "Title"}</label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {errorMessage ? <Alert tone="danger"><AlertDescription>{errorMessage}</AlertDescription></Alert> : null}
+          <FormField label={t("pm.newTask.taskTitle")} htmlFor="new-task-title" required>
             <Input
+              id="new-task-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={isRtl ? "مثال: تنفيذ مصادقة المستخدم" : "e.g. Implement user authentication"}
-              className="bg-white border-slate-200 focus-visible:ring-primary"
+              placeholder={t("pm.newTask.titlePlaceholder")}
               required
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">{isRtl ? "الوصف" : "Description"}</label>
+          </FormField>
+          <FormField label={t("pm.newTask.taskDescription")} htmlFor="new-task-description">
             <Textarea
+              id="new-task-description"
               value={description}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-              placeholder={isRtl ? "أضف تفاصيل عن هذه المهمة..." : "Add details about this task..."}
-              className="bg-white border-slate-200 focus-visible:ring-primary min-h-[100px]"
+              placeholder={t("pm.newTask.descriptionPlaceholder")}
+              className="min-h-[100px]"
             />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">{isRtl ? "الأولوية" : "Priority"}</label>
-            <div className="flex space-x-2">
+          </FormField>
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-semibold text-foreground">{t("pm.newTask.priority")}</legend>
+            <div className="flex gap-2">
               {[0, 1, 2, 3].map((p) => (
                 <Button
                   key={p}
                   type="button"
                   variant={priority === p ? "default" : "outline"}
                   onClick={() => setPriority(p)}
-                  className={`flex-1 ${priority !== p ? "bg-transparent border-slate-200 text-slate-500 hover:text-slate-900" : ""}`}
+                  className="flex-1"
+                  aria-pressed={priority === p}
                 >
                   P{p}
                 </Button>
               ))}
             </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">{isRtl ? "نقاط الجهد" : "Story Points"}</label>
+          </fieldset>
+          <FormField label={t("pm.newTask.storyPoints")} htmlFor="new-task-points" hint={t("pm.newTask.storyPointsHint")}>
             <Input
+              id="new-task-points"
               type="number"
+              min={0}
               value={storyPoints}
               onChange={(e) => setStoryPoints(e.target.value === "" ? "" : Number(e.target.value))}
-              placeholder={isRtl ? "مثال: 5" : "e.g. 5"}
-              className="bg-white border-slate-200 focus-visible:ring-primary"
+              placeholder={t("pm.newTask.pointsPlaceholder")}
             />
-          </div>
-          <DialogFooter className="pt-4">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
-              {isRtl ? "إلغاء" : "Cancel"}
+          </FormField>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting || !title.trim()}>
-              {isSubmitting ? (isRtl ? "جارِ الإنشاء..." : "Creating...") : (isRtl ? "إنشاء المهمة" : "Create Task")}
+              {isSubmitting ? t("pm.newTask.creating") : t("pm.newTask.create")}
             </Button>
           </DialogFooter>
         </form>

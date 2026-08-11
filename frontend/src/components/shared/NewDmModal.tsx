@@ -121,7 +121,7 @@ export default function NewDmModal({ onClose }: NewDmModalProps) {
 
         <form onSubmit={handleSubmit} className="modal-body pb-0">
           <div className="form-group relative mb-2">
-            <Search className="absolute start-3 top-2.5 w-4 h-4 text-slate-400" />
+            <Search className="absolute start-3 top-2.5 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               placeholder={isRtl ? "اكتب اسم شخص..." : "Type the name of a person..."}
@@ -150,9 +150,9 @@ export default function NewDmModal({ onClose }: NewDmModalProps) {
           )}
 
           {/* Search Results List */}
-          <div className="border border-slate-200 rounded-md overflow-hidden max-h-48 overflow-y-auto mb-4">
+          <div className="border border-border rounded-md overflow-hidden max-h-48 overflow-y-auto mb-4">
             {filteredUsers.length === 0 ? (
-              <div className="p-4 text-center text-sm text-slate-500 ">{isRtl ? "لا يوجد أشخاص مطابقون." : "No matching people found."}</div>
+              <div className="p-4 text-center text-sm text-muted-foreground ">{isRtl ? "لا يوجد أشخاص مطابقون." : "No matching people found."}</div>
             ) : (
               filteredUsers.map((u) => (
                 <button
@@ -160,21 +160,21 @@ export default function NewDmModal({ onClose }: NewDmModalProps) {
                   type="button"
                   onClick={() => toggleUser(u)}
                   aria-label={isRtl ? "بدء محادثة" : "Start Conversation"}
-                  className="w-full text-start flex items-center gap-3 p-2 hover:bg-[#f8fafc] :bg-slate-800 border-b border-slate-100 last:border-0 transition-colors"
+                  className="w-full text-start flex items-center gap-3 p-2 hover:bg-background :bg-slate-800 border-b border-border last:border-0 transition-colors"
                 >
                   <Avatar className="w-8 h-8">
                     <AvatarFallback>{u.email[0].toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <div className="text-sm font-medium text-slate-900 ">{u.email}</div>
-                    <div className="text-xs text-slate-500 ">{u.role}</div>
+                    <div className="text-sm font-medium text-foreground ">{u.email}</div>
+                    <div className="text-xs text-muted-foreground ">{u.role}</div>
                   </div>
                 </button>
               ))
             )}
           </div>
 
-          <div className="modal-footer pt-4 pb-6 mt-0 border-t border-slate-100 ">
+          <div className="modal-footer pt-4 pb-6 mt-0 border-t border-border ">
             <Button type="submit" disabled={isSubmitting || selectedUsers.length === 0} className="modal-submit-btn bg-brand hover:bg-brand w-full sm:w-auto ms-auto">
               {isSubmitting && <Loader2 className="w-4 h-4 me-2 animate-spin" />}
               {isRtl ? "بدء" : "Go"}

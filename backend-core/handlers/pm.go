@@ -2,13 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 
 	"github.com/septimus-os/backend-core/database"
-	"github.com/septimus-os/backend-core/engine"
-	"github.com/septimus-os/backend-core/events"
 	"github.com/septimus-os/backend-core/models"
 	"github.com/septimus-os/backend-core/services"
 	"github.com/septimus-os/backend-core/utils"
@@ -16,7 +15,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 // ProjectConfig represents the settings JSON structure for a project workflow
@@ -60,36 +58,38 @@ func CreateProject(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
-
-	// Use default config if none provided
-	settings := req.Settings
-	if len(settings) == 0 {
-		b, _ := json.Marshal(DefaultConfig)
-		settings = b
+	name, err := validateProjectName(req.Name)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	settings, err := validateProjectSettings(req.Settings)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	workspaceIDStr, _ := c.Locals("workspace_id").(string)
-	userIDStr, _ := c.Locals("user_id").(string)
-	workspaceID, _ := uuid.Parse(workspaceIDStr)
-	userID, _ := uuid.Parse(userIDStr)
+	workspaceID := CurrentWorkspaceID(c)
+	userID, err := uuid.Parse(fmt.Sprint(c.Locals("user_id")))
+	if workspaceID == uuid.Nil || err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "authenticated workspace and user are required"})
+	}
 
 	project := models.Project{
 		ID:          uuid.New(),
 		WorkspaceID: workspaceID,
 		CreatedBy:   userID,
-		Name:        req.Name,
+		Name:        name,
 		Settings:    datatypes.JSON(settings),
 	}
 
 	if err := database.GetDB(c).Create(&project).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create project"})
 	}
 
 	// Webhook & Native Integration: Google Drive — auto-create project folder structure
 	if integration, active := GetActiveIntegration(project.WorkspaceID, "google_drive"); active {
 		token := services.GetClient(integration.AccessToken, integration.RefreshToken, integration.Expiry)
 		folderID, webViewLink, err := services.CreateDriveFolder(c.Context(), token, project.Name)
-		
+
 		if err == nil {
 			project.DriveFolderLink = webViewLink
 			database.GetDB(c).Save(&project)
@@ -97,7 +97,7 @@ func CreateProject(c *fiber.Ctx) error {
 			log.Printf("Failed to create Google Drive folder: %v", err)
 		}
 
-		utils.DispatchWebhook("http://localhost:5678/webhook/drive", "ProjectCreated", fiber.Map{
+		utils.DispatchN8NWebhook("drive", "ProjectCreated", fiber.Map{
 			"project_id":   project.ID,
 			"project_name": project.Name,
 			"workspace_id": project.WorkspaceID,
@@ -110,7 +110,10 @@ func CreateProject(c *fiber.Ctx) error {
 }
 
 func GetProjects(c *fiber.Ctx) error {
-	workspaceID, _ := c.Locals("workspace_id").(string)
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "workspace context is required"})
+	}
 	var projects []models.Project
 	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Order("created_at desc").Find(&projects).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
@@ -130,7 +133,7 @@ func UpdateProject(c *fiber.Ctx) error {
 	}
 
 	var req struct {
-		Name     string          `json:"name"`
+		Name     *string         `json:"name"`
 		Settings json.RawMessage `json:"settings"`
 	}
 
@@ -139,21 +142,24 @@ func UpdateProject(c *fiber.Ctx) error {
 	}
 
 	var project models.Project
-	if err := database.GetDB(c).Where("id = ?", id).First(&project).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).First(&project).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found"})
 	}
 
-	userID, _ := c.Locals("user_id").(string)
-	role := c.Locals("role")
-	if project.CreatedBy.String() != userID && role != "ADMIN" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not have permission to edit this project"})
-	}
-
-	if req.Name != "" {
-		project.Name = req.Name
+	if req.Name != nil {
+		name, err := validateProjectName(*req.Name)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+		project.Name = name
 	}
 	if len(req.Settings) > 0 {
-		project.Settings = datatypes.JSON(req.Settings)
+		settings, err := validateProjectSettings(req.Settings)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		}
+		project.Settings = datatypes.JSON(settings)
 	}
 
 	if err := database.GetDB(c).Save(&project).Error; err != nil {
@@ -175,22 +181,21 @@ func DeleteProject(c *fiber.Ctx) error {
 	}
 
 	var project models.Project
-	if err := database.GetDB(c).Where("id = ?", id).First(&project).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).First(&project).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found"})
-	}
-
-	userID, _ := c.Locals("user_id").(string)
-	role := c.Locals("role")
-	if project.CreatedBy.String() != userID && role != "ADMIN" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not have permission to delete this project"})
 	}
 
 	if err := database.GetDB(c).Where("id = ?", id).Delete(&models.Project{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete project"})
 	}
 
+	var actorID *uuid.UUID
+	if parsed, err := uuid.Parse(fmt.Sprint(c.Locals("user_id"))); err == nil {
+		actorID = &parsed
+	}
 	services.LogEvent(
-		nil, // Replace with UserID from locals if extracted
+		actorID,
 		"projects.delete",
 		"Project",
 		projectID,
@@ -221,9 +226,19 @@ func CreateTask(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project_id"})
 	}
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "workspace context is required"})
+	}
+	var project models.Project
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", projectID, workspaceID).First(&project).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found in workspace"})
+	}
+	title, err := validateTaskInput(req.Title, req.Priority, req.StoryPoints)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
 
-	taskID := uuid.New()
-	path := utils.FormatUUIDForLtree(taskID)
 	var parentIDPtr *uuid.UUID
 
 	if req.ParentID != "" {
@@ -232,56 +247,20 @@ func CreateTask(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid parent_id"})
 		}
 		parentIDPtr = &pid
-
-		// Fetch parent to get its path
-		var parentTask models.Task
-		if err := database.GetDB(c).First(&parentTask, "id = ?", pid).Error; err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Parent task not found"})
-		}
-		
-		// LTREE format: parent_path.child_id
-		path = parentTask.Path + "." + path
 	}
 
-	task := models.Task{
-		ID:          taskID,
-		ProjectID:   projectID,
-		Title:       req.Title,
-		Description: req.Description,
-		Status:      "todo", // Default status
-		Priority:    req.Priority,
-		StoryPoints: req.StoryPoints,
-		ParentID:    parentIDPtr,
-		Path:        path,
-	}
-
-	err = database.GetDB(c).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&task).Error; err != nil {
-			return err
-		}
-
-		// Create initial history entry
-		history := models.TaskHistory{
-			ID:             uuid.New(),
-			TaskID:         task.ID,
-			PreviousStatus: "",
-			NewStatus:      "todo",
-			ChangedAt:      time.Now(),
-		}
-		if err := tx.Create(&history).Error; err != nil {
-			return err
-		}
-
-		return nil
+	task, err := services.CreatePMTask(database.GetDB(c), workspaceID, services.CreatePMTaskInput{
+		ProjectID: projectID, Title: title, Description: req.Description,
+		ParentID: parentIDPtr, Priority: req.Priority, StoryPoints: req.StoryPoints,
+		Source: "http",
 	})
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// Publish Event
 	eventDataMap := map[string]interface{}{
-		"type":         "TASK_CREATED",
+		"type":         "task_created",
 		"task_id":      task.ID.String(),
 		"project_id":   task.ProjectID.String(),
 		"title":        task.Title,
@@ -290,19 +269,13 @@ func CreateTask(c *fiber.Ctx) error {
 		"status":       task.Status,
 		"priority":     task.Priority,
 	}
-	eventData, _ := json.Marshal(eventDataMap)
-	events.PublishEvent("events.tasks.created", eventData)
-
-	// Trigger any active Workflows listening for task creation
-	go ExecuteWorkflowsByTrigger("task.created", eventDataMap)
+	go ExecuteWorkflowsByTrigger(workspaceID, "task.created", eventDataMap)
 
 	// Dispatch Webhook
 	if wsID, ok := c.Locals("workspace_id").(string); ok && wsID != "" {
 		workspaceID := database.ParseUUID(wsID)
 		services.DispatchWebhook(workspaceID, "events.tasks.created", eventDataMap)
-		
-		// Trigger Workflow Engine
-		go engine.ExecuteEvent(database.GetDB(c), workspaceID, "task.created", eventDataMap)
+
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(task)
@@ -315,18 +288,26 @@ func GetTasks(c *fiber.Ctx) error {
 	// Pagination
 	page := c.QueryInt("page", 1)
 	limit := c.QueryInt("limit", 50)
+	if page < 1 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "page must be greater than zero"})
+	}
+	if limit < 1 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "limit must be greater than zero"})
+	}
 	if limit > 200 {
 		limit = 200
 	}
 	offset := (page - 1) * limit
 
-	query := database.GetDB(c).Model(&models.Task{})
+	workspaceID := CurrentWorkspaceID(c)
+	query := database.GetDB(c).Model(&models.Task{}).Where("workspace_id = ?", workspaceID)
 
 	if projectIDParam != "" {
 		pid, err := uuid.Parse(projectIDParam)
-		if err == nil {
-			query = query.Where("project_id = ?", pid)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project_id"})
 		}
+		query = query.Where("project_id = ?", pid)
 	}
 
 	if statusParam != "" {
@@ -334,7 +315,9 @@ func GetTasks(c *fiber.Ctx) error {
 	}
 
 	var total int64
-	query.Count(&total)
+	if err := query.Count(&total).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to count tasks"})
+	}
 
 	var tasks []models.Task
 	if err := query.
@@ -364,7 +347,8 @@ func GetTaskTree(c *fiber.Ctx) error {
 
 	// First, get the parent task to know its path
 	var parentTask models.Task
-	if err := database.GetDB(c).First(&parentTask, "id = ?", taskID).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", taskID, workspaceID).First(&parentTask).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Task not found"})
 	}
 
@@ -372,7 +356,7 @@ func GetTaskTree(c *fiber.Ctx) error {
 	// '<@' is the LTREE operator for 'is descendant of'
 	// This query fetches the task itself AND all its nested subtasks (children, grandchildren, etc.)
 	// at any depth, using the GIST index in O(1) / O(log N) time!
-	if err := database.GetDB(c).Where("path <@ ?", parentTask.Path).Order("path ASC").Find(&allTasks).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ? AND path <@ ?", workspaceID, parentTask.Path).Order("path ASC").Find(&allTasks).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch task tree"})
 	}
 
@@ -398,52 +382,29 @@ func TransitionTask(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
-	// 1. Fetch the Task and its Project
-	var task models.Task
-	if err := database.GetDB(c).Preload("Project").First(&task, "id = ?", taskID).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	var actorID *uuid.UUID
+	if parsed, parseErr := uuid.Parse(fmt.Sprint(c.Locals("user_id"))); parseErr == nil {
+		actorID = &parsed
+	}
+	task, oldStatus, err := TransitionTaskForWorkspace(database.GetDB(c), workspaceID, taskID, req.NewStatus, actorID, "http")
+	if errors.Is(err, ErrPMTaskNotFound) {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Task not found"})
 	}
-
-	// If status is the same, do nothing
-	if task.Status == req.NewStatus {
+	if errors.Is(err, ErrInvalidTransition) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to transition task"})
+	}
+	if oldStatus == task.Status {
 		return c.JSON(task)
-	}
-
-	// 2. Load Project Config
-	var config ProjectConfig
-	if len(task.Project.Settings) > 0 {
-		if err := json.Unmarshal(task.Project.Settings, &config); err != nil {
-			// Fallback to default if JSON is malformed
-			config = DefaultConfig
-		}
-	} else {
-		config = DefaultConfig
-	}
-
-	// Ensure transitions exist even if unmarshal succeeded but didn't have transitions
-	if len(config.Transitions) == 0 {
-		config.Transitions = DefaultConfig.Transitions
-	}
-
-	// 3. The State Machine Validation
-	if !CanTransition(task.Status, req.NewStatus, config) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": fmt.Sprintf("Invalid transition from '%s' to '%s'", task.Status, req.NewStatus),
-		})
-}
-
-	oldStatus := task.Status
-
-	// 4. Update the Task
-	task.Status = req.NewStatus
-	if err := database.GetDB(c).Save(&task).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update task"})
 	}
 
 	// Webhook for Google Sheets / Tracker sync
 	if task.Status == "done" && task.Project != nil {
 		if _, active := GetActiveIntegration(task.Project.WorkspaceID, "google_sheets"); active {
-			utils.DispatchWebhook("http://localhost:5678/webhook/tasks", "TaskCompleted", fiber.Map{
+			utils.DispatchN8NWebhook("tasks", "TaskCompleted", fiber.Map{
 				"task_id":   task.ID,
 				"title":     task.Title,
 				"status":    task.Status,
@@ -452,29 +413,9 @@ func TransitionTask(c *fiber.Ctx) error {
 		}
 	}
 
-	// 5. Create History Entry
-	history := models.TaskHistory{
-		ID:             uuid.New(),
-		TaskID:         task.ID,
-		PreviousStatus: oldStatus,
-		NewStatus:      task.Status,
-		ChangedAt:      time.Now(),
-	}
-	database.GetDB(c).Create(&history)
-
-	// 6. Integration: Publish event to NATS
-	eventData, _ := json.Marshal(map[string]interface{}{
-		"type":            "TASK_TRANSITIONED",
-		"task_id":         task.ID.String(),
-		"title":           task.Title,
-		"previous_status": oldStatus,
-		"new_status":      task.Status,
-	})
-	events.PublishEvent("events.tasks.updated", eventData)
-
-	// 7. Trigger any active Workflows listening for task transitions
-	go ExecuteWorkflowsByTrigger("task.transitioned", map[string]interface{}{
+	go ExecuteWorkflowsByTrigger(workspaceID, "task.transitioned", map[string]interface{}{
 		"task_id":    task.ID.String(),
+		"project_id": task.ProjectID.String(),
 		"title":      task.Title,
 		"status":     task.Status,
 		"new_status": task.Status,

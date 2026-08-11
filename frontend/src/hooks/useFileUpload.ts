@@ -9,7 +9,7 @@ export interface UploadedAttachment {
 
 // Owns the hidden file input, upload request, and attachment/upload state.
 // Extracted from MessageInput to keep the component focused on composing text.
-export function useFileUpload() {
+export function useFileUpload(departmentId?: string) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachment, setAttachment] = useState<UploadedAttachment | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -21,6 +21,9 @@ export function useFileUpload() {
     setIsUploading(true);
     const formData = new FormData();
     formData.append("file", file);
+    if (departmentId) {
+      formData.append("department_id", departmentId);
+    }
 
     try {
       const res = await fetchWithAuth(`${API_BASE_URL}/upload`, {

@@ -43,11 +43,11 @@ export default function CommunicationReport() {
   }, []);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-64 text-slate-500">{t("reports.communication.loading")}</div>;
+    return <div className="flex items-center justify-center h-64 text-muted-foreground">{t("reports.communication.loading")}</div>;
   }
 
   if (!data) {
-    return <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">{t("reports.communication.error")}</div>;
+    return <div className="flex items-center justify-center h-64 text-muted-foreground dark:text-muted-foreground">{t("reports.communication.error")}</div>;
   }
 
   const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
@@ -69,8 +69,8 @@ export default function CommunicationReport() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Trend Chart */}
-        <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm lg:col-span-2 transition-colors">
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-6">{t("reports.communication.activityTitle")}</h3>
+        <div className="bg-card dark:bg-[#1a1a1a] p-6 rounded-xl border border-border dark:border-slate-800 shadow-sm lg:col-span-2 transition-colors">
+          <h3 className="text-lg font-semibold text-foreground dark:text-slate-100 mb-6">{t("reports.communication.activityTitle")}</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={formattedTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -94,8 +94,8 @@ export default function CommunicationReport() {
         </div>
 
         {/* Distribution Pie Chart */}
-        <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-6">{t("reports.communication.distributionTitle")}</h3>
+        <div className="bg-card dark:bg-[#1a1a1a] p-6 rounded-xl border border-border dark:border-slate-800 shadow-sm transition-colors">
+          <h3 className="text-lg font-semibold text-foreground dark:text-slate-100 mb-6">{t("reports.communication.distributionTitle")}</h3>
           <div className="h-[300px] flex items-center justify-center" dir="ltr">
             {data.distribution && data.distribution.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -119,7 +119,7 @@ export default function CommunicationReport() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-slate-400">{t("reports.communication.noData")}</div>
+              <div className="text-muted-foreground">{t("reports.communication.noData")}</div>
             )}
           </div>
         </div>
@@ -130,13 +130,13 @@ export default function CommunicationReport() {
 
 function StatCard({ title, value, icon }: { title: string, value: string | number, icon: React.ReactNode }) {
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-start gap-4 transition-colors">
-      <div className="p-3 bg-slate-50 dark:bg-[#121212] rounded-lg">
+    <div className="bg-card dark:bg-[#1a1a1a] p-6 rounded-xl border border-border dark:border-slate-800 shadow-sm flex items-start gap-4 transition-colors">
+      <div className="p-3 bg-muted dark:bg-[#121212] rounded-lg">
         {icon}
       </div>
       <div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{title}</p>
-        <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{value}</h3>
+        <p className="text-sm text-muted-foreground dark:text-muted-foreground font-medium">{title}</p>
+        <h3 className="text-2xl font-bold text-foreground dark:text-slate-100 mt-1">{value}</h3>
       </div>
     </div>
   );

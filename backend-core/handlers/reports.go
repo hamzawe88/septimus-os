@@ -7,10 +7,9 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/generative-ai-go/genai"
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/models"
-	"google.golang.org/api/option"
+	"google.golang.org/genai"
 )
 
 // GetCommunicationReport returns metrics for the Communication dashboard
@@ -129,23 +128,22 @@ func GetAIReport(c *fiber.Ctx) error {
 
 // GetFinanceForecast uses Gemini to predict the next 3 months of cash flow
 func GetFinanceForecast(c *fiber.Ctx) error {
-	// We'll mock the historical context here directly for the AI 
+	// We'll mock the historical context here directly for the AI
 	// (as requested by the user for better presentation realism).
-	
+
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
 		return c.Status(500).JSON(fiber.Map{"error": "GEMINI_API_KEY is not set"})
 	}
 
 	ctx := context.Background()
-	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey:  apiKey,
+		Backend: genai.BackendGeminiAPI,
+	})
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create Gemini client"})
 	}
-	defer client.Close()
-
-	model := client.GenerativeModel("gemini-2.5-flash")
-	model.ResponseMIMEType = "application/json"
 
 	prompt := `
 You are an expert financial AI. Based on a theoretical software company that has had the following cash flow over the last 6 months:
@@ -169,24 +167,25 @@ You must return ONLY a JSON object with this exact schema:
 }
 `
 
-	resp, err := model.GenerateContent(ctx, genai.Text(prompt))
+	resp, err := client.Models.GenerateContent(
+		ctx,
+		"gemini-2.5-flash",
+		genai.Text(prompt),
+		&genai.GenerateContentConfig{ResponseMIMEType: "application/json"},
+	)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to generate forecast: " + err.Error()})
 	}
 
-	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+	responseText := resp.Text()
+	if responseText == "" {
 		return c.Status(500).JSON(fiber.Map{"error": "Empty response from Gemini"})
 	}
 
 	// Parse JSON output
 	var result map[string]interface{}
-	part := resp.Candidates[0].Content.Parts[0]
-	if txt, ok := part.(genai.Text); ok {
-		if err := json.Unmarshal([]byte(txt), &result); err != nil {
-			return c.Status(500).JSON(fiber.Map{"error": "Failed to parse AI response JSON"})
-		}
-	} else {
-		return c.Status(500).JSON(fiber.Map{"error": "Unexpected AI response format"})
+	if err := json.Unmarshal([]byte(responseText), &result); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to parse AI response JSON"})
 	}
 
 	return c.JSON(result)

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import AddInvoiceModal from "./AddInvoiceModal";
 import InvoicePrintModal, { SMEInvoiceData } from "./InvoicePrintModal";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { LoadingState } from "@/components/ui/loading-state";
 
 interface Entity {
   ID: string;
@@ -41,12 +42,12 @@ export default function InvoicesTable() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        alert(`${t("integrations.odooSuccess", "Settlement pushed to Odoo successfully")} (#${data.record_id}).`);
+        alert(`${t("integrations.odooSuccess")} (#${data.record_id}).`);
       } else {
-        alert(data.error || t("integrations.odooFailed", "Failed to push settlement to Odoo."));
+        alert(data.error || t("integrations.odooFailed"));
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : t("common.unexpectedError", "An unexpected error occurred."));
+      alert(err instanceof Error ? err.message : t("common.unexpectedError"));
     } finally {
       setPushingId(null);
     }
@@ -93,10 +94,10 @@ export default function InvoicesTable() {
 
   const getStatusColor = (status?: string) => {
     switch (status) {
-      case "paid": return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "pending": return "bg-amber-100 text-amber-800 border-amber-200";
-      case "overdue": return "bg-rose-100 text-rose-800 border-rose-200";
-      default: return "bg-slate-100 text-slate-700 border-slate-200";
+      case "paid": return "bg-success/10 text-success border-success/20";
+      case "pending": return "bg-warning/10 text-warning border-warning/20";
+      case "overdue": return "bg-destructive/10 text-destructive border-destructive/20";
+      default: return "bg-muted text-foreground border-border";
     }
   };
 
@@ -127,9 +128,7 @@ export default function InvoicesTable() {
 
   if (loading && invoices.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
-      </div>
+      <LoadingState />
     );
   }
 
@@ -137,14 +136,14 @@ export default function InvoicesTable() {
     <div className="h-full overflow-y-auto p-8 relative">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <FileText className="w-6 h-6 text-brand" />
             {t("finance.smeInvoicesTitle")}
           </h1>
-          <p className="text-slate-500 mt-1">{t("finance.smeInvoicesDesc")}</p>
+          <p className="text-muted-foreground mt-1">{t("finance.smeInvoicesDesc")}</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="text-slate-600 gap-2 border-slate-200" onClick={cycleFilterStatus}>
+          <Button variant="outline" className="text-muted-foreground gap-2 border-border" onClick={cycleFilterStatus}>
             <Filter className="w-4 h-4" />
             {filterStatus === "all" ? t("finance.filterAll") : `${t("finance.filterPrefix")} (${getStatusLabel(filterStatus)})`}
           </Button>
@@ -155,16 +154,16 @@ export default function InvoicesTable() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex gap-4 bg-slate-50/50">
+      <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+        <div className="p-4 border-b border-border flex gap-4 bg-muted/50">
           <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 absolute end-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-4 h-4 absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               title={t("finance.searchInvoices")}
               aria-label={t("finance.searchInvoices")}
               type="text"
               placeholder={t("finance.searchInvoicesPlaceholder")}
-              className="w-full ps-4 pe-10 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              className="w-full ps-4 pe-10 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -173,7 +172,7 @@ export default function InvoicesTable() {
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-end">
-            <thead className="bg-slate-100 text-slate-600 border-b border-slate-200 font-bold text-xs uppercase tracking-wider">
+            <thead className="bg-muted text-muted-foreground border-b border-border font-bold text-xs uppercase tracking-wider">
               <tr>
                 <th className="px-6 py-4">{t("finance.invoiceNumberLabel")}</th>
                 <th className="px-6 py-4">{t("finance.clientAndCompanyLabel")}</th>
@@ -184,11 +183,11 @@ export default function InvoicesTable() {
                 <th className="px-6 py-4 text-start">{t("finance.actionsAndPrintLabel")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                    <FileText className="w-12 h-12 mx-auto text-slate-300 mb-4" />
+                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
+                    <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                     {t("finance.noInvoicesFound")}
                   </td>
                 </tr>
@@ -202,14 +201,14 @@ export default function InvoicesTable() {
                   const total = inv.Data?.amount !== undefined ? Number(inv.Data.amount) : 0;
 
                   return (
-                    <tr key={inv.ID} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-6 py-4 font-mono font-bold text-slate-900">{num}</td>
+                    <tr key={inv.ID} className="hover:bg-muted/80 transition-colors">
+                      <td className="px-6 py-4 font-mono font-bold text-foreground">{num}</td>
                       <td className="px-6 py-4">
-                        <p className="font-bold text-slate-900">{name}</p>
-                        {comp && <p className="text-xs text-slate-500 font-medium flex items-center gap-1 mt-0.5"><Building2 className="w-3 h-3 text-brand" />{comp}</p>}
+                        <p className="font-bold text-foreground">{name}</p>
+                        {comp && <p className="text-xs text-muted-foreground font-medium flex items-center gap-1 mt-0.5"><Building2 className="w-3 h-3 text-brand" />{comp}</p>}
                       </td>
-                      <td className="px-6 py-4 font-mono text-slate-600">{issue}</td>
-                      <td className="px-6 py-4 font-mono text-slate-600">{due}</td>
+                      <td className="px-6 py-4 font-mono text-muted-foreground">{issue}</td>
+                      <td className="px-6 py-4 font-mono text-muted-foreground">{due}</td>
                       <td className="px-6 py-4 font-mono font-bold text-brand text-base">${total.toFixed(2)}</td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(inv.Data?.status)}`}>
@@ -230,15 +229,15 @@ export default function InvoicesTable() {
                           <button
                             onClick={() => pushToOdoo(inv)}
                             disabled={pushingId === inv.ID}
-                            className="p-2 text-slate-500 hover:text-brand hover:bg-brand/10 rounded-lg transition-colors disabled:opacity-50"
-                            title={t("integrations.odooPushTitle", "Push settlement to Odoo")}
+                            className="p-2 text-muted-foreground hover:text-brand hover:bg-brand/10 rounded-lg transition-colors disabled:opacity-50"
+                            title={t("integrations.odooPushTitle")}
                             aria-label="Push settlement to Odoo"
                           >
                             <Landmark className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(inv.ID)}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
                             title={t("common.delete")}
                             aria-label={t("common.delete")}
                           >

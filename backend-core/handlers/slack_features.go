@@ -30,7 +30,7 @@ func RecapChannel(c *fiber.Ctx) error {
 
 	if len(messages) == 0 {
 		return c.JSON(fiber.Map{
-			"summary": "لا توجد رسائل كافية في هذه القناة لعمل تلخيص حالياً.",
+			"summary":   "لا توجد رسائل كافية في هذه القناة لعمل تلخيص حالياً.",
 			"citations": []string{},
 		})
 	}

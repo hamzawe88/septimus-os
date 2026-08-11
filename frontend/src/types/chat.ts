@@ -3,18 +3,29 @@
 // ═══════════════════════════════════════════════════════════════
 
 export interface Channel {
-  ID: string;
-  id?: string;
-  Name: string;
-  name?: string;
+  // snake_case (canonical — from Go json tags)
+  id: string;
+  name: string;
+  type: 'PUBLIC' | 'PRIVATE' | 'DM';
+  description?: string;
+  workspace_id?: string;
+  project_id?: string;
+  is_archived?: boolean;
+  is_system?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  // PascalCase aliases — kept for backward compatibility with existing consumers
+  ID?: string;
+  Name?: string;
+  Type?: 'PUBLIC' | 'PRIVATE' | 'DM';
   Description?: string;
-  Type: 'PUBLIC' | 'PRIVATE' | 'DM';
   WorkspaceID?: string;
   ProjectID?: string;
-  unread?: number;
   IsSystem?: boolean;
   CreatedAt?: string;
   UpdatedAt?: string;
+  // UI-only
+  unread?: number;
 }
 
 export interface ChannelMember {
@@ -51,11 +62,27 @@ export interface Message {
   UpdatedAt?: string;
 }
 
+/**
+ * Thread / ActiveThread — the normalized shape used by setActiveThread.
+ * All callers (FullPageChat, ThreadsListSidebar) must populate these fields.
+ * The `channel_id` is critical: RightSidebar uses it for the Centrifuge
+ * subscription and for posting replies.
+ */
 export interface Thread {
-  ID: string;
-  ParentMessage: Message;
-  Replies: Message[];
-  ReplyCount: number;
+  /** UUID of the parent (root) message */
+  id: string;
+  /** UUID of the channel the parent message belongs to */
+  channel_id: string;
+  /** "human" | "ai" | "system" */
+  type: string;
+  /** Display name / email of the message author */
+  author: string;
+  /** Formatted time string, e.g. "14:23" */
+  time: string;
+  /** Text content of the parent message */
+  text: string;
+  /** Raw Content field (alias — populated by FullPageChat) */
+  Content?: string;
 }
 
 export interface DirectMessage {

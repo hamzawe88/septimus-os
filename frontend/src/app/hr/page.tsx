@@ -2,19 +2,23 @@
 
 import React, { useState } from "react";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { useHrStore } from "@/store/useHrStore";
 import HrDashboard from "@/components/hr/HrDashboard";
 import EmployeesDirectory from "@/components/hr/EmployeesDirectory";
 import LeaveRequests from "@/components/hr/LeaveRequests";
 import AttendanceView from "@/components/hr/AttendanceView";
 import HrSettings from "@/components/hr/HrSettings";
-import { Users, LayoutGrid, Calendar, MapPin, Sparkles, Settings } from "lucide-react";
+import HrPerformance from "@/components/hr/HrPerformance";
+import HrAnalytics from "@/components/hr/HrAnalytics";
+import HrRecruitment from "@/components/hr/HrRecruitment";
+import { Users, LayoutGrid, Calendar, MapPin, Sparkles, Settings, Target, PieChart, Briefcase } from "lucide-react";
 import AgentChatDrawer from "@/components/ai/AgentChatDrawer";
 
-type HRTab = "dashboard" | "directory" | "leave" | "attendance" | "settings";
+type HRTab = "dashboard" | "directory" | "leave" | "attendance" | "performance" | "recruitment" | "analytics" | "settings";
 
 export default function HrPage() {
   const { t } = useLocalization();
-  const [activeTab, setActiveTab] = useState<HRTab>("dashboard");
+  const { activeTab, setActiveTab } = useHrStore();
   const [isAgentOpen, setIsAgentOpen] = useState(false);
 
   const tabs: Array<{ id: HRTab; labelKey: string; defaultLabel: string; icon: React.ReactNode }> = [
@@ -22,14 +26,17 @@ export default function HrPage() {
     { id: "directory",   labelKey: "hr.tabs.directory",   defaultLabel: "Employees 360",        icon: <Users className="w-4 h-4" /> },
     { id: "attendance",  labelKey: "hr.tabs.attendance",  defaultLabel: "GPS Attendance",          icon: <MapPin className="w-4 h-4" /> },
     { id: "leave",       labelKey: "hr.tabs.leave",       defaultLabel: "Leave Requests",      icon: <Calendar className="w-4 h-4" /> },
+    { id: "performance", labelKey: "hr.tabs.performance", defaultLabel: "Performance",         icon: <Target className="w-4 h-4" /> },
+    { id: "recruitment", labelKey: "hr.tabs.recruitment", defaultLabel: "Recruitment",         icon: <Briefcase className="w-4 h-4" /> },
+    { id: "analytics",   labelKey: "hr.tabs.analytics",   defaultLabel: "Analytics",           icon: <PieChart className="w-4 h-4" /> },
     { id: "settings",    labelKey: "hr.tabs.settings",    defaultLabel: "Department Settings",      icon: <Settings className="w-4 h-4" /> },
   ];
 
   return (
-    <div className="flex flex-col w-full h-full bg-[#f8fafc]">
+    <div data-testid="hr-page" className="flex flex-col w-full h-full bg-background">
 
       {/* Sub-navigation Tabs */}
-      <div className="flex-none px-8 py-4 border-b border-slate-200 bg-white flex items-center gap-6 overflow-x-auto">
+      <div className="flex-none px-8 py-4 border-b border-border bg-card flex items-center gap-6 overflow-x-auto">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -39,7 +46,7 @@ export default function HrPage() {
                 ? tab.id === "attendance"
                   ? "border-indigo-600 text-indigo-700"
                   : "border-brand text-brand"
-                : "border-transparent text-slate-500 hover:text-slate-800"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
             {tab.icon}
@@ -54,6 +61,9 @@ export default function HrPage() {
         {activeTab === "directory"   && <EmployeesDirectory />}
         {activeTab === "attendance"  && <AttendanceView />}
         {activeTab === "leave"       && <LeaveRequests />}
+        {activeTab === "performance" && <HrPerformance />}
+        {activeTab === "recruitment" && <HrRecruitment />}
+        {activeTab === "analytics"   && <HrAnalytics />}
         {activeTab === "settings"    && <HrSettings />}
       </div>
 

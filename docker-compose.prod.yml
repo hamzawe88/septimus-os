@@ -4,8 +4,19 @@
 # Required secrets use ${VAR:?} and abort `docker compose up` when missing.
 
 services:
+  storage-init:
+    image: ${ALPINE_IMAGE:?ALPINE_IMAGE is required}
+    user: "0:0"
+    command: ["sh", "-c", "mkdir -p /shared/uploads /models && chown -R 10001:10001 /shared/uploads /models"]
+    volumes:
+      - uploads_data:/shared/uploads
+      - voice_models:/models
+    restart: "no"
+    networks:
+      - septimus_net
+
   db:
-    image: ankane/pgvector:v0.5.0
+    image: ${POSTGRES_IMAGE:?POSTGRES_IMAGE is required}
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?}
@@ -13,32 +24,137 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?} -d ${POSTGRES_DB:?}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     networks:
       - septimus_net
 
   redis:
-    image: redis:alpine
+    image: ${REDIS_IMAGE:?REDIS_IMAGE is required}
     restart: always
     networks:
       - septimus_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   nats:
-    image: nats:alpine
+    image: ${NATS_IMAGE:?NATS_IMAGE is required}
     restart: always
-    command: ["-js"]
+    command: ["-js", "-m", "8222"]
+    networks:
+      - septimus_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8222/healthz >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: ${MINIO_IMAGE:?MINIO_IMAGE is required}
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+    volumes:
+      - minio_data:/data
+    networks:
+      - septimus_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio-create-buckets:
+    image: ${MINIO_MC_IMAGE:?MINIO_MC_IMAGE is required}
+    restart: "no"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >-
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 \"$${MINIO_ROOT_USER}\" \"$${MINIO_ROOT_PASSWORD}\";
+      /usr/bin/mc mb --ignore-existing myminio/septimus-drive;
+      /usr/bin/mc anonymous set none myminio/septimus-drive;
+      exit 0;
+      "
     networks:
       - septimus_net
 
-  backend-core:
-    image: myregistry.com/septimus-os-backend-core:latest
+  clamav:
+    image: ${CLAMAV_IMAGE:?CLAMAV_IMAGE is required}
+    restart: always
+    environment:
+      - CLAMD_STARTUP_TIMEOUT=300
+    volumes:
+      - clamav_data:/var/lib/clamav
+    networks:
+      - septimus_net
+
+  septimus-drive:
+    image: ${DRIVE_IMAGE:?DRIVE_IMAGE is required}
     restart: always
     environment:
       - DB_DSN=${DB_DSN:?}
+      - NATS_URL=${NATS_URL:-nats://nats:4222}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:?}
+      - BACKEND_URL=http://backend-core:4000
+      - APP_ENV=production
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:?}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:?}
+      - MINIO_USE_SSL=false
+      - DRIVE_MAX_FILE_BYTES=${DRIVE_MAX_FILE_BYTES:-26214400}
+      - CLAMAV_ADDR=clamav:3310
+      - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:?set to your public frontend origin(s)}
+      - CENTRIFUGO_API_URL=http://centrifugo:8000/api
+      - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:?}
+    depends_on:
+      db:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-create-buckets:
+        condition: service_completed_successfully
+      clamav:
+        condition: service_healthy
+      backend-core:
+        condition: service_healthy
+    networks:
+      - septimus_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4001/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  backend-core:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
+    restart: always
+    environment:
+      - DB_DSN=${DB_DSN:?}
+      - APP_DB_PASSWORD=${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
       - REDIS_URL=${REDIS_URL:-redis:6379}
       - NATS_URL=${NATS_URL:-nats://nats:4222}
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - SETTINGS_ENC_KEY=${SETTINGS_ENC_KEY:?SETTINGS_ENC_KEY is required}
       - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:?INTERNAL_API_TOKEN is required}
+      - APP_ENV=production
+      - FRONTEND_PUBLIC_URL=${FRONTEND_PUBLIC_URL:?set to your public frontend origin}
+      - ALLOW_PRIVATE_OUTBOUND=false
       - CENTRIFUGO_SECRET=${CENTRIFUGO_SECRET:?CENTRIFUGO_SECRET is required}
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:?CENTRIFUGO_API_KEY is required}
       - CENTRIFUGO_API_URL=http://centrifugo:8000/api
@@ -47,15 +163,32 @@ services:
       # Optional local-embeddings fallback (set to your Ollama server; on
       # Linux add an extra_hosts host-gateway entry if it runs on the host).
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-}
+      - UPLOADS_DIR=/shared/uploads
+      - CLAMAV_ADDR=clamav:3310
+    volumes:
+      - uploads_data:/shared/uploads
     depends_on:
-      - db
-      - redis
-      - nats
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+      clamav:
+        condition: service_healthy
     networks:
       - septimus_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   ai-sidecar:
-    image: myregistry.com/septimus-os-ai-sidecar:latest
+    image: ${AI_SIDECAR_IMAGE:?AI_SIDECAR_IMAGE is required}
     restart: always
     # Internal only: reachable solely through the JWT-protected
     # /api/v1/ai/* proxy in backend-core.
@@ -66,6 +199,8 @@ services:
       - NATS_URL=${NATS_URL:-nats://nats:4222}
       - BACKEND_URL=http://backend-core:4000
       - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:?}
+      - APP_ENV=production
+      - ALLOW_PRIVATE_OUTBOUND=false
       - CENTRIFUGO_API_URL=http://centrifugo:8000/api
       - CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY:?}
       - CORS_ALLOW_ORIGINS=${CORS_ALLOW_ORIGINS:?}
@@ -79,18 +214,32 @@ services:
       # "small" for better Arabic if the host can afford it.
       - WHISPER_MODEL=${WHISPER_MODEL:-base}
       - VOICE_MODELS_DIR=/models
+      - UPLOADS_ROOT=/shared/uploads
     volumes:
       - voice_models:/models
+      - uploads_data:/shared/uploads:ro
     depends_on:
-      - db
-      - nats
-      - backend-core
-      - centrifugo
+      db:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      backend-core:
+        condition: service_healthy
+      centrifugo:
+        condition: service_started
+      storage-init:
+        condition: service_completed_successfully
     networks:
       - septimus_net
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3).read()\""]
+      interval: 20s
+      timeout: 8s
+      retries: 10
+      start_period: 30s
 
   centrifugo:
-    image: centrifugo/centrifugo:v5
+    image: ${CENTRIFUGO_IMAGE:?CENTRIFUGO_IMAGE is required}
     restart: always
     # Env vars override the checked-in dev config.json, so production
     # secrets never live in the repo.
@@ -113,33 +262,60 @@ services:
       - redis
     networks:
       - septimus_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   yjs-server:
-    image: myregistry.com/septimus-os-yjs-server:latest
+    image: ${YJS_IMAGE:?YJS_IMAGE is required}
     restart: always
     expose:
       - "1234"
+    environment:
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:?}
+      - BACKEND_URL=http://backend-core:4000
+      - APP_ENV=production
+    depends_on:
+      backend-core:
+        condition: service_healthy
     networks:
       - septimus_net
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('net').connect(1234, '127.0.0.1').on('connect', function(){this.end(); process.exit(0)}).on('error', () => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
 
   frontend:
-    image: myregistry.com/septimus-os-frontend:latest
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE is required}
     restart: always
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:?}
+      - NEXT_PUBLIC_DRIVE_URL=${NEXT_PUBLIC_DRIVE_URL:?e.g. https://yourdomain.com/api/v1/drive}
       - NEXT_PUBLIC_YJS_URL=${NEXT_PUBLIC_YJS_URL:?e.g. wss://yourdomain/yjs}
     depends_on:
-      - backend-core
-      - yjs-server
+      backend-core:
+        condition: service_healthy
+      yjs-server:
+        condition: service_healthy
     networks:
       - septimus_net
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 20s
+      timeout: 8s
+      retries: 10
 
   # LLM observability/tracing. Deliberately NOT published on a host port: the
   # UI exposes prompts and completions, so reaching it in production should be a
   # conscious act — add a Caddy route behind auth, or `docker compose port` /
   # an SSH tunnel for occasional access.
   langfuse:
-    image: langfuse/langfuse:2
+    image: ${LANGFUSE_IMAGE:?LANGFUSE_IMAGE is required}
     restart: always
     expose:
       - "3000"
@@ -159,7 +335,7 @@ services:
       - septimus_net
 
   langfuse-db:
-    image: postgres:17
+    image: ${LANGFUSE_POSTGRES_IMAGE:?LANGFUSE_POSTGRES_IMAGE is required}
     restart: always
     environment:
       POSTGRES_USER: ${LANGFUSE_POSTGRES_USER:?}
@@ -178,7 +354,7 @@ services:
       - septimus_net
 
   caddy:
-    image: caddy:alpine
+    image: ${CADDY_IMAGE:?CADDY_IMAGE is required}
     restart: always
     ports:
       - "80:80"
@@ -188,16 +364,20 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - frontend
+      frontend:
+        condition: service_healthy
     networks:
       - septimus_net
 
 volumes:
   pgdata:
+  minio_data:
+  clamav_data:
   caddy_data:
   caddy_config:
   langfuse_pgdata:
   voice_models:
+  uploads_data:
 
 networks:
   septimus_net:

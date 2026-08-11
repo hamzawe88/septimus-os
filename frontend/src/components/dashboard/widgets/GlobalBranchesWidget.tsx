@@ -1,87 +1,87 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Globe } from "lucide-react";
+
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { Tag } from "@/components/ui/tag";
+
+const BRANCHES = [
+  { key: "hq", timeZone: "Africa/Tripoli", isOpen: true },
+  { key: "dubai", timeZone: "Asia/Dubai", isOpen: true },
+  { key: "london", timeZone: "Europe/London", isOpen: false },
+  { key: "nyc", timeZone: "America/New_York", isOpen: false },
+] as const;
 
 export default function GlobalBranchesWidget() {
-  const { t } = useLocalization();
+  const { t, language } = useLocalization();
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 10000);
-    return () => clearInterval(timer);
+    const timer = window.setInterval(() => setTime(new Date()), 10_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   const formatBranchTime = (timeZone: string) => {
     try {
-      return new Intl.DateTimeFormat("en-US", {
+      return new Intl.DateTimeFormat(language, {
         timeZone,
         hour: "2-digit",
         minute: "2-digit",
-        hour12: true,
       }).format(time);
     } catch {
-      return "12:00 PM";
+      return t("dashboard.branches.timeUnavailable");
     }
   };
 
-  const branches = [
-    { name: t("dashboard.branches.hq", "Libya HQ (Tripoli / Benghazi)"), tz: "Africa/Tripoli", status: "open" },
-    { name: t("dashboard.branches.dubai", "Dubai Regional Hub"), tz: "Asia/Dubai", status: "open" },
-    { name: t("dashboard.branches.london", "London Office"), tz: "Europe/London", status: "after_hours" },
-    { name: t("dashboard.branches.nyc", "New York Node"), tz: "America/New_York", status: "after_hours" },
-  ];
-
   return (
-    <div className="flex flex-col justify-between h-full space-y-3">
-      {/* Header */}
+    <div className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-          <Globe className="w-4 h-4 text-teal-500" />
-          {t("dashboard.branches.title", "Global Corporate Clocks")}
-        </span>
-        <span className="text-[10px] font-extrabold bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 px-2 py-0.5 rounded-full">
-          {branches.length} {t("dashboard.branches.nodes", "Nodes")}
-        </span>
+        <h3 className="flex items-center gap-1.5 text-xs font-bold">
+          <Globe className="size-4 text-info" aria-hidden />
+          {t("dashboard.branches.title")}
+        </h3>
+        <Tag tone="info">
+          {BRANCHES.length} {t("dashboard.branches.nodes")}
+        </Tag>
       </div>
 
-      {/* Branch cards */}
-      <div className="flex-1 grid grid-cols-2 gap-2 overflow-y-auto">
-        {branches.map((b, idx) => {
-          const isOpen = b.status === "open";
-          return (
-            <div
-              key={idx}
-              className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 flex flex-col justify-between gap-1"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-800 dark:text-white truncate" title={b.name}>
-                  {b.name}
-                </span>
-                {isOpen ? (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="Open" />
-                ) : (
-                  <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="After Hours" />
-                )}
-              </div>
-              <div className="flex items-baseline justify-between mt-1">
-                <span className="text-sm font-black text-slate-900 dark:text-white font-mono">
-                  {formatBranchTime(b.tz)}
-                </span>
-                <span
-                  className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                    isOpen
-                      ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300"
-                      : "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300"
-                  }`}
-                >
-                  {isOpen ? t("dashboard.branches.open", "Open") : t("dashboard.branches.standby", "Standby")}
-                </span>
-              </div>
+      <div className="grid flex-1 grid-cols-2 gap-2 overflow-y-auto">
+        {BRANCHES.map((branch) => (
+          <article
+            key={branch.key}
+            className="flex min-w-0 flex-col justify-between gap-2 rounded-[var(--radius-surface)] border border-border bg-muted/35 p-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span
+                className="truncate text-xs font-bold"
+                title={t(`dashboard.branches.${branch.key}`)}
+              >
+                {t(`dashboard.branches.${branch.key}`)}
+              </span>
+              <span
+                className={`size-2 shrink-0 rounded-full ${
+                  branch.isOpen ? "bg-success" : "bg-warning"
+                }`}
+                title={
+                  branch.isOpen
+                    ? t("dashboard.branches.open")
+                    : t("dashboard.branches.standby")
+                }
+              />
             </div>
-          );
-        })}
+            <div className="flex items-baseline justify-between gap-2">
+              <time className="font-mono text-sm font-bold">
+                {formatBranchTime(branch.timeZone)}
+              </time>
+              <Tag tone={branch.isOpen ? "success" : "warning"}>
+                {branch.isOpen
+                  ? t("dashboard.branches.open")
+                  : t("dashboard.branches.standby")}
+              </Tag>
+            </div>
+          </article>
+        ))}
       </div>
     </div>
   );

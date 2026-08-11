@@ -1,676 +1,636 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useLocalization } from '@/contexts/LocalizationContext';
-import { 
-  FileText, 
-  Sparkles, 
-  ShieldCheck, 
-  QrCode, 
-  Send, 
-  Archive, 
-  AlertTriangle, 
-  CheckCircle, 
-  Eye, 
-  Stamp, 
-  Save, 
-  Check, 
-  RefreshCw,
-  GitBranch
-} from 'lucide-react';
-import { useCorrespondenceStore } from '../../store/useCorrespondenceStore';
+"use client"
 
-const getCompanyDefaults = () => {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem('septimus_company_profile');
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // ignore
-  }
-  return {};
-};
+import Image from "next/image"
+import React, { useCallback, useEffect, useState } from "react"
+import {
+  AlertTriangle,
+  Archive,
+  Check,
+  CheckCircle,
+  Eye,
+  FileText,
+  GitBranch,
+  QrCode,
+  RefreshCw,
+  Save,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Stamp,
+  X,
+} from "lucide-react"
+
+import { useLocalization } from "@/contexts/LocalizationContext"
+import { useBranding } from "@/lib/useBranding"
+import { sanitizeHtml } from "@/lib/sanitizeHtml"
+import { useCorrespondenceStore } from "@/store/useCorrespondenceStore"
+import { ProvenanceSurface } from "@/components/ui/provenance"
+
+type Feedback = { tone: "success" | "error"; message: string } | null
+
+// Company identity comes from the workspace branding API — see useBranding.
+// It used to be read from this browser's localStorage, so a letterhead was
+// blank for every user except the one who typed it, and the uploaded logo was
+// never on the letter at all.
 
 export const LetterCanvas: React.FC = () => {
-  const { isRtl } = useLocalization();
-  const { 
-    templates, 
-    fetchTemplates, 
-    selectedCorrespondence, 
-    createCorrespondence, 
-    signCorrespondence, 
-    forwardCorrespondence, 
-    archiveCorrespondence, 
-    aiRewrite, 
-    aiAudit, 
-    loading 
-  } = useCorrespondenceStore();
+  const { t, formatDate } = useLocalization()
+  const {
+    templates,
+    fetchTemplates,
+    selectedCorrespondence,
+    createCorrespondence,
+    signCorrespondence,
+    forwardCorrespondence,
+    archiveCorrespondence,
+    aiRewrite,
+    aiAudit,
+    loading,
+  } = useCorrespondenceStore()
 
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [templateId, setTemplateId] = useState('');
-  const [confidentiality, setConfidentiality] = useState('public');
-  const [urgent, setUrgent] = useState(false);
-  const [currentId, setCurrentId] = useState<string | null>(null);
-  const [serialNumber, setSerialNumber] = useState('');
-  const [status, setStatus] = useState('draft');
-  const [qrCode, setQrCode] = useState('');
-  const [signedAt, setSignedAt] = useState('');
+  const [title, setTitle] = useState("")
+  const [content, setContent] = useState("")
+  const [templateId, setTemplateId] = useState("")
+  const [confidentiality, setConfidentiality] = useState("public")
+  const [urgent, setUrgent] = useState(false)
+  const [currentId, setCurrentId] = useState<string | null>(null)
+  const [serialNumber, setSerialNumber] = useState("")
+  const [status, setStatus] = useState("draft")
+  const [qrCode, setQrCode] = useState("")
+  const [signedAt, setSignedAt] = useState("")
+  const [aiLoading, setAiLoading] = useState(false)
+  const [auditScore, setAuditScore] = useState<number | null>(null)
+  const [auditRisks, setAuditRisks] = useState<string[]>([])
+  const [auditSuggestions, setAuditSuggestions] = useState<string[]>([])
+  const [rewriteSuggestions, setRewriteSuggestions] = useState<string[]>([])
+  const [showForwardModal, setShowForwardModal] = useState(false)
+  const [toUserId, setToUserId] = useState("")
+  const [toNodePath, setToNodePath] = useState("top.ministry.diwan.legal")
+  const [forwardNote, setForwardNote] = useState("")
+  const [actionRequired, setActionRequired] = useState("review_and_endorse")
+  const [feedback, setFeedback] = useState<Feedback>(null)
+  const { branding } = useBranding()
+  const company = {
+    name: branding.company_name,
+    nameEn: branding.company_name_en,
+    address: branding.address,
+    logo: branding.logo_url,
+  }
 
-  // AI & Audit State
-  const [aiLoading, setAiLoading] = useState(false);
-  const [auditScore, setAuditScore] = useState<number | null>(null);
-  const [auditRisks, setAuditRisks] = useState<string[]>([]);
-  const [auditSuggestions, setAuditSuggestions] = useState<string[]>([]);
-  const [rewriteSuggestions, setRewriteSuggestions] = useState<string[]>([]);
-
-  // Forwarding State
-  const [showForwardModal, setShowForwardModal] = useState(false);
-  const [toUserId, setToUserId] = useState('user-legal-dept-01');
-  const [toNodePath, setToNodePath] = useState('top.ministry.diwan.legal');
-  const [forwardNote, setForwardNote] = useState('يرجى الاطلاع وإبداء الرأي القانوني والمصادقة');
-  const [actionRequired, setActionRequired] = useState('review_and_endorse');
-  const [actionSuccess, setActionSuccess] = useState('');
+  const resetAiOutput = useCallback(() => {
+    setAuditScore(null)
+    setAuditRisks([])
+    setAuditSuggestions([])
+    setRewriteSuggestions([])
+  }, [])
 
   const handleCreateNew = useCallback(() => {
-    setCurrentId(null);
-    setTitle(isRtl ? 'قرار إداري رقم (...) بشأن التوجيه المؤسسي' : 'Decree No. (...) regarding Institutional Governance');
-    setContent(isRtl ? 'بناءً على الصلاحيات الممنوحة قانوناً، وحرصاً على انتظام سير العمل المؤسسي والرفع من كفاءة الأداء والإنجاز، يقرر ما يلي:\n\nالمادة (1): يتم اعتماد آلية الختم والتوقيع الخارجي المشفر في كافة المراسلات والقرارات الصادرة عبر الديوان الذكي لنظام Septimus OS.\n\nالمادة (2): يُعمل بهذا القرار من تاريخ صدوره، ويُلغى كل ما يتعارض مع أحكامه، وعلى الجهات المختصة تنفيذه.' : 'In accordance with statutory authorities and to ensure institutional efficiency and workflow integrity, it is hereby decreed:\n\nArticle (1): The external encrypted seal and signature mechanism is officially adopted for all correspondence and decrees issued via Septimus OS Smart Diwan.\n\nArticle (2): This decree is effective upon issuance, overriding any conflicting regulations.');
-    setTemplateId(templates.length > 0 ? templates[0].id : '');
-    setConfidentiality('public');
-    setUrgent(false);
-    setSerialNumber('');
-    setStatus('draft');
-    setQrCode('');
-    setSignedAt('');
-    setAuditScore(null);
-    setRewriteSuggestions([]);
-  }, [isRtl, templates]);
+    setCurrentId(null)
+    setTitle("")
+    setContent("")
+    setTemplateId(templates[0]?.id ?? "")
+    setConfidentiality("public")
+    setUrgent(false)
+    setSerialNumber("")
+    setStatus("draft")
+    setQrCode("")
+    setSignedAt("")
+    setFeedback(null)
+    resetAiOutput()
+  }, [resetAiOutput, templates])
 
   useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
+    void fetchTemplates()
+  }, [fetchTemplates])
 
   useEffect(() => {
+    let cancelled = false
     queueMicrotask(() => {
+      if (cancelled) return
       if (selectedCorrespondence) {
-        setCurrentId(selectedCorrespondence.id);
-        setTitle(selectedCorrespondence.title || '');
-        setContent(selectedCorrespondence.content || '');
-        setTemplateId(selectedCorrespondence.template_id || '');
-        setConfidentiality(selectedCorrespondence.confidentiality || 'public');
-        setUrgent(selectedCorrespondence.urgent || false);
-        setSerialNumber(selectedCorrespondence.serial_number || '');
-        setStatus(selectedCorrespondence.status || 'draft');
-        setQrCode(selectedCorrespondence.qr_code || '');
-        setSignedAt(selectedCorrespondence.signed_at || '');
+        setCurrentId(selectedCorrespondence.id)
+        setTitle(selectedCorrespondence.title ?? "")
+        setContent(selectedCorrespondence.content ?? "")
+        setTemplateId(selectedCorrespondence.template_id ?? "")
+        setConfidentiality(selectedCorrespondence.confidentiality || "public")
+        setUrgent(Boolean(selectedCorrespondence.urgent))
+        setSerialNumber(selectedCorrespondence.serial_number ?? "")
+        setStatus(selectedCorrespondence.status || "draft")
+        setQrCode(selectedCorrespondence.qr_code ?? "")
+        setSignedAt(selectedCorrespondence.signed_at ?? "")
+        setFeedback(null)
+        resetAiOutput()
       } else {
-        handleCreateNew();
+        handleCreateNew()
       }
-    });
-  }, [selectedCorrespondence, handleCreateNew]);
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [handleCreateNew, resetAiOutput, selectedCorrespondence])
 
-  const handleSaveDraft = async () => {
-    if (!title.trim() || !content.trim()) return;
+  const handleSaveDraft = async (): Promise<string | null> => {
+    if (!title.trim() || !content.trim()) {
+      setFeedback({ tone: "error", message: t("correspondence.editor.validationRequired") })
+      return null
+    }
     try {
       const saved = await createCorrespondence({
-        title,
-        content,
-        template_id: templateId || (templates[0]?.id),
+        title: title.trim(),
+        content: content.trim(),
+        template_id: templateId || templates[0]?.id,
         confidentiality,
         urgent,
-        status: 'pending_signature',
-      });
-      setCurrentId(saved.id);
-      setSerialNumber(saved.serial_number || 'SEP-2026-OUT-1004');
-      setStatus('pending_signature');
-      setActionSuccess(isRtl ? 'تم حفظ الخطاب وإصدار الرقم التسلسلي بنجاح' : 'Letter saved and serial number issued successfully');
-      setTimeout(() => setActionSuccess(''), 3500);
-    } catch (err) {
-      console.error('Save letter failed:', err);
+        status: "pending_signature",
+      })
+      setCurrentId(saved.id)
+      setSerialNumber(saved.serial_number ?? "")
+      setStatus(saved.status || "pending_signature")
+      setFeedback({ tone: "success", message: t("correspondence.editor.saved") })
+      return saved.id
+    } catch (error) {
+      console.error("Save letter failed:", error)
+      setFeedback({ tone: "error", message: t("correspondence.editor.saveFailed") })
+      return null
     }
-  };
+  }
 
   const handleAiRewrite = async () => {
-    if (!title.trim() || !content.trim()) return;
-    setAiLoading(true);
+    if (!title.trim() || !content.trim()) return
+    setAiLoading(true)
+    setFeedback(null)
     try {
-      const res = await aiRewrite(title, content, 'formal_institutional');
-      if (res.rewritten_title) setTitle(res.rewritten_title);
-      if (res.rewritten_content) setContent(res.rewritten_content);
-      if (res.suggestions) setRewriteSuggestions(res.suggestions);
-      setActionSuccess(isRtl ? 'تم تجويد النص وصياغته مؤسسياً بنجاح بالذكاء الاصطناعي' : 'Text refined and institutionally rewritten by AI');
-      setTimeout(() => setActionSuccess(''), 4000);
-    } catch (err) {
-      console.error('AI Rewrite failed:', err);
+      const result = await aiRewrite(title, content, "formal_institutional")
+      if (!result.rewritten_title || !result.rewritten_content) {
+        throw new Error("AI rewrite response is incomplete")
+      }
+      setTitle(result.rewritten_title)
+      setContent(result.rewritten_content)
+      setRewriteSuggestions(result.suggestions ?? [])
+      setFeedback({ tone: "success", message: t("correspondence.editor.rewriteReady") })
+    } catch (error) {
+      console.error("AI rewrite failed:", error)
+      setFeedback({ tone: "error", message: t("correspondence.editor.aiFailed") })
     } finally {
-      setAiLoading(false);
+      setAiLoading(false)
     }
-  };
+  }
 
   const handleAiAudit = async () => {
-    if (!title.trim() || !content.trim()) return;
-    setAiLoading(true);
+    if (!title.trim() || !content.trim()) return
+    setAiLoading(true)
+    setFeedback(null)
+    resetAiOutput()
     try {
-      const res = await aiAudit(title, content);
-      setAuditScore(res.compliance_score ?? 96);
-      setAuditRisks(res.legal_risks || [
-        isRtl ? 'ملاحظة تنظيمية: يوصى بذكر المرجع القانوني لقرار الاعتماد الصادر في الديباجة.' : 'Regulatory note: Recommended to reference the governing statutory authorization in preamble.',
-      ]);
-      setAuditSuggestions(res.formatting_suggestions || [
-        isRtl ? 'تم التأكد من التوافق التام مع متطلبات الختم الخارجي ورمز الاستجابة السريعة (QR Code).' : 'Verified full compliance with external seal & QR code verification standards.',
-      ]);
-    } catch (err) {
-      console.error('AI Audit failed:', err);
+      const result = await aiAudit(title, content)
+      if (!Number.isFinite(result.compliance_score)) {
+        throw new Error("AI audit response does not contain a score")
+      }
+      setAuditScore(result.compliance_score)
+      setAuditRisks(result.legal_risks ?? [])
+      setAuditSuggestions(result.formatting_suggestions ?? [])
+    } catch (error) {
+      console.error("AI audit failed:", error)
+      setFeedback({ tone: "error", message: t("correspondence.editor.aiFailed") })
     } finally {
-      setAiLoading(false);
+      setAiLoading(false)
     }
-  };
+  }
 
   const handleSignAndSeal = async () => {
-    if (!currentId) {
-      await handleSaveDraft();
-    }
+    const targetId = currentId ?? (await handleSaveDraft())
+    if (!targetId) return
     try {
-      const targetId = currentId || 'temp-id';
-      const result = await signCorrespondence(targetId);
-      setStatus('signed');
-      setQrCode(result?.qr_code || 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=SEPTIMUS-OS-OFFICIAL-SEAL');
-      setSignedAt(result?.signed_at || new Date().toISOString());
-      setActionSuccess(isRtl ? 'تم اعتماد الختم والتوقيع الخارجي مع رمز التحقق QR بنجاح' : 'Official external seal & QR code verification applied successfully');
-      setTimeout(() => setActionSuccess(''), 4500);
-    } catch (err) {
-      console.error('Sign and seal failed:', err);
+      const result = await signCorrespondence(targetId)
+      if (!result.qr_code || !result.signed_at) {
+        throw new Error("Seal response is incomplete")
+      }
+      setStatus("signed")
+      setQrCode(result.qr_code)
+      setSignedAt(result.signed_at)
+      setFeedback({ tone: "success", message: t("correspondence.editor.sealed") })
+    } catch (error) {
+      console.error("Sign and seal failed:", error)
+      setFeedback({ tone: "error", message: t("correspondence.editor.sealFailed") })
     }
-  };
+  }
 
   const handleForward = async () => {
-    if (!currentId) return;
+    if (!currentId || !toUserId.trim()) {
+      setFeedback({ tone: "error", message: t("correspondence.editor.forwardRecipientRequired") })
+      return
+    }
     try {
       await forwardCorrespondence(currentId, {
-        to_user_id: toUserId,
+        to_user_id: toUserId.trim(),
         to_node_path: toNodePath,
-        note: forwardNote,
+        note: forwardNote.trim(),
         action_required: actionRequired,
-      });
-      setShowForwardModal(false);
-      setActionSuccess(isRtl ? `تمت الإحالة الإدارية على المسار التنظيمي (${toNodePath}) بنجاح` : `Successfully routed to organizational path (${toNodePath})`);
-      setTimeout(() => setActionSuccess(''), 4500);
-    } catch (err) {
-      console.error('Forward failed:', err);
+      })
+      setShowForwardModal(false)
+      setFeedback({ tone: "success", message: t("correspondence.editor.forwarded") })
+    } catch (error) {
+      console.error("Forward failed:", error)
+      setFeedback({ tone: "error", message: t("correspondence.editor.forwardFailed") })
     }
-  };
+  }
 
   const handleArchive = async () => {
-    if (!currentId) return;
+    if (!currentId) return
     try {
-      await archiveCorrespondence(currentId);
-      setStatus('archived');
-      setActionSuccess(isRtl ? 'تمت الأرشفة الذكية وفهرسة المستند في قاعدة المعرفة الدلالية (RAG)' : 'Smart archived & semantically indexed into RAG Knowledge Base');
-      setTimeout(() => setActionSuccess(''), 4500);
-    } catch (err) {
-      console.error('Archive failed:', err);
+      await archiveCorrespondence(currentId)
+      setStatus("archived")
+      setFeedback({ tone: "success", message: t("correspondence.editor.archived") })
+    } catch (error) {
+      console.error("Archive failed:", error)
+      setFeedback({ tone: "error", message: t("correspondence.editor.archiveFailed") })
     }
-  };
+  }
 
-  const activeTemplate = templates.find((t) => t.id === templateId) || templates[0];
+  const activeTemplate = templates.find((template) => template.id === templateId) ?? templates[0]
+  const statusLabel = t(`correspondence.editor.status.${status}`)
+  const classificationLabel = t(`correspondence.editor.classification.${confidentiality}`)
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-300">
-      {/* Left Column: Drafting Form & AI Action Bar */}
-      <div className="lg:col-span-7 space-y-6">
-        <div className="p-6 rounded-xl bg-white dark:bg-[#1a1d21] border border-slate-200 dark:border-slate-800/80 shadow-sm">
-          {/* Header Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-6 border-b border-slate-100 dark:border-slate-800">
+    <div data-testid="correspondence-editor" className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+      <section className="space-y-6 lg:col-span-7">
+        <div className="rounded-[var(--radius-surface)] border border-border bg-card p-6 shadow-sm">
+          <header className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
             <div>
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                <FileText className="w-5 h-5 text-brand dark:text-brand-light" />
-                <span>{isRtl ? 'صياغة المراسلات ومحرر ديوان المراسلات والوثائق' : 'Correspondence Drafting & Sovereign Diwan Editor'}</span>
+              <h3 className="flex items-center gap-2 text-lg font-bold text-foreground">
+                <FileText className="size-5 text-brand" />
+                {t("correspondence.editor.title")}
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {currentId ? `${isRtl ? 'الرقم التسلسلي' : 'Serial Number'}: ${serialNumber || (isRtl ? 'صادر' : 'ISSUED')}` : (isRtl ? 'إنشاء خطاب رسمي جديد' : 'Create New Official Letter')}
+              <p className="mt-1 text-xs text-muted-foreground">
+                {currentId
+                  ? `${t("correspondence.serialNumber")}: ${serialNumber || t("correspondence.editor.notAvailable")}`
+                  : t("correspondence.editor.newDocument")}
               </p>
             </div>
-
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={handleCreateNew}
-                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#1a1d21] dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800/80 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-xs font-semibold text-foreground hover:bg-accent"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                {isRtl ? 'جديد' : 'New'}
+                <RefreshCw className="size-4" />
+                {t("correspondence.editor.new")}
               </button>
               <button
-                onClick={handleSaveDraft}
+                type="button"
+                onClick={() => void handleSaveDraft()}
                 disabled={loading}
-                className="px-4 py-2 rounded-xl bg-brand hover:bg-brand/90 text-white text-xs font-semibold shadow hover:shadow-brand/25 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-brand/90 disabled:opacity-50"
               >
-                <Save className="w-4 h-4" />
-                <span>{isRtl ? 'حفظ وإصدار قفل تسلسلي' : 'Save & Issue Serial'}</span>
+                <Save className="size-4" />
+                {t("correspondence.editor.saveAndIssue")}
               </button>
             </div>
-          </div>
+          </header>
 
-          {actionSuccess && (
-            <div className="mb-6 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold flex items-center gap-2">
-              <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span>{actionSuccess}</span>
+          {feedback && (
+            <div
+              role={feedback.tone === "error" ? "alert" : "status"}
+              className={`mb-6 flex items-center gap-2 rounded-lg border p-3 text-xs font-semibold ${
+                feedback.tone === "error"
+                  ? "border-destructive/20 bg-destructive/10 text-destructive"
+                  : "border-success/20 bg-success/10 text-success"
+              }`}
+            >
+              {feedback.tone === "error" ? <AlertTriangle className="size-4" /> : <Check className="size-4" />}
+              {feedback.message}
             </div>
           )}
 
-          {/* AI Assistance Action Toolbar */}
-          <div className="p-4 rounded-xl bg-gradient-to-r from-brand-900/20 via-brand-800/20 to-brand-900/20 border border-brand/30 mb-6 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-brand dark:text-brand-light flex items-center gap-1.5 uppercase tracking-wide">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                AI Institutional Copilot & Legal Auditor
+          <div className="mb-6 space-y-3 rounded-[var(--radius-surface)] border border-brand/20 bg-brand-light p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-brand">
+                <Sparkles className="size-4" />
+                {t("correspondence.editor.aiAssistant")}
               </span>
-              {aiLoading && (
-                <span className="text-xs text-brand dark:text-brand-light font-medium animate-pulse flex items-center gap-1">
-                  Processing AI Refinement...
-                </span>
-              )}
+              {aiLoading && <span className="text-xs text-brand">{t("correspondence.editor.processing")}</span>}
             </div>
-
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={handleAiRewrite}
-                disabled={aiLoading || !title || !content}
-                className="flex-1 min-w-[200px] px-3.5 py-2 rounded-lg bg-brand hover:bg-brand/90 text-white text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                type="button"
+                onClick={() => void handleAiRewrite()}
+                disabled={aiLoading || !title.trim() || !content.trim()}
+                className="inline-flex min-w-48 flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{isRtl ? 'تحسين والصياغة المؤسسية الرسمية' : 'AI Institutional Refinement & Rewrite'}</span>
+                <Sparkles className="size-4" />
+                {t("correspondence.aiRewriteBtn")}
               </button>
               <button
-                onClick={handleAiAudit}
-                disabled={aiLoading || !title || !content}
-                className="flex-1 min-w-[200px] px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500/40 text-xs font-semibold shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                type="button"
+                onClick={() => void handleAiAudit()}
+                disabled={aiLoading || !title.trim() || !content.trim()}
+                className="inline-flex min-w-48 flex-1 items-center justify-center gap-2 rounded-lg bg-success px-4 py-2 text-xs font-semibold text-success-foreground disabled:opacity-50"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-white" />
-                <span>{isRtl ? 'التدقيق القانوني والتنظيمي الذكي' : 'AI Legal & Regulatory Audit'}</span>
+                <ShieldCheck className="size-4" />
+                {t("correspondence.aiAuditBtn")}
               </button>
             </div>
 
-            {/* Audit Score Dashboard Box */}
-            {auditScore !== null && (
-              <div className="mt-3 p-3.5 rounded-lg bg-white/80 dark:bg-[#1a1d21]/80 border border-slate-200 dark:border-slate-800/80 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {isRtl ? 'مؤشر التوافق القانوني والسيادي:' : 'Legal & Regulatory Compliance Score:'}
-                  </span>
-                  <span className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/40">
-                    {auditScore}% {isRtl ? 'متوافق سيادياً' : 'COMPLIANT'}
-                  </span>
-                </div>
-                {auditRisks.length > 0 && (
-                  <div className="space-y-1 text-slate-600 dark:text-slate-300">
-                    {auditRisks.map((risk, idx) => (
-                      <p key={idx} className="flex items-start gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                        <span>{risk}</span>
+            {(auditScore !== null || rewriteSuggestions.length > 0) && (
+              <ProvenanceSurface level="assumption">
+                <p className="font-semibold">{t("correspondence.editor.aiProvenance")}</p>
+                {auditScore !== null && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>{t("correspondence.editor.estimatedCompliance")}</span>
+                      <span className="rounded-full bg-warning/15 px-2 py-1 font-bold text-warning">
+                        {auditScore}%
+                      </span>
+                    </div>
+                    {auditRisks.map((risk, index) => (
+                      <p key={`risk-${index}`} className="flex items-start gap-2 text-muted-foreground">
+                        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+                        {risk}
+                      </p>
+                    ))}
+                    {auditSuggestions.map((suggestion, index) => (
+                      <p key={`suggestion-${index}`} className="flex items-start gap-2 text-muted-foreground">
+                        <CheckCircle className="mt-0.5 size-4 shrink-0 text-success" />
+                        {suggestion}
                       </p>
                     ))}
                   </div>
                 )}
-                {auditSuggestions.length > 0 && (
-                  <div className="space-y-1 text-slate-600 dark:text-slate-300 pt-1 border-t border-slate-100 dark:border-slate-800">
-                    {auditSuggestions.map((sug, idx) => (
-                      <p key={idx} className="flex items-start gap-1.5">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                        <span>{sug}</span>
-                      </p>
+                {rewriteSuggestions.length > 0 && (
+                  <div className="mt-3 space-y-1 border-t border-brand/20 pt-3">
+                    <p className="font-semibold">{t("correspondence.editor.rewriteNotes")}</p>
+                    {rewriteSuggestions.map((note, index) => (
+                      <p key={`rewrite-${index}`} className="text-muted-foreground">• {note}</p>
                     ))}
                   </div>
                 )}
-              </div>
-            )}
-
-            {rewriteSuggestions.length > 0 && (
-              <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 space-y-1 text-xs">
-                <span className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5" /> {isRtl ? 'ملاحظات وتوجيهات الصياغة الذكية:' : 'AI Rewriting Notes & Suggestions:'}
-                </span>
-                {rewriteSuggestions.map((note, idx) => (
-                  <p key={idx} className="text-amber-700 dark:text-amber-400 pl-4">• {note}</p>
-                ))}
-              </div>
+              </ProvenanceSurface>
             )}
           </div>
 
-          {/* Configuration Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                {isRtl ? 'اختر القالب السيادي المعتمد' : 'Select Template'}
-              </label>
+          <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <label className="space-y-2 text-xs font-bold text-foreground">
+              <span>{t("correspondence.selectTemplate")}</span>
               <select
                 value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand"
+                onChange={(event) => setTemplateId(event.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 font-medium"
               >
-                {templates.map((tpl) => (
-                  <option key={tpl.id} value={tpl.id}>
-                    {tpl.name} ({tpl.type})
-                  </option>
+                {templates.length === 0 && <option value="">{t("correspondence.editor.noTemplates")}</option>}
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>{template.name} ({template.type})</option>
                 ))}
               </select>
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                {isRtl ? 'درجة السرية والتصنيف' : 'Classification'}
-              </label>
+            <label className="space-y-2 text-xs font-bold text-foreground">
+              <span>{t("correspondence.confidentiality")}</span>
               <select
                 value={confidentiality}
-                onChange={(e) => setConfidentiality(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand"
+                onChange={(event) => setConfidentiality(event.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 font-medium"
               >
-                <option value="public">{isRtl ? 'عام / اعتيادي' : 'Public / Normal'}</option>
-                <option value="confidential">{isRtl ? 'سري / محصور' : 'Confidential'}</option>
-                <option value="top_secret">{isRtl ? 'سري للغاية سيادي' : 'Top Secret'}</option>
+                <option value="public">{t("correspondence.confPublic")}</option>
+                <option value="confidential">{t("correspondence.confConfidential")}</option>
+                <option value="top_secret">{t("correspondence.confTopSecret")}</option>
               </select>
-            </div>
+            </label>
 
-            <div className="flex items-center gap-3 pt-6">
+            <label className="flex items-center gap-3 pt-7 text-xs font-bold text-destructive">
               <input
                 type="checkbox"
-                id="urgentCheck"
                 checked={urgent}
-                onChange={(e) => setUrgent(e.target.checked)}
-                className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-700"
+                onChange={(event) => setUrgent(event.target.checked)}
+                className="size-4 rounded border-border text-destructive"
               />
-              <label htmlFor="urgentCheck" className="text-xs font-bold text-rose-600 dark:text-rose-400 cursor-pointer flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                {isRtl ? 'عاجل / فوري جداً' : 'Urgent / Immediate'}
-              </label>
-            </div>
+              <AlertTriangle className="size-4" />
+              {t("correspondence.urgent")}
+            </label>
           </div>
 
-          {/* Title & Content Inputs */}
           <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                {isRtl ? 'موضوع الخطاب / عنوان القرار' : 'Subject / Title'}
-              </label>
+            <label className="block space-y-2 text-xs font-bold text-foreground">
+              <span>{t("correspondence.letterTitle")}</span>
               <input
-                type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={isRtl ? 'أدخل موضوع الخطاب الرسمي...' : 'Enter official letter subject...'}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand"
+                onChange={(event) => {
+                  setTitle(event.target.value)
+                  resetAiOutput()
+                }}
+                placeholder={t("correspondence.editor.titlePlaceholder")}
+                className="w-full rounded-lg border border-border bg-background px-4 py-3 text-sm"
               />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                {isRtl ? 'نص ومحتوى الخطاب الرسمي المعتمد' : 'Official Letter Body & Content'}
-              </label>
+            </label>
+            <label className="block space-y-2 text-xs font-bold text-foreground">
+              <span>{t("correspondence.letterContent")}</span>
               <textarea
                 rows={11}
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder={isRtl ? 'قم بصياغة نص الخطاب أو القرار السيادي هنا...' : 'Draft your official letter or decree content here...'}
-                className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-sm font-serif leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand"
+                onChange={(event) => {
+                  setContent(event.target.value)
+                  resetAiOutput()
+                }}
+                placeholder={t("correspondence.editor.contentPlaceholder")}
+                className="w-full rounded-lg border border-border bg-background px-4 py-3 text-sm leading-relaxed"
               />
-            </div>
+            </label>
           </div>
 
-          {/* Bottom Action Footer Bar */}
-          <div className="mt-8 pt-5 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">{isRtl ? 'الحالة:' : 'Status:'}</span>
-              <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand-light">
-                {status}
-              </span>
+          <footer className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-bold text-muted-foreground">{t("correspondence.statusLabel")}:</span>
+              <span className="rounded-full bg-brand/10 px-3 py-1 font-bold text-brand">{statusLabel}</span>
             </div>
-
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               <button
+                type="button"
                 onClick={() => setShowForwardModal(true)}
                 disabled={!currentId}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-[#1a1d21] dark:hover:bg-slate-800/80 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-800/80 text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted px-4 py-2 text-xs font-semibold text-foreground disabled:opacity-50"
               >
-                <GitBranch className="w-4 h-4 text-brand" />
-                <span>{isRtl ? 'إحالة وتوجيه إداري (ltree)' : 'Administrative Forward (ltree)'}</span>
+                <GitBranch className="size-4 text-brand" />
+                {t("correspondence.forwardBtn")}
               </button>
-
               <button
-                onClick={handleSignAndSeal}
-                disabled={status === 'signed' || status === 'archived'}
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md hover:shadow-emerald-500/25 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                type="button"
+                onClick={() => void handleSignAndSeal()}
+                disabled={status === "signed" || status === "archived"}
+                className="inline-flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-xs font-bold text-success-foreground disabled:opacity-50"
               >
-                <QrCode className="w-4 h-4" />
-                <span>{isRtl ? 'اعتماد وختم سيادي مشفر (QR Code)' : 'Official Seal & Approval (QR Code)'}</span>
+                <QrCode className="size-4" />
+                {t("correspondence.signAndSealBtn")}
               </button>
-
               <button
-                onClick={handleArchive}
-                disabled={status !== 'signed'}
-                className="px-4 py-2 rounded-xl bg-brand hover:bg-brand/90 text-white text-xs font-bold shadow-md hover:shadow-brand/25 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                type="button"
+                onClick={() => void handleArchive()}
+                disabled={status !== "signed"}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-xs font-bold text-primary-foreground disabled:opacity-50"
               >
-                <Archive className="w-4 h-4" />
-                <span>{isRtl ? 'أرشفة دلالية في قاعدة المعرفة (RAG)' : 'Archive to Knowledge Base'}</span>
+                <Archive className="size-4" />
+                {t("correspondence.archiveBtn")}
               </button>
             </div>
-          </div>
+          </footer>
         </div>
-      </div>
+      </section>
 
-      {/* Right Column: Live Institutional Document View */}
-      <div className="lg:col-span-5 space-y-4">
-        <div className="p-6 rounded-xl bg-white dark:bg-[#1a1d21] border border-slate-200 dark:border-slate-800/80 shadow-sm sticky top-6">
-          <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 dark:border-slate-800">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Eye className="w-4 h-4 text-brand" /> Official Document Live Render
+      <aside className="space-y-4 lg:col-span-5">
+        <div className="sticky top-6 rounded-[var(--radius-surface)] border border-border bg-card p-6 shadow-sm">
+          <header className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
+            <span className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground">
+              <Eye className="size-4 text-brand" />
+              {t("correspondence.editor.livePreview")}
             </span>
-            <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 px-2 py-0.5 rounded">
-              A4 INSTITUTIONAL VIEW
+            <span className="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[10px] font-bold text-warning">
+              {t("correspondence.editor.previewOnly")}
             </span>
-          </div>
+          </header>
 
-          {/* Paper Canvas Container */}
           <div
             style={{
-              fontFamily: activeTemplate?.layout_config?.font_family || 'Cairo, sans-serif',
-              color: activeTemplate?.layout_config?.font_color || '#1e293b'
+              fontFamily: activeTemplate?.layout_config?.font_family || "Cairo, sans-serif",
+              color: activeTemplate?.layout_config?.font_color || "var(--color-ink)",
             }}
-            className="bg-white text-slate-900 p-7 rounded-lg shadow-lg border border-slate-200 min-h-[580px] flex flex-col justify-between relative overflow-hidden transition-all duration-200"
+            className="relative flex min-h-[580px] flex-col justify-between overflow-hidden rounded-lg border border-border bg-[var(--color-paper-raised)] p-7 text-[var(--color-ink)] shadow-lg"
           >
             <div>
-              {/* Header section rendered */}
               {activeTemplate?.header_html ? (
-                <div dangerouslySetInnerHTML={{ __html: activeTemplate.header_html }} />
+                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(activeTemplate.header_html) }} />
               ) : (
-                <div className="text-center border-b-2 border-brand pb-3 mb-4">
-                  <h2 className="text-base font-bold text-slate-900 m-0">
-                    {getCompanyDefaults().name ? `${getCompanyDefaults().name} • ديوان المراسلات والوثائق` : 'إدارة العمليات والمراسلات الرسمية • Septimus OS'}
-                  </h2>
-                  <p className="text-[11px] text-slate-500 m-0">
-                    {getCompanyDefaults().address ? `${getCompanyDefaults().address} • إدارة الأرشيف والختم الموثق` : 'نظام إدارة المراسلات والوثائق المعتمدة'}
-                  </p>
+                <div className="mb-4 flex items-center justify-center gap-3 border-b-2 border-brand pb-3 text-center">
+                  {company.logo && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={company.logo}
+                      alt={company.name || t("correspondence.editor.previewOrganization")}
+                      className="h-12 w-12 flex-shrink-0 object-contain"
+                    />
+                  )}
+                  <div>
+                    <h2 className="m-0 text-base font-bold">
+                      {company.name || t("correspondence.editor.previewOrganization")}
+                    </h2>
+                    <p className="m-0 text-[11px] text-muted-foreground">
+                      {company.address || t("correspondence.editor.previewHeader")}
+                    </p>
+                  </div>
                 </div>
               )}
 
-              {/* Document metadata banner */}
-              <div className="flex items-center justify-between text-[11px] font-mono text-slate-600 py-2 border-b border-slate-100 mb-5">
-                <div>
-                  <span className="font-bold">SERIAL: </span>
-                  <span className="text-brand font-extrabold">{serialNumber || 'SEP-2026-OUT-XXXX'}</span>
-                </div>
-                <div>
-                  <span className="font-bold">DATE: </span>
-                  <span>{new Date().toISOString().split('T')[0]}</span>
-                </div>
-                <div>
-                  <span className="font-bold">CLASS: </span>
-                  <span className="uppercase font-bold text-rose-600">{confidentiality}</span>
-                </div>
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-border py-2 text-[11px] text-muted-foreground">
+                <span>{t("correspondence.serialNumber")}: <strong>{serialNumber || t("correspondence.editor.unissued")}</strong></span>
+                <span>{t("correspondence.editor.date")}: {formatDate(new Date())}</span>
+                <span>{t("correspondence.confidentiality")}: <strong>{classificationLabel}</strong></span>
               </div>
 
-              {/* Title / Subject */}
-              <div className="mb-5 text-center">
-                <h3
-                  style={{
-                    fontSize: `${Math.max(14, (activeTemplate?.layout_config?.font_size_body || 14) + 2)}px`,
-                    fontWeight: activeTemplate?.layout_config?.font_weight === 'black' ? 900 : activeTemplate?.layout_config?.font_weight === 'bold' ? 700 : 600,
-                    color: activeTemplate?.layout_config?.font_color || '#1e293b'
-                  }}
-                  className="underline decoration-slate-300 underline-offset-4 m-0"
-                >
-                  {title || 'Official Correspondence Subject'}
-                </h3>
-              </div>
-
-              {/* Body Content */}
+              <h3
+                style={{
+                  fontSize: `${Math.max(14, (activeTemplate?.layout_config?.font_size_body || 14) + 2)}px`,
+                  fontWeight: activeTemplate?.layout_config?.font_weight === "black"
+                    ? 900
+                    : activeTemplate?.layout_config?.font_weight === "bold" ? 700 : 600,
+                }}
+                className="mb-5 text-center underline decoration-border underline-offset-4"
+              >
+                {title || t("correspondence.editor.previewSubject")}
+              </h3>
               <div
                 style={{
                   fontSize: `${activeTemplate?.layout_config?.font_size_body || 14}px`,
-                  fontWeight: activeTemplate?.layout_config?.font_weight === 'medium' ? 500 : 400,
-                  fontStyle: activeTemplate?.layout_config?.font_style || 'normal'
+                  fontWeight: activeTemplate?.layout_config?.font_weight === "medium" ? 500 : 400,
+                  fontStyle: activeTemplate?.layout_config?.font_style || "normal",
                 }}
-                className="leading-relaxed whitespace-pre-wrap text-justify"
+                className="whitespace-pre-wrap text-start leading-relaxed"
               >
-                {content || 'Enter document text on the left editor to preview exact institutional formatting here...'}
+                {content || t("correspondence.editor.previewBody")}
               </div>
             </div>
 
-            {/* Footer with External QR Seal (No Internal Signature) */}
-            <div className="mt-8 pt-4 border-t border-slate-200">
+            <footer className="mt-8 border-t border-border pt-4">
               <div className="flex items-center justify-between gap-3">
-                {/* External QR verification code box */}
-                <div className="flex items-center gap-2.5 bg-slate-50 p-2.5 rounded border border-slate-200">
-                  <div className="w-14 h-14 bg-white border border-slate-300 rounded flex items-center justify-center font-mono text-[9px] text-brand font-bold shadow-inner shrink-0">
-                    {qrCode || status === 'signed' ? (
-                      <QrCode className="w-10 h-10 text-brand animate-pulse" />
+                <div className="flex items-center gap-3 rounded border border-border bg-muted p-3">
+                  <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-[var(--color-paper-raised)]">
+                    {qrCode ? (
+                      <Image src={qrCode} alt={t("correspondence.editor.qrAlt")} width={56} height={56} unoptimized />
                     ) : (
-                      <span className="text-[8px] text-slate-400 text-center">QR SEAL<br/>PENDING</span>
+                      <QrCode className="size-9 text-muted-foreground" />
                     )}
                   </div>
-                  <div className="text-[10px] leading-tight text-slate-700">
-                    <p className="font-extrabold text-slate-900 uppercase tracking-wide flex items-center gap-1">
-                      <Stamp className="w-3 h-3 text-emerald-600" />
-                      External Certified Seal
+                  <div className="text-[10px]">
+                    <p className="flex items-center gap-1 font-bold">
+                      <Stamp className="size-3 text-success" />
+                      {qrCode ? t("correspondence.editor.sealMetadataAvailable") : t("correspondence.editor.sealPending")}
                     </p>
-                    <p className="text-slate-500 text-[9px]">Verifiable cryptographic stamp</p>
-                    <p className="font-mono text-[9px] text-brand font-bold mt-0.5">
-                      {status === 'signed' ? `SEALED & ENCRYPTED (${signedAt ? signedAt.slice(0, 10) : 'NOW'})` : 'AWAITING APPROVAL'}
-                    </p>
+                    <p className="text-muted-foreground">{t("correspondence.editor.verifyWithPayload")}</p>
+                    {signedAt && <p className="mt-1 font-mono text-brand">{formatDate(signedAt)}</p>}
                   </div>
                 </div>
-
-                <div className="text-end text-[11px] text-slate-600">
-                  <p className="font-bold text-slate-900 uppercase">
-                    {getCompanyDefaults().nameEn || 'Sovereign Project Directorate'}
-                  </p>
-                  <p className="text-slate-400 italic text-[10px]">No internal signature exposed</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Septimus Sovereign OS v1.0</p>
+                <div className="text-end text-[11px] text-muted-foreground">
+                  <p className="font-bold text-foreground">{company.nameEn || company.name || t("correspondence.editor.previewOrganization")}</p>
+                  <p>{t("correspondence.editor.previewDocument")}</p>
                 </div>
               </div>
-
               {activeTemplate?.footer_html ? (
-                <div className="mt-3 text-[10px] text-center text-slate-400" dangerouslySetInnerHTML={{ __html: activeTemplate.footer_html }} />
+                <div className="mt-3 text-center text-[10px]" dangerouslySetInnerHTML={{ __html: sanitizeHtml(activeTemplate.footer_html) }} />
               ) : (
-                <p className="mt-3 text-[10px] text-center text-slate-400">
-                  {getCompanyDefaults().name ? `${getCompanyDefaults().name} • المقر الرئيسي • نظام الختم والمراسلات الرقمية` : 'نظام Septimus OS الموحد • طرابلس، ليبيا • نظام الختم والمراسلات الرقمية (HMAC256 QR Verifiable)'}
-                </p>
+                <p className="mt-3 text-center text-[10px] text-muted-foreground">{t("correspondence.editor.previewFooter")}</p>
               )}
-            </div>
+            </footer>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* Modal: Administrative Forwarding (ltree routing) */}
       {showForwardModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-[#1a1d21] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800/80 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <h4 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <GitBranch className="w-5 h-5 text-brand" />
-                <span>{isRtl ? 'إحالة وتوجيه إداري (مسار ltree التنظيمي)' : 'Administrative Forward & Routing (ltree)'}</span>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay/70 p-4 backdrop-blur-sm">
+          <section role="dialog" aria-modal="true" aria-labelledby="forward-title" className="w-full max-w-lg space-y-4 rounded-[var(--radius-surface)] border border-border bg-card p-6 shadow-2xl">
+            <header className="flex items-center justify-between gap-3 border-b border-border pb-3">
+              <h4 id="forward-title" className="flex items-center gap-2 font-bold text-foreground">
+                <GitBranch className="size-5 text-brand" />
+                {t("correspondence.editor.forwardTitle")}
               </h4>
-              <button
-                onClick={() => setShowForwardModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold cursor-pointer"
-              >
-                ✕
+              <button type="button" onClick={() => setShowForwardModal(false)} aria-label={t("common.close")} className="rounded p-1 text-muted-foreground hover:bg-muted">
+                <X className="size-4" />
               </button>
-            </div>
+            </header>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  {isRtl ? 'مسار الإحالة الهرمي (ltree Path)' : 'Organizational Routing Path (ltree path)'}
-                </label>
-                <select
-                  value={toNodePath}
-                  onChange={(e) => setToNodePath(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 font-mono text-xs text-brand font-bold focus:outline-none focus:ring-2 focus:ring-brand"
-                >
-                  <option value="top.ministry.diwan.legal">{isRtl ? 'top.ministry.diwan.legal (إدارة التدقيق والشؤون القانونية)' : 'top.ministry.diwan.legal (Legal & Regulatory Audit Dept)'}</option>
-                  <option value="top.ministry.diwan.exec">{isRtl ? 'top.ministry.diwan.exec (مكتب وكيل الوزارة التنفيذي)' : 'top.ministry.diwan.exec (Executive Undersecretary Office)'}</option>
-                  <option value="top.ministry.finance.budget">{isRtl ? 'top.ministry.finance.budget (وحدة الميزانية والشؤون المالية)' : 'top.ministry.finance.budget (General Budget & Financial Unit)'}</option>
-                  <option value="top.ministry.hr.personnel">{isRtl ? 'top.ministry.hr.personnel (إدارة الموارد البشرية والعمليات)' : 'top.ministry.hr.personnel (Human Capital & Operations)'}</option>
+            <div className="space-y-4 text-xs">
+              <label className="block space-y-2 font-bold text-foreground">
+                <span>{t("correspondence.forwardNodePath")}</span>
+                <select value={toNodePath} onChange={(event) => setToNodePath(event.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono">
+                  <option value="top.ministry.diwan.legal">{t("correspondence.editor.routes.legal")}</option>
+                  <option value="top.ministry.diwan.exec">{t("correspondence.editor.routes.executive")}</option>
+                  <option value="top.ministry.finance.budget">{t("correspondence.editor.routes.finance")}</option>
+                  <option value="top.ministry.hr.personnel">{t("correspondence.editor.routes.hr")}</option>
                 </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  {isRtl ? 'الموظف / الجهة المحال إليها' : 'Forwarded To Employee / Unit'}
-                </label>
-                <input
-                  type="text"
-                  value={toUserId}
-                  onChange={(e) => setToUserId(e.target.value)}
-                  placeholder={isRtl ? 'اسم الموظف أو رمز الوحدة...' : 'Employee ID or Unit Name...'}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  {isRtl ? 'الإجراء المطلوب اتخاذه' : 'Required Action'}
-                </label>
-                <select
-                  value={actionRequired}
-                  onChange={(e) => setActionRequired(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand"
-                >
-                  <option value="review_and_endorse">{isRtl ? 'الاطلاع وإبداء الرأي والمصادقة' : 'Review & Endorse'}</option>
-                  <option value="for_information">{isRtl ? 'للعلم والإحاطة والتنفيذ' : 'For Information & Execution'}</option>
-                  <option value="urgent_action">{isRtl ? 'اتخاذ الإجراء العاجل وإفادتنا' : 'Take Urgent Action & Report Back'}</option>
+              </label>
+              <label className="block space-y-2 font-bold text-foreground">
+                <span>{t("correspondence.forwardToUser")}</span>
+                <input value={toUserId} onChange={(event) => setToUserId(event.target.value)} placeholder={t("correspondence.editor.recipientPlaceholder")} className="w-full rounded-lg border border-border bg-background px-3 py-2" />
+              </label>
+              <label className="block space-y-2 font-bold text-foreground">
+                <span>{t("correspondence.actionRequired")}</span>
+                <select value={actionRequired} onChange={(event) => setActionRequired(event.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2">
+                  <option value="review_and_endorse">{t("correspondence.editor.actions.review")}</option>
+                  <option value="for_information">{t("correspondence.editor.actions.information")}</option>
+                  <option value="urgent_action">{t("correspondence.editor.actions.urgent")}</option>
                 </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  {isRtl ? 'ملاحظة الإحالة أو التوجيه الإداري' : 'Routing Note & Directive'}
-                </label>
-                <textarea
-                  rows={3}
-                  value={forwardNote}
-                  onChange={(e) => setForwardNote(e.target.value)}
-                  placeholder={isRtl ? 'اكتب ملاحظاتك وتوجيهات الإحالة هنا...' : 'Enter your forward directive note here...'}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-xs focus:outline-none focus:ring-2 focus:ring-brand"
-                />
-              </div>
+              </label>
+              <label className="block space-y-2 font-bold text-foreground">
+                <span>{t("correspondence.forwardNote")}</span>
+                <textarea rows={3} value={forwardNote} onChange={(event) => setForwardNote(event.target.value)} placeholder={t("correspondence.editor.notePlaceholder")} className="w-full rounded-lg border border-border bg-background px-3 py-2" />
+              </label>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <button
-                onClick={() => setShowForwardModal(false)}
-                className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-[#1a1d21] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800/80 text-xs font-semibold cursor-pointer"
-              >
-                {isRtl ? 'إلغاء' : 'Cancel'}
+            <footer className="flex items-center justify-end gap-2 border-t border-border pt-3">
+              <button type="button" onClick={() => setShowForwardModal(false)} className="rounded-lg border border-border bg-muted px-4 py-2 text-xs font-semibold">{t("common.cancel")}</button>
+              <button type="button" onClick={() => void handleForward()} className="inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2 text-xs font-bold text-primary-foreground">
+                <Send className="size-4" />
+                {t("correspondence.editor.executeForward")}
               </button>
-              <button
-                onClick={handleForward}
-                className="px-5 py-2 rounded-lg bg-brand hover:bg-brand/90 text-white text-xs font-bold shadow transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>{isRtl ? 'تنفيذ الإحالة وبث التنبيه الإداري' : 'Execute Forward Directive'}</span>
-              </button>
-            </div>
-          </div>
+            </footer>
+          </section>
         </div>
       )}
     </div>
-  );
-};
+  )
+}

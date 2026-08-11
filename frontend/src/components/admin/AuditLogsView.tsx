@@ -2,19 +2,21 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { 
-  Shield, 
-  Search, 
-  RefreshCw, 
-  Calendar, 
-  Clock, 
-  Database, 
-  User as UserIcon, 
-  Filter, 
-  Download, 
-  Eye, 
-  ChevronLeft, 
-  ChevronRight
+import {
+  Shield,
+  Search,
+  RefreshCw,
+  Calendar,
+  Clock,
+  Database,
+  User as UserIcon,
+  Filter,
+  Download,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  Activity,
+  AlertTriangle
 } from "lucide-react";
 import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
 import { format } from "date-fns";
@@ -40,6 +42,7 @@ export default function AuditLogsView() {
   const [page, setPage] = useState(1);
   const [limit] = useState(25);
   const [total, setTotal] = useState(0);
+  const [filterType, setFilterType] = useState<"all" | "security" | "activity">("all");
   const [selectedLog, setSelectedLog] = useState<any | null>(null);
 
   const fetchLogs = useCallback(async (isRefresh = false) => {
@@ -50,6 +53,7 @@ export default function AuditLogsView() {
         limit: limit.toString(),
         search: search.trim(),
         entity_type: entityType,
+        filter_type: filterType,
       });
 
       const res = await fetchWithAuth(`${API_BASE_URL}/admin/audit-logs?${queryParams.toString()}`);
@@ -64,7 +68,7 @@ export default function AuditLogsView() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, search, entityType, logs.length]);
+  }, [page, limit, search, entityType, filterType, logs.length]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -111,42 +115,67 @@ export default function AuditLogsView() {
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div className="flex flex-col h-full bg-[#f8fafc] dark:bg-[#0f0f0f] transition-colors">
+    <div className="flex flex-col h-full bg-background dark:bg-[#0f0f0f] transition-colors">
       {/* Header */}
-      <div className="bg-white dark:bg-[#121212] border-b border-slate-200 dark:border-slate-800 px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm z-10 transition-colors">
+      <div className="bg-card dark:bg-[#121212] border-b border-border dark:border-slate-800 px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm z-10 transition-colors">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-rose-50 dark:bg-rose-500/10 text-rose-600 rounded-xl flex items-center justify-center border border-rose-100 dark:border-rose-500/20 shadow-sm">
             <Shield className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">{t("admin.auditLogs.title")}</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">{t("admin.auditLogs.subtitle")}</p>
+            <h1 className="text-2xl font-bold text-foreground dark:text-white tracking-tight">{t("admin.auditLogs.title")}</h1>
+            <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1 font-medium">{t("admin.auditLogs.subtitle")}</p>
           </div>
+        </div>
+
+        {/* Smart Filters (Tabs) */}
+        <div className="flex bg-muted dark:bg-slate-800 p-1 rounded-xl">
+          <button
+            onClick={() => { setFilterType("all"); setPage(1); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${filterType === 'all' ? 'bg-card dark:bg-[#1a1a1a] text-foreground dark:text-white shadow-sm' : 'text-muted-foreground hover:text-foreground dark:hover:text-slate-300'}`}
+          >
+            <Shield className="w-4 h-4" />
+            {t("admin.auditLogs.filters.all", "All Events")}
+          </button>
+          <button
+            onClick={() => { setFilterType("security"); setPage(1); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${filterType === 'security' ? 'bg-card dark:bg-[#1a1a1a] text-rose-600 shadow-sm' : 'text-muted-foreground hover:text-rose-500'}`}
+          >
+            <AlertTriangle className="w-4 h-4" />
+            {t("admin.auditLogs.filters.security", "Security Events")}
+          </button>
+          <button
+            onClick={() => { setFilterType("activity"); setPage(1); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${filterType === 'activity' ? 'bg-card dark:bg-[#1a1a1a] text-blue-600 shadow-sm' : 'text-muted-foreground hover:text-blue-500'}`}
+          >
+            <Activity className="w-4 h-4" />
+            {t("admin.auditLogs.filters.activity", "User Activity")}
+          </button>
         </div>
 
         {/* Controls Bar */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Search Input */}
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute end-3 top-1/2 -translate-y-1/2" />
-            <input 
-              type="text" 
-              placeholder={t("admin.auditLogs.searchPlaceholder")} 
+            <Search className="w-4 h-4 text-muted-foreground absolute end-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder={t("admin.auditLogs.searchPlaceholder")}
               value={search}
               onChange={handleSearchChange}
-              className="pe-9 ps-4 py-2 bg-[#f8fafc] dark:bg-[#1a1a1a] border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 dark:focus:border-rose-700 transition-all w-64 text-slate-700 dark:text-slate-300 font-medium placeholder:text-slate-400"
+              className="pe-9 ps-4 py-2 bg-background dark:bg-[#1a1a1a] border border-border dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 dark:focus:border-rose-700 transition-all w-64 text-foreground dark:text-slate-300 font-medium placeholder:text-muted-foreground"
             />
           </div>
 
           {/* Entity Type Filter */}
           <div className="relative flex items-center">
-            <Filter className="w-4 h-4 text-slate-400 absolute end-3 pointer-events-none" />
+            <Filter className="w-4 h-4 text-muted-foreground absolute end-3 pointer-events-none" />
             <select
               value={entityType}
               onChange={handleEntityTypeChange}
               title="Filter by Entity Type"
               aria-label="Filter by Entity Type"
-              className="pe-9 ps-4 py-2 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-700 dark:text-slate-300 font-medium focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 dark:focus:border-rose-700 transition-all appearance-none cursor-pointer"
+              className="pe-9 ps-4 py-2 bg-card dark:bg-[#1a1a1a] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-slate-300 font-medium focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-300 dark:focus:border-rose-700 transition-all appearance-none cursor-pointer"
             >
               {ENTITY_TYPES.map(type => (
                 <option key={type.value} value={type.value}>
@@ -162,19 +191,19 @@ export default function AuditLogsView() {
             disabled={loading || logs.length === 0}
             title={t("admin.auditLogs.exportTooltip")}
             aria-label={t("admin.auditLogs.exportTooltip")}
-            className="px-4 py-2 bg-white dark:bg-[#1a1a1a] hover:bg-slate-50 dark:hover:bg-[#2a2a2a] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium text-sm flex items-center gap-2 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-card dark:bg-[#1a1a1a] hover:bg-muted dark:hover:bg-[#2a2a2a] border border-border dark:border-slate-700 text-foreground dark:text-slate-300 rounded-xl font-medium text-sm flex items-center gap-2 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+            <Download className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
             <span>{t("admin.auditLogs.exportCsv")}</span>
           </button>
 
           {/* Refresh Button */}
-          <button 
+          <button
             onClick={() => fetchLogs(true)}
             disabled={loading}
             title={t("admin.auditLogs.refresh")}
             aria-label={t("admin.auditLogs.refresh")}
-            className="p-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a1a1a] hover:bg-slate-50 dark:hover:bg-[#2a2a2a] text-slate-600 dark:text-slate-400 rounded-xl flex items-center justify-center transition-all shadow-sm disabled:opacity-50"
+            className="p-2 border border-border dark:border-slate-700 bg-card dark:bg-[#1a1a1a] hover:bg-muted dark:hover:bg-[#2a2a2a] text-muted-foreground dark:text-muted-foreground rounded-xl flex items-center justify-center transition-all shadow-sm disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-rose-500' : ''}`} />
           </button>
@@ -183,11 +212,11 @@ export default function AuditLogsView() {
 
       {/* Content Table */}
       <div className="flex-1 overflow-auto p-8">
-        <div className="bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[450px] transition-colors">
+        <div className="bg-card dark:bg-[#1a1a1a] border border-border dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[450px] transition-colors">
           <div className="flex-1 overflow-x-auto">
             <table className="w-full text-end border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-bold">
+                <tr className="bg-muted/80 dark:bg-slate-800/50 border-b border-border dark:border-slate-800 text-xs uppercase tracking-wider text-muted-foreground dark:text-muted-foreground font-bold">
                   <th className="px-6 py-4">{t("admin.auditLogs.colAction")}</th>
                   <th className="px-6 py-4">{t("admin.auditLogs.colEntity")}</th>
                   <th className="px-6 py-4">{t("admin.auditLogs.colUser")}</th>
@@ -196,10 +225,10 @@ export default function AuditLogsView() {
                   <th className="px-6 py-4 text-center">{t("admin.auditLogs.colDetails")}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-sm">
+              <tbody className="divide-y divide-border dark:divide-slate-800 font-medium text-sm">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-16 text-center text-slate-400 dark:text-slate-500">
+                    <td colSpan={6} className="px-6 py-16 text-center text-muted-foreground dark:text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <RefreshCw className="w-6 h-6 animate-spin text-rose-500" />
                         <span>{t("admin.auditLogs.loading")}</span>
@@ -208,10 +237,10 @@ export default function AuditLogsView() {
                   </tr>
                 ) : logs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-16 text-center text-slate-400 dark:text-slate-500">
-                      <Shield className="w-10 h-10 mx-auto mb-3 opacity-20 text-slate-600 dark:text-slate-400" />
-                      <p className="font-semibold text-slate-600 dark:text-slate-300">{t("admin.auditLogs.noRecords")}</p>
-                      <p className="text-xs text-slate-400 mt-1">{t("admin.auditLogs.tryDifferentFilter")}</p>
+                    <td colSpan={6} className="px-6 py-16 text-center text-muted-foreground dark:text-muted-foreground">
+                      <Shield className="w-10 h-10 mx-auto mb-3 opacity-20 text-muted-foreground dark:text-muted-foreground" />
+                      <p className="font-semibold text-muted-foreground dark:text-slate-300">{t("admin.auditLogs.noRecords")}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t("admin.auditLogs.tryDifferentFilter")}</p>
                     </td>
                   </tr>
                 ) : (
@@ -225,50 +254,50 @@ export default function AuditLogsView() {
                     const userObj = log.User;
 
                     return (
-                      <tr 
-                        key={String(log.ID || log.id || `${actionName}-${idx}`)} 
-                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer"
+                      <tr
+                        key={String(log.ID || log.id || `${actionName}-${idx}`)}
+                        className="hover:bg-muted/80 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer"
                         onClick={() => setSelectedLog(log)}
                       >
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2.5 font-bold text-slate-800 dark:text-slate-200">
-                            <div className="w-2 h-2 rounded-full bg-rose-500"></div>
+                          <div className="flex items-center gap-2.5 font-bold text-foreground dark:text-slate-200">
+                            <div className={`w-2 h-2 rounded-full ${actionName.startsWith('auth.') || actionName.startsWith('settings.') ? 'bg-rose-500' : 'bg-blue-500'}`}></div>
                             <span>{t(`admin.auditLogs.actions.${actionName}`, actionName)}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                            <Database className="w-4 h-4 text-slate-400" />
+                          <div className="flex items-center gap-2 text-foreground dark:text-slate-300">
+                            <Database className="w-4 h-4 text-muted-foreground" />
                             <span className="font-semibold">{t(`admin.auditLogs.entityTypes.${entityName}`, entityName)}</span>
                             {entityIdStr && (
-                              <span className="text-slate-400 font-mono text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                              <span className="text-muted-foreground font-mono text-xs bg-muted dark:bg-slate-800 px-1.5 py-0.5 rounded border border-border dark:border-slate-700">
                                 {entityIdStr.substring(0, 8)}
                               </span>
                             )}
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                            <UserIcon className="w-4 h-4 text-slate-400" />
+                          <div className="flex items-center gap-2 text-foreground dark:text-slate-300">
+                            <UserIcon className="w-4 h-4 text-muted-foreground" />
                             <span>
-                              {userObj && userObj.email 
-                                ? userObj.email 
-                                : userObj && userObj.name 
-                                ? userObj.name 
+                              {userObj && userObj.email
+                                ? userObj.email
+                                : userObj && userObj.name
+                                ? userObj.name
                                 : userIdStr.length > 15 ? `${userIdStr.substring(0, 8)}...` : userIdStr}
                             </span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-xs">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          <div className="flex items-center gap-2 text-muted-foreground dark:text-muted-foreground text-xs">
+                            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                             <span>{format(new Date(String(dateVal)), "yyyy-MM-dd")}</span>
-                            <span className="text-slate-300 dark:text-slate-600">|</span>
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <span className="text-slate-300 dark:text-muted-foreground">|</span>
+                            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                             <span className="font-mono">{format(new Date(String(dateVal)), "HH:mm:ss")}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-mono text-xs">
+                        <td className="px-6 py-4 text-muted-foreground dark:text-muted-foreground font-mono text-xs">
                           {ipStr}
                         </td>
                         <td className="px-6 py-4 text-center">
@@ -277,7 +306,7 @@ export default function AuditLogsView() {
                               e.stopPropagation();
                               setSelectedLog(log);
                             }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors inline-flex items-center justify-center"
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 transition-colors inline-flex items-center justify-center"
                             title="View Details"
                             aria-label="View Log Details"
                           >
@@ -293,11 +322,11 @@ export default function AuditLogsView() {
           </div>
 
           {/* Pagination Footer */}
-          <div className="bg-slate-50/80 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-600 dark:text-slate-400 transition-colors">
+          <div className="bg-muted/80 dark:bg-slate-800/50 border-t border-border dark:border-slate-800 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-muted-foreground dark:text-muted-foreground transition-colors">
             <div>
               {total > 0 ? (
                 <span>
-                  {t("common.paginationShowing")} <span className="font-bold text-slate-800 dark:text-slate-200">{(page - 1) * limit + 1}</span> {t("common.paginationTo")} <span className="font-bold text-slate-800 dark:text-slate-200">{Math.min(page * limit, total)}</span> {t("common.paginationOf")} <span className="font-bold text-slate-800 dark:text-slate-200">{total}</span> {t("common.paginationRecords")}
+                  {t("common.paginationShowing")} <span className="font-bold text-foreground dark:text-slate-200">{(page - 1) * limit + 1}</span> {t("common.paginationTo")} <span className="font-bold text-foreground dark:text-slate-200">{Math.min(page * limit, total)}</span> {t("common.paginationOf")} <span className="font-bold text-foreground dark:text-slate-200">{total}</span> {t("common.paginationRecords")}
                 </span>
               ) : (
                 <span>{t("common.paginationEmpty")}</span>
@@ -308,21 +337,21 @@ export default function AuditLogsView() {
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page <= 1 || loading}
-                className="p-2 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-[#2a2a2a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-slate-600 dark:text-slate-300"
+                className="p-2 bg-card dark:bg-[#1a1a1a] border border-border dark:border-slate-700 rounded-lg hover:bg-muted dark:hover:bg-[#2a2a2a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-muted-foreground dark:text-slate-300"
                 title={t("common.previousPage")}
                 aria-label={t("common.previousPage")}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
 
-              <span className="px-3 py-1.5 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 font-bold transition-colors">
+              <span className="px-3 py-1.5 bg-card dark:bg-[#1a1a1a] border border-border dark:border-slate-700 rounded-lg text-foreground dark:text-slate-200 font-bold transition-colors">
                 {page} / {totalPages}
               </span>
 
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page >= totalPages || loading}
-                className="p-2 bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-100 dark:hover:bg-[#2a2a2a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-slate-600 dark:text-slate-300"
+                className="p-2 bg-card dark:bg-[#1a1a1a] border border-border dark:border-slate-700 rounded-lg hover:bg-muted dark:hover:bg-[#2a2a2a] disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-muted-foreground dark:text-slate-300"
                 title={t("common.nextPage")}
                 aria-label={t("common.nextPage")}
               >
@@ -334,9 +363,9 @@ export default function AuditLogsView() {
       </div>
 
       {/* Details Modal */}
-      <AuditLogDetailsModal 
-        log={selectedLog} 
-        onClose={() => setSelectedLog(null)} 
+      <AuditLogDetailsModal
+        log={selectedLog}
+        onClose={() => setSelectedLog(null)}
       />
     </div>
   );

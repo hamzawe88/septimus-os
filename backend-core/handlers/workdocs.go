@@ -18,6 +18,14 @@ func CreateWorkDoc(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid Project ID"})
 	}
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "workspace context is required"})
+	}
+	var project models.Project
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", pUUID, workspaceID).First(&project).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Project not found"})
+	}
 
 	var req struct {
 		Title        string `json:"title"`
@@ -40,6 +48,7 @@ func CreateWorkDoc(c *fiber.Ctx) error {
 
 	doc := models.WorkDoc{
 		ID:           uuid.New(),
+		WorkspaceID:  workspaceID,
 		ProjectID:    pUUID,
 		Title:        req.Title,
 		TemplateType: req.TemplateType,
@@ -67,7 +76,8 @@ func GetWorkDocs(c *fiber.Ctx) error {
 	}
 
 	var docs []models.WorkDoc
-	if err := database.GetDB(c).Where("project_id = ?", pUUID).Order("created_at desc").Find(&docs).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	if err := database.GetDB(c).Where("project_id = ? AND workspace_id = ?", pUUID, workspaceID).Order("created_at desc").Find(&docs).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch documents"})
 	}
 
@@ -82,7 +92,8 @@ func GetWorkDoc(c *fiber.Ctx) error {
 	}
 
 	var doc models.WorkDoc
-	if err := database.GetDB(c).Where("id = ?", docID).First(&doc).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", docID, workspaceID).First(&doc).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 	}
 
@@ -97,17 +108,18 @@ func DeleteWorkDoc(c *fiber.Ctx) error {
 	}
 
 	var doc models.WorkDoc
-	if err := database.GetDB(c).Where("id = ?", docID).First(&doc).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", docID, workspaceID).First(&doc).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 	}
 
 	userID, _ := c.Locals("user_id").(string)
 	role := c.Locals("role")
-	if doc.CreatedBy.String() != userID && role != "ADMIN" {
+	if doc.CreatedBy.String() != userID && role != "ADMIN" && role != "admin" && role != "owner" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not have permission to delete this document"})
 	}
 
-	if err := database.GetDB(c).Where("id = ?", docID).Delete(&models.WorkDoc{}).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", docID, workspaceID).Delete(&models.WorkDoc{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete document"})
 	}
 
@@ -129,13 +141,14 @@ func UpdateWorkDoc(c *fiber.Ctx) error {
 	}
 
 	var doc models.WorkDoc
-	if err := database.GetDB(c).Where("id = ?", docID).First(&doc).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", docID, workspaceID).First(&doc).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Document not found"})
 	}
 
 	userID, _ := c.Locals("user_id").(string)
 	role := c.Locals("role")
-	if doc.CreatedBy.String() != userID && role != "ADMIN" {
+	if doc.CreatedBy.String() != userID && role != "ADMIN" && role != "admin" && role != "owner" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Forbidden: You do not have permission to edit this document"})
 	}
 
@@ -148,4 +161,18 @@ func UpdateWorkDoc(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(doc)
+}
+
+// GetAllWorkDocs returns all documents for a workspace across all projects
+func GetAllWorkDocs(c *fiber.Ctx) error {
+	var docs []models.WorkDoc
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "workspace context is required"})
+	}
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Order("created_at desc").Find(&docs).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch documents"})
+	}
+
+	return c.JSON(docs)
 }

@@ -108,22 +108,44 @@ class TestKnowledge(unittest.TestCase):
         context = knowledge.retrieve_context("test-workspace-id", "test query")
         self.assertEqual(context, "")
 
+    @patch("requests.get")
+    def test_drive_import_rejects_untrusted_identifiers_before_network(self, mock_get):
+        indexed = knowledge.embed_drive_document(
+            "not-a-uuid", "policy.pdf", "also-invalid", "invalid-workspace"
+        )
+        self.assertEqual(indexed, 0)
+        mock_get.assert_not_called()
+
+    @patch.object(knowledge, "_embed_document_file", return_value=2)
+    @patch("requests.get")
+    def test_drive_import_streams_internal_file_to_temporary_indexer(self, mock_get, mock_index):
+        response = MagicMock()
+        response.headers = {"Content-Length": "18"}
+        response.iter_content.return_value = [b"trusted knowledge\n"]
+        response.raise_for_status.return_value = None
+        response.__enter__.return_value = response
+        response.__exit__.return_value = False
+        mock_get.return_value = response
+
+        indexed = knowledge.embed_drive_document(
+            "11111111-1111-4111-8111-111111111111",
+            "policy.txt",
+            "22222222-2222-4222-8222-222222222222",
+            "33333333-3333-4333-8333-333333333333",
+        )
+
+        self.assertEqual(indexed, 2)
+        mock_get.assert_called_once()
+        temporary_path = mock_index.call_args.args[0]
+        self.assertFalse(os.path.exists(temporary_path))
+        self.assertTrue(mock_index.call_args.kwargs["trusted_temporary_path"])
+
 
 class TestObservability(unittest.TestCase):
     def test_estimate_cost_usd(self):
         # 1M prompt tokens for gpt-5-mini = $0.15, 1M completion = $0.60
         cost = observability.estimate_cost_usd("gpt-5-mini", 1_000_000, 1_000_000)
         self.assertAlmostEqual(cost, 0.75, places=4)
-
-    def test_extract_usage_from_response(self):
-        mock_response = MagicMock()
-        mock_response.response_metadata = {
-            "token_usage": {"prompt_tokens": 150, "completion_tokens": 50}
-        }
-        usage = observability.extract_usage_from_response(mock_response)
-        self.assertEqual(usage["prompt_tokens"], 150)
-        self.assertEqual(usage["completion_tokens"], 50)
-        self.assertEqual(usage["total_tokens"], 200)
 
     def test_check_budget_guardrails(self):
         # Clear tracker for clean state
@@ -133,7 +155,7 @@ class TestObservability(unittest.TestCase):
         observability.check_budget_guardrails("ws-test", "ar", max_daily_tokens=100)
         
         # Add tokens beyond limit
-        observability._daily_token_tracker["ws-test_" + observability.time.strftime('%Y-%m-%d', observability.time.gmtime())] = 150
+        observability._add_tokens("ws-test", 150)
         
         # Now it should raise BudgetExceededError
         with self.assertRaises(observability.BudgetExceededError):
@@ -216,6 +238,7 @@ class TestLongTermMemory(unittest.TestCase):
 class TestExternalWebhooks(unittest.IsolatedAsyncioTestCase):
     @patch("nats_events.get_active_llm")
     async def test_on_webhook_external_delegation(self, mock_get_llm):
+        """A valid external event must prove the target channel is in its tenant."""
         mock_llm = AsyncMock()
         mock_llm.ainvoke.return_value = MagicMock(content="Welcome from Agent HR")
         mock_get_llm.return_value = mock_llm
@@ -232,12 +255,22 @@ class TestExternalWebhooks(unittest.IsolatedAsyncioTestCase):
             "data": {
                 "agent_role": "hr",
                 "message": "Hello HR agent",
-                "channel_id": "chan-001"
+                "channel_id": "11111111-1111-1111-1111-111111111111"
             }
         }
         msg.data = json.dumps(payload).encode()
 
-        await nats_events.on_webhook_external(msg)
+        access_response = AsyncMock()
+        access_response.status = 204
+        access_context = AsyncMock()
+        access_context.__aenter__.return_value = access_response
+        session = MagicMock()
+        session.get.return_value = access_context
+
+        with patch("nats_events.http_client.get_session", return_value=session):
+            await nats_events.on_webhook_external(msg)
+
         msg.ack.assert_called_once()
         mock_get_llm.assert_called_once_with("ws-123")
         mock_nc.publish.assert_called_once()
+        session.get.assert_called_once()

@@ -1,10 +1,13 @@
 package events
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 )
 
@@ -71,6 +74,9 @@ func createStream(streamName, subject string) {
 
 // PublishEvent publishes a message to NATS JetStream
 func PublishEvent(subject string, data []byte) error {
+	if JetStream == nil {
+		return fmt.Errorf("NATS JetStream is not initialized")
+	}
 	_, err := JetStream.Publish(subject, data)
 	if err != nil {
 		log.Printf("Failed to publish event to %s: %v", subject, err)
@@ -79,8 +85,41 @@ func PublishEvent(subject string, data []byte) error {
 	return nil
 }
 
+// PublishTenantEvent publishes an event stamped with the workspace it belongs
+// to, and refuses to publish one that isn't.
+//
+// Consumers on the AI side read workspace_id off the payload and, when it was
+// missing, used to fall back to "the oldest workspace in the database". Thirteen
+// of the twenty-two publish sites — task creation, message creation, entity
+// create/update, subtasks, workflow triggers — sent no workspace_id at all, so
+// every tenant's events were processed into the first customer's workspace:
+// their embeddings, their memory, their agents. Nothing errored, because
+// guessing a tenant is indistinguishable from knowing one.
+//
+// The workspace id is stamped here rather than in each payload literal so that
+// a publisher cannot forget it: passing uuid.Nil is a hard error, not a default.
+func PublishTenantEvent(subject string, workspaceID uuid.UUID, payload map[string]interface{}) error {
+	if workspaceID == uuid.Nil {
+		return fmt.Errorf("refusing to publish %s without a workspace id", subject)
+	}
+	if payload == nil {
+		payload = map[string]interface{}{}
+	}
+	// Authoritative: the caller's own workspace_id key, if any, is overwritten.
+	payload["workspace_id"] = workspaceID.String()
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal %s payload: %w", subject, err)
+	}
+	return PublishEvent(subject, data)
+}
+
 // RequestEvent sends a message over core NATS and waits for a reply
 func RequestEvent(subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	if NatsConn == nil {
+		return nil, fmt.Errorf("NATS connection is not initialized")
+	}
 	msg, err := NatsConn.Request(subject, data, timeout)
 	if err != nil {
 		log.Printf("Failed to request event on %s: %v", subject, err)

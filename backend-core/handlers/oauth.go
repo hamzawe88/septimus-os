@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,27 +15,21 @@ import (
 
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/models"
+	"github.com/septimus-os/backend-core/services/crypto"
 )
 
 var googleOAuthConfig *oauth2.Config
 
-func initGoogleOAuthConfig() *oauth2.Config {
+func initGoogleOAuthConfig() (*oauth2.Config, error) {
 	if googleOAuthConfig != nil {
-		return googleOAuthConfig
+		return googleOAuthConfig, nil
 	}
 
-	clientID := os.Getenv("GOOGLE_CLIENT_ID")
-	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
-	redirectURL := os.Getenv("GOOGLE_REDIRECT_URI")
-
-	if clientID == "" {
-		clientID = "placeholder_client_id"
-	}
-	if clientSecret == "" {
-		clientSecret = "placeholder_client_secret"
-	}
-	if redirectURL == "" {
-		redirectURL = "http://localhost:4000/api/v1/auth/google/callback"
+	clientID := strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_ID"))
+	clientSecret := strings.TrimSpace(os.Getenv("GOOGLE_CLIENT_SECRET"))
+	redirectURL := strings.TrimSpace(os.Getenv("GOOGLE_REDIRECT_URI"))
+	if clientID == "" || clientSecret == "" || redirectURL == "" {
+		return nil, errors.New("google oauth is not configured")
 	}
 
 	googleOAuthConfig = &oauth2.Config{
@@ -48,30 +44,36 @@ func initGoogleOAuthConfig() *oauth2.Config {
 		Endpoint: google.Endpoint,
 	}
 
-	return googleOAuthConfig
+	return googleOAuthConfig, nil
 }
 
-// GoogleLogin redirects the user to the Google consent screen.
-func GoogleLogin(c *fiber.Ctx) error {
-	// The state token can encode the workspace ID and the user ID to know where to save the credentials
-	workspaceID := c.Query("workspace_id")
-	if workspaceID == "" {
-		// If no workspace ID provided, try to get it from auth middleware if this route is protected
-		if val := c.Locals("workspace_id"); val != nil {
-			workspaceID = val.(string)
-		}
+// GoogleAuthURL returns the Google consent URL for the CALLER's workspace.
+//
+// This replaces the old unauthenticated GET /auth/google/login, which took the
+// tenant from ?workspace_id= and used it as the OAuth state verbatim. It has to
+// be a JSON endpoint rather than a redirect: a top-level browser navigation
+// carries no Authorization header, so the only way to know who is connecting is
+// to have the frontend fetch this with its token and then navigate to the URL.
+func GoogleAuthURL(c *fiber.Ctx) error {
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "workspace context is required"})
+	}
+	userID, _ := c.Locals("user_id").(string)
+
+	state, err := newOAuthState(workspaceID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not start the Google connect flow"})
 	}
 
-	if workspaceID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "workspace_id is required"})
+	conf, err := initGoogleOAuthConfig()
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "google_integration_not_configured"})
 	}
-
-	conf := initGoogleOAuthConfig()
-	
-	// Pass access_type=offline to get a refresh token
-	url := conf.AuthCodeURL(workspaceID, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
-	
-	return c.Redirect(url, fiber.StatusTemporaryRedirect)
+	// access_type=offline to get a refresh token
+	return c.JSON(fiber.Map{
+		"url": conf.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce),
+	})
 }
 
 // GoogleCallback handles the OAuth callback from Google.
@@ -83,13 +85,19 @@ func GoogleCallback(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid callback parameters"})
 	}
 
-	workspaceID, err := uuid.Parse(state)
+	// The tenant comes out of the signature, not out of the parameter. A state
+	// that does not verify means the flow was not started by this server for
+	// this workspace, and the credentials must not be stored anywhere.
+	workspaceID, _, err := parseOAuthState(state)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid state/workspace_id format"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid or expired authorization state"})
 	}
 
-	conf := initGoogleOAuthConfig()
-	
+	conf, err := initGoogleOAuthConfig()
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "google_integration_not_configured"})
+	}
+
 	// Exchange code for token
 	token, err := conf.Exchange(context.Background(), code)
 	if err != nil {
@@ -97,17 +105,25 @@ func GoogleCallback(c *fiber.Ctx) error {
 	}
 
 	// Save or update the token in the database
+	accessToken, err := crypto.Encrypt(token.AccessToken)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to encrypt OAuth credentials"})
+	}
+	refreshToken, err := crypto.Encrypt(token.RefreshToken)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to encrypt OAuth credentials"})
+	}
 	var integration models.WorkspaceIntegration
 	res := database.GetDB(c).Where("workspace_id = ? AND provider = ?", workspaceID, "google").First(&integration)
-	
+
 	if res.Error != nil {
 		// Create new integration
 		integration = models.WorkspaceIntegration{
 			ID:           uuid.New(),
 			WorkspaceID:  workspaceID,
 			Provider:     "google",
-			AccessToken:  token.AccessToken,
-			RefreshToken: token.RefreshToken,
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
 			Expiry:       token.Expiry,
 		}
 		if err := database.GetDB(c).Create(&integration).Error; err != nil {
@@ -115,9 +131,9 @@ func GoogleCallback(c *fiber.Ctx) error {
 		}
 	} else {
 		// Update existing
-		integration.AccessToken = token.AccessToken
+		integration.AccessToken = accessToken
 		if token.RefreshToken != "" {
-			integration.RefreshToken = token.RefreshToken
+			integration.RefreshToken = refreshToken
 		}
 		integration.Expiry = token.Expiry
 		integration.UpdatedAt = time.Now()
@@ -126,6 +142,10 @@ func GoogleCallback(c *fiber.Ctx) error {
 		}
 	}
 
-	// Redirect back to frontend settings page
-	return c.Redirect("http://localhost:3000?view=settings&tab=integrations", fiber.StatusTemporaryRedirect)
+	// Redirect only to the configured frontend origin.
+	redirectURL, err := safeFrontendURL("/?view=settings&tab=integrations", "/")
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Frontend redirect is not configured"})
+	}
+	return c.Redirect(redirectURL, fiber.StatusTemporaryRedirect)
 }

@@ -9,6 +9,8 @@ import MessageInput from "@/components/shared/MessageInput";
 import MessageRow from "@/components/chat/MessageRow";
 import ChannelWelcome from "@/components/chat/ChannelWelcome";
 import AIRecapModal from "@/components/chat/AIRecapModal";
+import ConvertToTaskModal from "@/components/chat/ConvertToTaskModal";
+import PinnedTasksBanner from "@/components/chat/PinnedTasksBanner";
 import LiveDateTime from "@/components/shared/LiveDateTime";
 import { useAppStore } from "@/store/useAppStore";
 import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
@@ -30,7 +32,7 @@ export default function FullPageChat() {
     onlineUsers,
     centrifuge,
   } = useAppStore();
-  const { t } = useLocalization();
+  const { t, language } = useLocalization();
 
   const currentId = (currentView === 'dm' && activeDmId) ? activeDmId : activeChannelId;
 
@@ -40,11 +42,14 @@ export default function FullPageChat() {
   const [isRecapLoading, setIsRecapLoading] = React.useState(false);
   const [typingUsers, setTypingUsers] = React.useState<Record<string, boolean>>({});
 
+  const [taskModalMsg, setTaskModalMsg] = React.useState<any>(null);
+  const [confirmDeleteMsgId, setConfirmDeleteMsgId] = React.useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages — block: "end" avoids horizontal jumps
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
   // Subscribe to channel for typing indicators and chat messages
@@ -84,6 +89,8 @@ export default function FullPageChat() {
         const delId = String(msg.message_id || "").trim();
         if (!delId) return;
         setMessages((prev: any[]) => prev.filter(p => String(p.ID || p.id || "").trim() !== delId));
+      } else if (msg.type === 'system' && msg.entityType === 'channel_pinned_task') {
+        window.dispatchEvent(new CustomEvent('refresh_pinned_tasks', { detail: { channelId: currentId } }));
       }
     };
 
@@ -150,7 +157,13 @@ export default function FullPageChat() {
   };
 
   const handleDeleteMessage = async (id: string) => {
-    if (!confirm(t("chat.confirmDelete"))) return;
+    setConfirmDeleteMsgId(id);
+  };
+
+  const confirmDeleteMessage = async () => {
+    const id = confirmDeleteMsgId;
+    if (!id) return;
+    setConfirmDeleteMsgId(null);
     try {
       const res = await fetchWithAuth(`${API_BASE_URL}/messages/${id}`, {
         method: "DELETE"
@@ -184,54 +197,57 @@ export default function FullPageChat() {
   };
 
   return (
-    <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 dark:bg-[#0f0f0f] relative transition-colors">
-      {/* Decorative Background Glows for modern Glassmorphism feel */}
-      <div className="absolute top-0 end-0 w-[500px] h-[500px] bg-brand/5 rounded-full blur-[100px] pointer-events-none -z-10" />
-      <div className="absolute bottom-0 start-0 w-[400px] h-[400px] bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none -z-10" />
-
-      {/* Modern Enterprise Header (Bento Style) */}
-      <div className="h-20 bg-white/70 dark:bg-[#1a1a1a]/70 backdrop-blur-md border-b border-white/20 dark:border-slate-800 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] px-6 flex items-center justify-between sticky top-0 z-10 transition-colors">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-brand to-brand-dark rounded-2xl shadow-lg shadow-brand/20 flex items-center justify-center text-white">
+    <main
+      data-testid="full-page-chat"
+      className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground"
+    >
+      <header className="sticky top-0 z-10 flex min-h-20 flex-col justify-between gap-3 border-b border-border bg-card/90 px-4 py-3 shadow-[var(--shadow-raised)] backdrop-blur-md sm:flex-row sm:items-center sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-brand text-brand-foreground shadow-[var(--shadow-raised)]">
             {isDm ? <MessageSquare className="w-6 h-6" /> : <Hash className="w-6 h-6" />}
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
-              <span>{activeChannel.name}</span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60 shadow-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="min-w-0">
+            <h1 className="flex flex-wrap items-center gap-2 text-lg font-bold">
+              <span className="truncate">{activeChannel.name}</span>
+              <span className="inline-flex items-center gap-1.5 rounded-[var(--radius-control)] border border-success/20 bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">
+                <span className="size-1.5 animate-pulse rounded-full bg-success" />
                 {Object.values(onlineUsers || {}).filter(Boolean).length || 1} {t("chat.online")}
               </span>
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{activeChannel.description || t("chat.defaultChannelDesc")}</p>
+            <p className="truncate text-sm text-muted-foreground">{activeChannel.description || t("chat.defaultChannelDesc")}</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full px-3 py-1.5 shadow-sm text-sm text-slate-500 dark:text-slate-300 transition-colors">
+        <div className="flex max-w-full items-center gap-1 overflow-x-auto sm:gap-2">
+          <div className="hidden items-center rounded-[var(--radius-control)] border border-border bg-background px-3 py-1.5 text-sm text-muted-foreground lg:flex">
              <LiveDateTime />
           </div>
-          <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-2 hidden lg:block transition-colors" />
+          <div className="mx-1 hidden h-8 w-px bg-border lg:block" />
           
-          <Button variant="ghost" size="sm" className="h-10 px-4 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-all" onClick={() => { setIsRagSidebarOpen(true); setActiveThread(null); setIsThreadsListOpen(false); }}>
-            <Sparkles className="w-4 h-4 me-2 text-brand" /> {t("chat.docChat")}
+          <Button variant="ghost" size="sm" onClick={() => { setIsRagSidebarOpen(true); setActiveThread(null); setIsThreadsListOpen(false); }}>
+            <Sparkles className="text-brand" /> <span className="hidden md:inline">{t("chat.docChat")}</span>
           </Button>
-          <Button variant="ghost" size="sm" className="h-10 px-4 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-all" onClick={() => { setIsThreadsListOpen(!isThreadsListOpen); setActiveThread(null); setIsRagSidebarOpen(false); }}>
-            <MessageSquare className="w-4 h-4 me-2" /> {t("chat.threadsBtn")}
+          <Button variant="ghost" size="sm" onClick={() => { setIsThreadsListOpen(!isThreadsListOpen); setActiveThread(null); setIsRagSidebarOpen(false); }}>
+            <MessageSquare /> <span className="hidden md:inline">{t("chat.threadsBtn")}</span>
           </Button>
-          <Button variant="default" size="sm" className="h-10 px-4 rounded-xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 hover:opacity-95 text-white shadow-md shadow-purple-500/25 border border-purple-400/30 transition-all flex items-center" onClick={handleTriggerRecap}>
-            <Sparkles className="w-4 h-4 me-2 text-amber-300 animate-pulse" /> {t("chat.aiRecap")}
+          <Button size="sm" onClick={handleTriggerRecap}>
+            <Sparkles className="animate-pulse" /> {t("chat.aiRecap")}
           </Button>
         </div>
-      </div>
+      </header>
+
+      {/* Pinned Tasks Banner */}
+      {!isDm && currentId && (
+        <PinnedTasksBanner channelId={currentId} />
+      )}
 
       {/* Messages Scroll Area */}
-      <ScrollArea className="flex-1 px-4 lg:px-8">
+      <ScrollArea className="flex-1 min-h-0 px-4 lg:px-8 overflow-y-auto">
         <div className="w-full py-8">
           <ChannelWelcome channelName={activeChannel.name} />
 
           <div className="flex items-center justify-center my-8">
-            <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 text-xs font-bold px-4 py-1.5 rounded-full shadow-sm transition-colors">
+            <div className="rounded-[var(--radius-control)] border border-border bg-card px-4 py-1.5 text-xs font-bold text-muted-foreground shadow-[var(--shadow-raised)]">
               {t("chat.today")}
             </div>
           </div>
@@ -240,34 +256,59 @@ export default function FullPageChat() {
             {messages.map((rawMsg: unknown, idx: number) => {
               const msg = rawMsg as Record<string, any>;
               let msgType = "human";
-              let author = msg.User ? msg.User.Email : "Unknown";
-              
-              if (msg.IsAIGenerated) {
+
+              // Support both snake_case (new API) and PascalCase (legacy)
+              const user = msg.user || msg.User;
+              const isAI = msg.is_ai_generated ?? msg.IsAIGenerated ?? false;
+              const aiRole = msg.ai_agent_role || msg.AIAgentRole;
+              const createdAt = msg.created_at || msg.CreatedAt;
+              const content = msg.content || msg.Content;
+              const aiProposal = msg.ai_proposal || msg.AIProposal;
+              const entityType = msg.entity_type || msg.EntityType;
+              const entityId = msg.entity_id || msg.EntityID;
+
+              // Resolve author name: prefer display_name > Name > Email > Unknown
+              let author = t("chat.unknownUser");
+              if (user) {
+                author = user.display_name || user.DisplayName || user.name || user.Name || user.email || user.Email || t("chat.unknownUser");
+              }
+
+              if (isAI) {
                 msgType = "ai";
-                author = msg.AIAgentRole || "AI Orchestrator";
+                author = aiRole || t("chat.aiOrchestrator");
               } else if (msg.type === "system") {
                 msgType = "system";
-                author = "System Event";
+                author = t("chat.systemEvent");
+              }
+
+              // Parse date safely
+              let timeStr = "";
+              if (createdAt) {
+                const d = new Date(createdAt);
+                timeStr = isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
               }
 
               const finalMsg: any = {
                 ...msg,
+                id: msg.id || msg.ID,
+                channel_id: msg.channel_id || msg.ChannelID,
                 type: msgType,
                 author: author,
-                time: new Date(msg.CreatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                text: msg.Content,
-                aiProposal: msg.AIProposal,
-                entityType: msg.EntityType,
-                entityData: msg.EntityID ? { id: msg.EntityID } : undefined
+                time: timeStr,
+                text: content,
+                aiProposal: aiProposal,
+                entityType: entityType,
+                entityData: entityId ? { id: entityId } : undefined
               };
 
               return (
-                <div key={msg.ID || (msg as any).id || `msg-${idx}`} className="transition-all duration-150">
+                <div key={msg.id || msg.ID || `msg-${idx}`} className="transition-all duration-150">
                    <MessageRow 
                      msg={finalMsg}
                      onReplyClick={() => setActiveThread(finalMsg as any)}
                      onEdit={(id, newText) => handleEditMessage(id, newText)}
                      onDelete={(id) => handleDeleteMessage(id)}
+                     onConvertToTask={(msgToConvert) => setTaskModalMsg(msgToConvert)}
                    />
                 </div>
               );
@@ -285,7 +326,7 @@ export default function FullPageChat() {
             .map(([u]) => u);
           if (activeTypers.length === 0) return null;
           return (
-            <div className="mb-2 px-4 py-1.5 rounded-xl text-xs text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-2 animate-pulse bg-white/80 dark:bg-[#1a1a1a]/80 border border-slate-200/80 dark:border-slate-800/80 shadow-sm w-fit transition-colors">
+            <div className="mb-2 flex w-fit animate-pulse items-center gap-2 rounded-[var(--radius-control)] border border-border bg-card px-4 py-1.5 text-xs font-semibold text-muted-foreground shadow-[var(--shadow-raised)]">
               <span className="flex gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-brand animate-bounce [animation-delay:0ms]" />
                 <span className="w-1.5 h-1.5 rounded-full bg-brand animate-bounce [animation-delay:150ms]" />
@@ -294,7 +335,7 @@ export default function FullPageChat() {
               <span>
                 {activeTypers.length === 1
                   ? `${activeTypers[0]} ${t("chat.typingNowSingle")}`
-                  : `${activeTypers.join(" and ")} ${t("chat.typingNowMulti")}`}
+                  : `${new Intl.ListFormat(language, { style: "long", type: "conjunction" }).format(activeTypers)} ${t("chat.typingNowMulti")}`}
               </span>
             </div>
           );
@@ -308,11 +349,48 @@ export default function FullPageChat() {
       <AIRecapModal 
         isOpen={isRecapOpen} 
         onClose={() => setIsRecapOpen(false)} 
-        channelName={activeChannel?.name || "general"} 
+        channelName={activeChannel?.name || t("chat.generalChannel")}
         summary={recapSummary} 
         citations={recapCitations} 
         isLoading={isRecapLoading} 
       />
+      <ConvertToTaskModal
+        isOpen={!!taskModalMsg}
+        onClose={() => setTaskModalMsg(null)}
+        message={taskModalMsg}
+        channelId={currentId}
+      />
+
+      {/* Inline Delete Confirmation Modal */}
+      {confirmDeleteMsgId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setConfirmDeleteMsgId(null)}>
+          <section
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-message-title"
+            className="w-[90vw] max-w-sm rounded-[var(--radius-surface)] border border-border bg-popover p-6 text-popover-foreground shadow-[var(--shadow-overlay)]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex size-10 flex-shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-destructive/10">
+                <svg className="w-5 h-5 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              </div>
+              <div>
+                <h3 id="delete-message-title" className="text-base font-bold">{t("chat.deleteMessageTitle")}</h3>
+                <p className="text-sm text-muted-foreground">{t("chat.deleteMessageDescription")}</p>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button onClick={() => setConfirmDeleteMsgId(null)} variant="outline">
+                {t("common.cancel")}
+              </Button>
+              <Button onClick={confirmDeleteMessage} variant="destructive">
+                {t("chat.confirmDeleteAction")}
+              </Button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

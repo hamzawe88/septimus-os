@@ -34,23 +34,23 @@ export default function AuditLogDetailsModal({ log, onClose }: AuditLogDetailsMo
       aria-modal="true"
       aria-labelledby="audit-log-modal-title"
     >
-      <div className="bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors">
+      <div className="bg-card dark:bg-[#1a1a1a] border border-border dark:border-slate-800 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] transition-colors">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+        <div className="px-6 py-5 border-b border-border dark:border-slate-800 flex items-center justify-between bg-muted/50 dark:bg-slate-800/30">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 flex items-center justify-center text-rose-600">
               <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h2 id="audit-log-modal-title" className="text-lg font-bold text-slate-800 dark:text-slate-100">
+              <h2 id="audit-log-modal-title" className="text-lg font-bold text-foreground dark:text-slate-100">
                 {t("admin.auditLogs.modalTitle")}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">ID: {String(log.ID || "")}</p>
+              <p className="text-xs text-muted-foreground dark:text-muted-foreground font-mono mt-0.5">ID: {String(log.ID || "")}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-lg text-muted-foreground dark:text-muted-foreground hover:text-muted-foreground dark:hover:text-slate-300 hover:bg-muted dark:hover:bg-slate-800 transition-colors"
             title={t("common.close")}
             aria-label={t("common.close")}
           >
@@ -62,35 +62,35 @@ export default function AuditLogDetailsModal({ log, onClose }: AuditLogDetailsMo
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {/* Main Info Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800/80">
-              <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
+            <div className="bg-muted dark:bg-slate-800/30 p-4 rounded-xl border border-border/80 dark:border-slate-800/80">
+              <span className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider block mb-1">
                 {t("admin.auditLogs.colAction")}
               </span>
-              <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200 text-base">
+              <div className="flex items-center gap-2 font-bold text-foreground dark:text-slate-200 text-base">
                 <div className="w-2.5 h-2.5 rounded-full bg-rose-500"></div>
                 {t(`admin.auditLogs.actions.${String(log.Action || log.action || "-")}`, String(log.Action || log.action || "-"))}
               </div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800/80">
-              <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
+            <div className="bg-muted dark:bg-slate-800/30 p-4 rounded-xl border border-border/80 dark:border-slate-800/80">
+              <span className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider block mb-1">
                 {t("admin.auditLogs.colEntity")}
               </span>
-              <div className="flex items-center gap-2 font-semibold text-slate-700 dark:text-slate-300 text-sm">
-                <Database className="w-4 h-4 text-slate-400" />
+              <div className="flex items-center gap-2 font-semibold text-foreground dark:text-slate-300 text-sm">
+                <Database className="w-4 h-4 text-muted-foreground" />
                 <span>{t(`admin.auditLogs.entityTypes.${String(log.EntityType || log.entity_type || "-")}`, String(log.EntityType || log.entity_type || "-"))}</span>
-                <span className="text-xs text-slate-400 dark:text-slate-500 font-mono bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                <span className="text-xs text-muted-foreground dark:text-muted-foreground font-mono bg-card dark:bg-slate-800 px-1.5 py-0.5 rounded border border-border dark:border-slate-700">
                   {String(log.EntityID || log.entity_id || "-")}
                 </span>
               </div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800/80">
-              <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
+            <div className="bg-muted dark:bg-slate-800/30 p-4 rounded-xl border border-border/80 dark:border-slate-800/80">
+              <span className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider block mb-1">
                 {t("admin.auditLogs.colUser")}
               </span>
-              <div className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-300 text-sm">
-                <UserIcon className="w-4 h-4 text-slate-400" />
+              <div className="flex items-center gap-2 font-medium text-foreground dark:text-slate-300 text-sm">
+                <UserIcon className="w-4 h-4 text-muted-foreground" />
                 <span>
                   {log.User && log.User.email 
                     ? log.User.email 
@@ -101,19 +101,19 @@ export default function AuditLogDetailsModal({ log, onClose }: AuditLogDetailsMo
               </div>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800/80">
-              <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
+            <div className="bg-muted dark:bg-slate-800/30 p-4 rounded-xl border border-border/80 dark:border-slate-800/80">
+              <span className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider block mb-1">
                 {t("admin.auditLogs.colIp")}
               </span>
-              <div className="flex items-center gap-2 font-mono text-sm text-slate-700 dark:text-slate-300">
-                <Globe className="w-4 h-4 text-slate-400" />
+              <div className="flex items-center gap-2 font-mono text-sm text-foreground dark:text-slate-300">
+                <Globe className="w-4 h-4 text-muted-foreground" />
                 <span>{String(log.IPAddress || log.ip_address || "-")}</span>
               </div>
             </div>
           </div>
 
           {/* Timestamp Banner */}
-          <div className="bg-rose-50/50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/20 p-3.5 rounded-xl flex items-center justify-between text-sm text-slate-700 dark:text-slate-300">
+          <div className="bg-rose-50/50 dark:bg-rose-500/5 border border-rose-100 dark:border-rose-500/20 p-3.5 rounded-xl flex items-center justify-between text-sm text-foreground dark:text-slate-300">
             <div className="flex items-center gap-2 font-medium">
               <Calendar className="w-4 h-4 text-rose-500" />
               <span>{t("admin.auditLogs.dateLabel")}</span>
@@ -129,14 +129,14 @@ export default function AuditLogDetailsModal({ log, onClose }: AuditLogDetailsMo
           {/* Details / Payload JSON */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+              <label className="text-xs font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-4 h-4 text-muted-foreground dark:text-muted-foreground" />
                 {t("admin.auditLogs.payloadLabel")}
               </label>
               {hasDetails && (
                 <button
                   onClick={handleCopyJson}
-                  className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-2.5 py-1 rounded-md transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground dark:text-slate-300 hover:text-foreground dark:hover:text-white bg-muted dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-2.5 py-1 rounded-md transition-colors"
                   title={t("admin.auditLogs.copyJson")}
                 >
                   {copied ? (
@@ -162,7 +162,7 @@ export default function AuditLogDetailsModal({ log, onClose }: AuditLogDetailsMo
                     : String(detailsObj)}
                 </pre>
               ) : (
-                <div className="text-slate-500 text-center py-6 italic">
+                <div className="text-muted-foreground text-center py-6 italic">
                   {t("admin.auditLogs.noPayload")}
                 </div>
               )}
@@ -171,7 +171,7 @@ export default function AuditLogDetailsModal({ log, onClose }: AuditLogDetailsMo
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 flex justify-end">
+        <div className="px-6 py-4 border-t border-border dark:border-slate-800 bg-muted dark:bg-slate-800/30 flex justify-end">
           <button
             onClick={onClose}
             className="px-5 py-2 bg-brand hover:bg-brand-dark text-white font-bold rounded-xl text-sm shadow-sm transition-all focus:ring-2 focus:ring-brand focus:ring-offset-2 dark:focus:ring-offset-slate-900"

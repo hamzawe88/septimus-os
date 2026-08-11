@@ -32,12 +32,12 @@ func IngestEmbeddings(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid JSON"})
 	}
 
-	workspaceID := database.ParseUUID(req.WorkspaceID)
-	if workspaceID == uuid.Nil {
-		workspaceID = database.ParseUUID(c.Query("workspace_id"))
-	}
+	workspaceID := CurrentWorkspaceID(c)
 	if workspaceID == uuid.Nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "workspace_id is required"})
+	}
+	if req.WorkspaceID != "" && database.ParseUUID(req.WorkspaceID) != workspaceID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "workspace metadata does not match request context"})
 	}
 
 	entityType := req.EntityType
@@ -73,23 +73,9 @@ type SemanticSearchResult struct {
 }
 
 func SearchSemantic(c *fiber.Ctx) error {
-	var workspaceID uuid.UUID
-	if val := c.Locals("workspace_id"); val != nil {
-		if str, ok := val.(string); ok {
-			if id, err := uuid.Parse(str); err == nil {
-				workspaceID = id
-			}
-		}
-	}
+	workspaceID := CurrentWorkspaceID(c)
 	if workspaceID == uuid.Nil {
-		if queryId := c.Query("workspace_id"); queryId != "" {
-			if id, err := uuid.Parse(queryId); err == nil {
-				workspaceID = id
-			}
-		}
-	}
-	if workspaceID == uuid.Nil {
-		workspaceID = resolveDefaultWorkspaceID()
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "workspace_id is required"})
 	}
 
 	query := c.Query("q")
@@ -97,6 +83,12 @@ func SearchSemantic(c *fiber.Ctx) error {
 		query = c.Query("query", "report") // default search term if empty
 	}
 	limit := c.QueryInt("limit", 5)
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > 50 {
+		limit = 50
+	}
 	entityType := c.Query("entity_type")
 
 	// Hybrid retrieval: dense (pgvector) + lexical (FTS) fused via RRF.
@@ -123,23 +115,39 @@ func SearchSemantic(c *fiber.Ctx) error {
 		}
 	}
 
-	var finalResults []SemanticSearchResult
+	entityIDs := make([]uuid.UUID, 0, len(results))
+	seenEntityIDs := make(map[uuid.UUID]struct{}, len(results))
+	for _, doc := range results {
+		if doc.EntityID != uuid.Nil {
+			if _, exists := seenEntityIDs[doc.EntityID]; !exists {
+				seenEntityIDs[doc.EntityID] = struct{}{}
+				entityIDs = append(entityIDs, doc.EntityID)
+			}
+		}
+	}
+	entityData := make(map[uuid.UUID]map[string]interface{}, len(entityIDs))
+	if len(entityIDs) > 0 {
+		var entities []models.Entity
+		if err := database.GetDB(c).
+			Where("workspace_id = ? AND id IN ?", workspaceID, entityIDs).
+			Find(&entities).Error; err == nil {
+			for _, entity := range entities {
+				var data map[string]interface{}
+				if json.Unmarshal(entity.Data, &data) == nil {
+					entityData[entity.ID] = data
+				}
+			}
+		}
+	}
+
+	finalResults := make([]SemanticSearchResult, 0, len(results))
 	for _, doc := range results {
 		res := SemanticSearchResult{
 			EntityType: doc.EntityType,
 			EntityID:   doc.EntityID,
 			Content:    doc.Content,
+			EntityData: entityData[doc.EntityID],
 		}
-
-		// Fetch the original entity to attach to the result
-		var entity models.Entity
-		if err := database.GetDB(c).First(&entity, "id = ?", doc.EntityID).Error; err == nil {
-			var data map[string]interface{}
-			if err := json.Unmarshal(entity.Data, &data); err == nil {
-				res.EntityData = data
-			}
-		}
-
 		finalResults = append(finalResults, res)
 	}
 

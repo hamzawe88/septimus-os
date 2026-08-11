@@ -1,9 +1,6 @@
 package handlers
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +16,7 @@ import (
 	"github.com/septimus-os/backend-core/events"
 	"github.com/septimus-os/backend-core/middleware"
 	"github.com/septimus-os/backend-core/models"
+	"github.com/septimus-os/backend-core/services"
 	"gorm.io/datatypes"
 )
 
@@ -174,6 +172,9 @@ func executeHTTPAction(node WFNode, ctx map[string]interface{}) error {
 	if node.Data.ActionURL == "" {
 		return fmt.Errorf("HTTP action missing actionUrl on node '%s'", node.Data.Label)
 	}
+	if err := services.ValidateOutboundURL(node.Data.ActionURL); err != nil {
+		return fmt.Errorf("HTTP action destination rejected: %w", err)
+	}
 	body := node.Data.ActionBody
 	// Simple template substitution: {{field}} → value
 	for k, v := range ctx {
@@ -191,13 +192,16 @@ func executeHTTPAction(node WFNode, ctx map[string]interface{}) error {
 	for k, v := range node.Data.ActionHeaders {
 		req.Header.Set(k, v)
 	}
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := services.NewSafeHTTPClient(10 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("HTTP action %s failed: %w", method, err)
 	}
 	defer resp.Body.Close()
-	log.Printf("[WF] HTTP action (%s) → %s → status %d", method, node.Data.ActionURL, resp.StatusCode)
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("HTTP action %s returned status %d", method, resp.StatusCode)
+	}
+	log.Printf("[WF] HTTP action (%s) completed with status %d", method, resp.StatusCode)
 	return nil
 }
 
@@ -205,6 +209,9 @@ func executeHTTPAction(node WFNode, ctx map[string]interface{}) error {
 func executeN8NWebhookAction(node WFNode, ctx map[string]interface{}) error {
 	if node.Data.ActionURL == "" {
 		return fmt.Errorf("n8n/webhook action missing actionUrl on node '%s'", node.Data.Label)
+	}
+	if err := services.ValidateOutboundURL(node.Data.ActionURL); err != nil {
+		return fmt.Errorf("n8n/webhook destination rejected: %w", err)
 	}
 	bodyStr := node.Data.ActionBody
 	if bodyStr == "" {
@@ -238,20 +245,47 @@ func executeN8NWebhookAction(node WFNode, ctx map[string]interface{}) error {
 		req.Header.Set(k, v)
 	}
 	if secret != "" {
-		mac := hmac.New(sha256.New, []byte(secret))
-		mac.Write([]byte(bodyStr))
-		sig := hex.EncodeToString(mac.Sum(nil))
+		timestamp, deliveryID, sig := services.SignWebhookDelivery(secret, []byte(bodyStr))
 		req.Header.Set("X-Septimus-Signature", sig)
+		req.Header.Set("X-Septimus-Timestamp", timestamp)
+		req.Header.Set("X-Septimus-Delivery-ID", deliveryID)
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := services.NewSafeHTTPClient(10 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("n8n/webhook action %s failed: %w", method, err)
 	}
 	defer resp.Body.Close()
-	log.Printf("[WF] n8n/webhook action (%s) -> %s -> status %d", method, node.Data.ActionURL, resp.StatusCode)
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("n8n/webhook action %s returned status %d", method, resp.StatusCode)
+	}
+	log.Printf("[WF] n8n/webhook action (%s) completed with status %d", method, resp.StatusCode)
 	return nil
+}
+
+// workflowTenant reads the tenant off the workflow execution context.
+// ExecuteWorkflowsByTrigger stamps it there; a context without one means the run
+// was started by a path that does not know its tenant, and the events below are
+// dropped rather than published under a guessed one.
+func workflowTenant(ctx map[string]interface{}) uuid.UUID {
+	if v, ok := ctx["workspace_id"].(string); ok {
+		return database.ParseUUID(v)
+	}
+	return uuid.Nil
+}
+
+// cloneWorkflowContext gives every asynchronous workflow execution its own
+// context. Actions may append AI output to the map; sharing it between
+// goroutines caused races, cross-workflow contamination, and occasional
+// concurrent-map-write panics.
+func cloneWorkflowContext(ctx map[string]interface{}, workspaceID uuid.UUID) map[string]interface{} {
+	copy := make(map[string]interface{}, len(ctx)+1)
+	for key, value := range ctx {
+		copy[key] = value
+	}
+	copy["workspace_id"] = workspaceID.String()
+	return copy
 }
 
 // executeNATSAction publishes a NATS event with the current context
@@ -259,8 +293,7 @@ func executeNATSAction(node WFNode, ctx map[string]interface{}) error {
 	if node.Data.NATSTopic == "" {
 		return fmt.Errorf("NATS action missing natsTopic on node '%s'", node.Data.Label)
 	}
-	payload, _ := json.Marshal(ctx)
-	if err := events.PublishEvent(node.Data.NATSTopic, payload); err != nil {
+	if err := events.PublishTenantEvent(node.Data.NATSTopic, workflowTenant(ctx), ctx); err != nil {
 		return fmt.Errorf("NATS publish to '%s' failed: %w", node.Data.NATSTopic, err)
 	}
 	log.Printf("[WF] NATS action → topic: %s", node.Data.NATSTopic)
@@ -269,13 +302,17 @@ func executeNATSAction(node WFNode, ctx map[string]interface{}) error {
 
 // executeNotifyAction sends an in-app notification to a channel
 func executeNotifyAction(node WFNode, ctx map[string]interface{}) error {
+	workspaceID := workflowTenant(ctx)
+	if workspaceID == uuid.Nil {
+		return fmt.Errorf("notify action requires workspace context")
+	}
 	channelID, _ := ctx["channel_id"].(string)
 	if channelID == "" {
-		channelID = "00000000-0000-0000-0000-000000000000"
+		return fmt.Errorf("notify action missing channel_id")
 	}
 	msg := fmt.Sprintf("⚡️ **Workflow: %s**\n%s", node.Data.Label, node.Data.Description)
-	if err := InjectSystemMessageDirect(channelID, msg, "Workflow Engine", true); err != nil {
-		log.Printf("[WF] Notify action failed: %v", err)
+	if err := InjectSystemMessageDirect(workspaceID, channelID, msg, "Workflow Engine", true); err != nil {
+		return fmt.Errorf("notify action failed: %w", err)
 	}
 	log.Printf("[WF] Notify sent to channel %s", channelID)
 	return nil
@@ -297,10 +334,7 @@ func executeAIAgentAction(node WFNode, ctx map[string]interface{}) error {
 
 	workspaceID, _ := ctx["workspace_id"].(string)
 	if workspaceID == "" {
-		var ws models.Workspace
-		if err := database.DB.First(&ws).Error; err == nil {
-			workspaceID = ws.ID.String()
-		}
+		return fmt.Errorf("AI agent action requires workspace_id")
 	}
 
 	sidecarURL := os.Getenv("AI_SIDECAR_URL")
@@ -329,7 +363,10 @@ func executeAIAgentAction(node WFNode, ctx map[string]interface{}) error {
 	}
 	req.Header.Set("X-Workspace-Id", workspaceID)
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	client, err := services.NewInternalHTTPClient(targetURL, "ai-sidecar", 60*time.Second)
+	if err != nil {
+		return fmt.Errorf("invalid AI sidecar destination: %w", err)
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("request to AI sidecar failed: %w", err)
@@ -359,22 +396,23 @@ func executeAIAgentAction(node WFNode, ctx map[string]interface{}) error {
 			channelID = cid
 		}
 	}
-	if channelID != "" && channelID != "00000000-0000-0000-0000-000000000000" {
+	if channelID != "" {
 		msg := fmt.Sprintf("🤖 **Workflow AI (%s):**\n%s", agentType, resData.Reply)
-		if err := InjectSystemMessageDirect(channelID, msg, "Workflow AI Node", true); err != nil {
-			log.Printf("[WF] AI Agent action chat delivery failed: %v", err)
+		if err := InjectSystemMessageDirect(workflowTenant(ctx), channelID, msg, "Workflow AI Node", true); err != nil {
+			return fmt.Errorf("AI agent action chat delivery failed: %w", err)
 		}
 	}
 
 	// Publish to NATS for observability
-	eventPayload, _ := json.Marshal(map[string]interface{}{
+	if err := events.PublishTenantEvent("workflow.ai.completed", workflowTenant(ctx), map[string]interface{}{
 		"node_label": node.Data.Label,
 		"agent_type": agentType,
 		"prompt":     prompt,
 		"reply":      resData.Reply,
 		"timestamp":  time.Now().Format(time.RFC3339),
-	})
-	events.PublishEvent("workflow.ai.completed", eventPayload)
+	}); err != nil {
+		log.Printf("[WF] workflow.ai.completed not published: %v", err)
+	}
 
 	return nil
 }
@@ -393,14 +431,14 @@ func executeSendChatAction(node WFNode, ctx map[string]interface{}) error {
 	for k, v := range ctx {
 		body = strings.ReplaceAll(body, fmt.Sprintf("{{%s}}", k), fmt.Sprintf("%v", v))
 	}
-	if err := InjectSystemMessageDirect(channelID, body, "Workflow Engine", true); err != nil {
+	if err := InjectSystemMessageDirect(workflowTenant(ctx), channelID, body, "Workflow Engine", true); err != nil {
 		return fmt.Errorf("send_chat action failed: %w", err)
 	}
 	log.Printf("[WF] send_chat action sent to channel %s", channelID)
 	return nil
 }
 
-// executeUpdateTaskStatusAction modifies a task status directly
+// executeUpdateTaskStatusAction delegates to the canonical PM state machine.
 func executeUpdateTaskStatusAction(node WFNode, ctx map[string]interface{}) error {
 	newStatus := node.Data.NewStatus
 	if newStatus == "" {
@@ -419,8 +457,12 @@ func executeUpdateTaskStatusAction(node WFNode, ctx map[string]interface{}) erro
 	if err != nil {
 		return fmt.Errorf("update_task_status: invalid task uuid %s: %w", taskIDStr, err)
 	}
-	if err := database.DB.Model(&models.Task{}).Where("id = ?", taskUUID).Update("status", newStatus).Error; err != nil {
-		return fmt.Errorf("update_task_status DB error: %w", err)
+	workspaceID := workflowTenant(ctx)
+	if workspaceID == uuid.Nil {
+		return fmt.Errorf("update_task_status: missing workspace context")
+	}
+	if _, _, err := TransitionTaskForWorkspace(database.DB, workspaceID, taskUUID, newStatus, nil, "workflow"); err != nil {
+		return fmt.Errorf("update_task_status transition error: %w", err)
 	}
 	log.Printf("[WF] update_task_status: task %s -> %s", taskIDStr, newStatus)
 	return nil
@@ -435,13 +477,14 @@ func executeSendEmailAction(node WFNode, ctx map[string]interface{}) error {
 		body = strings.ReplaceAll(body, fmt.Sprintf("{{%s}}", k), fmt.Sprintf("%v", v))
 		subj = strings.ReplaceAll(subj, fmt.Sprintf("{{%s}}", k), fmt.Sprintf("%v", v))
 	}
-	payload, _ := json.Marshal(map[string]interface{}{
+	if err := events.PublishTenantEvent("workflow.action.send_email", workflowTenant(ctx), map[string]interface{}{
 		"to":        to,
 		"subject":   subj,
 		"body":      body,
 		"timestamp": time.Now().Format(time.RFC3339),
-	})
-	events.PublishEvent("workflow.action.send_email", payload)
+	}); err != nil {
+		log.Printf("[WF] workflow.action.send_email not published: %v", err)
+	}
 	log.Printf("[WF] send_email action dispatched: to=%s subject='%s'", to, subj)
 	return nil
 }
@@ -454,6 +497,9 @@ func executeSlackAction(node WFNode, ctx map[string]interface{}) error {
 	}
 	if webhookURL == "" {
 		return fmt.Errorf("slack action missing webhook url on node '%s'", node.Data.Label)
+	}
+	if err := services.ValidateOutboundURL(webhookURL); err != nil {
+		return fmt.Errorf("slack webhook destination rejected: %w", err)
 	}
 	text := node.Data.MessageText
 	if text == "" {
@@ -476,7 +522,7 @@ func executeSlackAction(node WFNode, ctx map[string]interface{}) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := services.NewSafeHTTPClient(10 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("slack webhook post failed: %w", err)
@@ -487,7 +533,9 @@ func executeSlackAction(node WFNode, ctx map[string]interface{}) error {
 		return fmt.Errorf("slack webhook returned status %d", resp.StatusCode)
 	}
 
-	log.Printf("[WF] slack action sent to %s successfully", webhookURL)
+	// Incoming Slack webhook URLs carry a secret path. Never expose that path in
+	// container logs; delivery success is enough for diagnostics.
+	log.Printf("[WF] slack action sent successfully")
 	return nil
 }
 
@@ -495,8 +543,9 @@ func executeSlackAction(node WFNode, ctx map[string]interface{}) error {
 
 // traverseAndExecute performs depth-first traversal from startNodeID,
 // executing each node and respecting condition gates.
-func traverseAndExecute(startID string, nodes []WFNode, adjacency map[string][]string, ctx map[string]interface{}) {
+func traverseAndExecute(startID string, nodes []WFNode, adjacency map[string][]string, ctx map[string]interface{}) error {
 	visited := make(map[string]bool)
+	var firstErr error
 
 	var dfs func(nodeID string)
 	dfs = func(nodeID string) {
@@ -532,7 +581,11 @@ func traverseAndExecute(startID string, nodes []WFNode, adjacency map[string][]s
 		case "action":
 			if err := executeAction(node, ctx); err != nil {
 				log.Printf("[WF] Action '%s' failed: %v", node.Data.Label, err)
-				// Don't stop traversal on action failure
+				if firstErr == nil {
+					firstErr = err
+				}
+				// Continue traversal so independent cleanup/notification nodes
+				// can still run, but the workflow run is recorded as failed.
 			}
 			for _, nextID := range adjacency[nodeID] {
 				dfs(nextID)
@@ -541,6 +594,7 @@ func traverseAndExecute(startID string, nodes []WFNode, adjacency map[string][]s
 	}
 
 	dfs(startID)
+	return firstErr
 }
 
 // ─── Public Execution API ─────────────────────────────────────────────────────
@@ -548,9 +602,23 @@ func traverseAndExecute(startID string, nodes []WFNode, adjacency map[string][]s
 // ExecuteWorkflowsByTrigger finds all active workflows matching a trigger event
 // and executes them concurrently with the provided context data.
 // Call this from NATS event handlers or HTTP handlers.
-func ExecuteWorkflowsByTrigger(triggerEvent string, ctx map[string]interface{}) {
+// workspaceID is required and deliberately not inferable. This function used to
+// load EVERY active workflow in the database and run all of them for an event
+// belonging to one tenant: a task created in workspace A fired workspace B's and
+// C's automations, handing them A's task title and description. Any of those
+// workflows holding a webhook or send-email node would then ship one customer's
+// data to another customer's endpoint — over NATS, in a goroutine, silently.
+//
+// Passing the tenant as a parameter rather than digging it out of ctx makes the
+// omission a compile error at all nine call sites instead of a runtime leak.
+func ExecuteWorkflowsByTrigger(workspaceID uuid.UUID, triggerEvent string, ctx map[string]interface{}) {
+	if workspaceID == uuid.Nil {
+		log.Printf("[WF] refusing to run trigger '%s' without a workspace", triggerEvent)
+		return
+	}
+
 	var workflows []models.Workflow
-	if err := database.DB.Where("is_active = ?", true).Find(&workflows).Error; err != nil {
+	if err := database.DB.Where("is_active = ? AND workspace_id = ?", true, workspaceID).Find(&workflows).Error; err != nil {
 		log.Printf("[WF] Failed to fetch active workflows: %v", err)
 		return
 	}
@@ -559,17 +627,31 @@ func ExecuteWorkflowsByTrigger(triggerEvent string, ctx map[string]interface{}) 
 		return
 	}
 
+	// Downstream nodes (AI agent calls, NATS actions) read the tenant off ctx.
+	if ctx == nil {
+		ctx = map[string]interface{}{}
+	}
+
 	log.Printf("[WF] Checking %d active workflows for trigger '%s'", len(workflows), triggerEvent)
 
 	for _, wf := range workflows {
-		go runWorkflow(wf, triggerEvent, ctx)
+		go runWorkflow(wf, triggerEvent, cloneWorkflowContext(ctx, workspaceID))
 	}
 }
 
 // runWorkflow parses and executes a single workflow in a goroutine
 func runWorkflow(wf models.Workflow, triggerEvent string, ctx map[string]interface{}) {
+	if workflowTenant(ctx) == uuid.Nil || workflowTenant(ctx) != wf.WorkspaceID {
+		log.Printf("[WF] refusing workflow '%s' without its owning workspace context", wf.Name)
+		return
+	}
 	var nodes []WFNode
-	if err := json.Unmarshal(wf.Nodes, &nodes); err != nil {
+	decryptedNodes, err := services.DecodeWorkflowNodes(wf.Nodes)
+	if err != nil {
+		log.Printf("[WF] Workflow '%s': failed to decrypt nodes: %v", wf.Name, err)
+		return
+	}
+	if err := json.Unmarshal(decryptedNodes, &nodes); err != nil {
 		log.Printf("[WF] Workflow '%s': failed to parse nodes: %v", wf.Name, err)
 		return
 	}
@@ -599,7 +681,9 @@ func runWorkflow(wf models.Workflow, triggerEvent string, ctx map[string]interfa
 				}
 			}()
 
-			traverseAndExecute(trigger.ID, nodes, adjacency, ctx)
+			if err := traverseAndExecute(trigger.ID, nodes, adjacency, ctx); err != nil {
+				status = "failed"
+			}
 		}
 	}
 
@@ -644,7 +728,7 @@ func ReloadCronManager() {
 	if cronManager == nil {
 		return
 	}
-	
+
 	// Remove all existing jobs
 	for _, entry := range cronManager.Entries() {
 		cronManager.Remove(entry.ID)
@@ -659,7 +743,12 @@ func ReloadCronManager() {
 	jobCount := 0
 	for _, wf := range workflows {
 		var nodes []WFNode
-		if err := json.Unmarshal(wf.Nodes, &nodes); err != nil {
+		decryptedNodes, err := services.DecodeWorkflowNodes(wf.Nodes)
+		if err != nil {
+			log.Printf("[WF] failed to decrypt cron workflow '%s': %v", wf.Name, err)
+			continue
+		}
+		if err := json.Unmarshal(decryptedNodes, &nodes); err != nil {
 			continue
 		}
 		triggers := findTriggerNodes(nodes)
@@ -682,16 +771,17 @@ func ReloadCronManager() {
 						expr = fmt.Sprintf("0 */%d * * *", interval/60)
 					}
 				}
-				
+
 				w := wf
 				_, err := cronManager.AddFunc(expr, func() {
 					log.Printf("[WF] ⏰ Scheduled execution for workflow '%s' (cron: %s)", w.Name, expr)
 					runWorkflow(w, "cron", map[string]interface{}{
-						"timestamp": time.Now().Format(time.RFC3339),
-						"trigger":   "cron",
+						"timestamp":    time.Now().Format(time.RFC3339),
+						"trigger":      "cron",
+						"workspace_id": w.WorkspaceID.String(),
 					})
 				})
-				
+
 				if err != nil {
 					log.Printf("[WF] Failed to schedule cron for workflow '%s' with expr '%s': %v", w.Name, expr, err)
 				} else {

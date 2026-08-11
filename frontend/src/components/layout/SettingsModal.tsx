@@ -10,6 +10,7 @@ import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
 import { useLocalization } from "@/contexts/LocalizationContext";
 import InteractiveAvatarBuilder from "./InteractiveAvatarBuilder";
 import { LOCAL_EXECUTIVE_PRESETS } from "@/lib/avatarEngine";
+import { useTheme } from "next-themes";
 
 const CORPORATE_AVATAR_PRESETS = LOCAL_EXECUTIVE_PRESETS;
 
@@ -49,8 +50,11 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
   const [notifMentions, setNotifMentions] = useState(true);
   const [notifAgile, setNotifAgile] = useState(true);
 
+  // Theme state
+  const { theme: nextTheme, setTheme: setNextTheme } = useTheme();
+
   // Brand State from store
-  const { mode, setMode, companyName: storeCompanyName, logoUrl: storeLogoUrl, faviconUrl: storeFaviconUrl, primaryColor: storePrimaryColor, fontFamily: storeFontFamily, sidebarBg: storeSidebarBg, setBrandIdentity, setFaviconUrl } = useThemeStore();
+  const { companyName: storeCompanyName, logoUrl: storeLogoUrl, faviconUrl: storeFaviconUrl, primaryColor: storePrimaryColor, fontFamily: storeFontFamily, sidebarBg: storeSidebarBg, setBrandIdentity, setFaviconUrl } = useThemeStore();
   const [companyName, setCompanyName] = useState(storeCompanyName || "Septimus Workspace");
   const [primaryColor, setPrimaryColor] = useState(storePrimaryColor || "#8d4592");
   const [sidebarBg, setSidebarBg] = useState(storeSidebarBg || "#0f172a");
@@ -386,7 +390,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col h-[600px] border border-slate-200 ">
+      <div className="bg-card w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col h-[600px] border border-border ">
         
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 ">
@@ -399,11 +403,11 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
         {/* Content */}
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar */}
-          <div className="w-56 shrink-0 bg-white border-e border-slate-100 p-4 space-y-1 overflow-y-auto">
+          <div className="w-56 shrink-0 bg-card border-e border-border p-4 space-y-1 overflow-y-auto">
             <button 
               onClick={() => setActiveTab("account")}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-start ${
-                activeTab === "account" ? "bg-slate-100 text-[var(--sb-bg)] [var(--sb-bg)]" : "hover:bg-slate-200 :bg-slate-100 text-[var(--sb-bg)]/80 [var(--sb-bg)]/70"
+                activeTab === "account" ? "bg-muted text-[var(--sb-bg)] [var(--sb-bg)]" : "hover:bg-slate-200 :bg-muted text-[var(--sb-bg)]/80 [var(--sb-bg)]/70"
               }`}
             >
               <User className="w-4 h-4 shrink-0" />
@@ -412,7 +416,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
             <button 
               onClick={() => setActiveTab("brand")}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-start ${
-                activeTab === "brand" ? "bg-slate-100 text-[var(--sb-bg)] [var(--sb-bg)]" : "hover:bg-slate-200 :bg-slate-100 text-[var(--sb-bg)]/80 [var(--sb-bg)]/70"
+                activeTab === "brand" ? "bg-muted text-[var(--sb-bg)] [var(--sb-bg)]" : "hover:bg-slate-200 :bg-muted text-[var(--sb-bg)]/80 [var(--sb-bg)]/70"
               }`}
             >
               <MessageSquare className="w-4 h-4 shrink-0" />
@@ -421,7 +425,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
             <button 
               onClick={() => setActiveTab("currency")}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-start ${
-                activeTab === "currency" ? "bg-slate-100 text-[var(--sb-bg)] [var(--sb-bg)]" : "hover:bg-slate-200 :bg-slate-100 text-[var(--sb-bg)]/80 [var(--sb-bg)]/70"
+                activeTab === "currency" ? "bg-muted text-[var(--sb-bg)] [var(--sb-bg)]" : "hover:bg-slate-200 :bg-muted text-[var(--sb-bg)]/80 [var(--sb-bg)]/70"
               }`}
             >
               <Globe className="w-4 h-4 shrink-0" />
@@ -430,7 +434,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
             <button 
               onClick={() => setActiveTab("appearance")}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-start ${
-                activeTab === "appearance" ? "bg-slate-100 text-[var(--sb-bg)] [var(--sb-bg)]" : "hover:bg-slate-200 :bg-slate-100 text-[var(--sb-bg)]/80 [var(--sb-bg)]/70"
+                activeTab === "appearance" ? "bg-muted text-[var(--sb-bg)] [var(--sb-bg)]" : "hover:bg-slate-200 :bg-muted text-[var(--sb-bg)]/80 [var(--sb-bg)]/70"
               }`}
             >
               <Moon className="w-4 h-4 shrink-0" />
@@ -460,22 +464,22 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 p-8 overflow-y-auto bg-white ">
+          <div className="flex-1 p-8 overflow-y-auto bg-card ">
             {activeTab === "account" && (
               <>
                 <h3 className="text-lg font-bold text-[var(--sb-bg)] [var(--sb-bg)] mb-6">{t("settings.account_settings")}</h3>
                 
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                    <label className="block text-sm font-bold text-foreground dark:text-slate-200 mb-3 flex items-center gap-2">
                       <Sparkles className="w-4 h-4 text-brand" />
                       {language === "ar" ? "الصورة الشخصية واستوديو الأفتار المؤسسي ✨" : "Profile Picture & Sovereign Avatar Studio ✨"}
                     </label>
 
                     {/* Active Avatar + Upload Area */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm mb-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 p-4 bg-muted dark:bg-slate-800/50 rounded-xl border border-border/80 dark:border-slate-700/80 shadow-sm mb-6">
                       <div className="relative shrink-0">
-                        <div className="w-18 h-18 rounded-lg border border-slate-200 shadow-md overflow-hidden bg-white dark:bg-slate-900 flex items-center justify-center">
+                        <div className="w-18 h-18 rounded-lg border border-border shadow-md overflow-hidden bg-card dark:bg-slate-900 flex items-center justify-center">
                           {avatarUrl ? (
                             <img src={avatarUrl} alt="Active Avatar" className="w-full h-full object-cover rounded-lg" />
                           ) : (
@@ -507,13 +511,13 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                                 localStorage.removeItem("septimus_avatar");
                                 window.dispatchEvent(new Event("septimus_avatar_updated"));
                               }}
-                              className="px-3 py-2 rounded-lg bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold text-xs transition-all"
+                              className="px-3 py-2 rounded-lg bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-foreground dark:text-slate-200 font-semibold text-xs transition-all"
                             >
                               {language === "ar" ? "إلغاء وتعيين الافتراضي (A)" : "Reset to Default (A)"}
                             </button>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
                           {language === "ar"
                             ? "تتزامن صورتك الشخصية المرفوعة أو الأفتار المختار فوراً في القائمة الجانبية وكافة شاشات المحادثة."
                             : "Your custom photo or selected avatar synchronizes instantly across the sidebar and all chat screens."}
@@ -526,10 +530,10 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                       <div className="flex items-center gap-2.5">
                         <Sliders className="w-5 h-5 text-brand shrink-0" />
                         <div>
-                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                          <p className="text-xs font-bold text-foreground dark:text-slate-200">
                             {language === "ar" ? "صانع الأفتار التفاعلي المخصص 🎨" : "Interactive Custom Avatar Builder 🎨"}
                           </p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                          <p className="text-[11px] text-muted-foreground dark:text-muted-foreground leading-tight">
                             {language === "ar"
                               ? "صمم شخصيتك بالكامل: غير لون البشرة، تسريحة الشعر، النظارات، الملابس الرسمية، والخلفية."
                               : "Fully design your sovereign executive profile: skin complexion, hairstyle, eyewear, professional attire, and brand background."}
@@ -548,7 +552,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
 
                     {/* Corporate Presets Gallery Grid */}
                     <div className="space-y-2.5">
-                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                      <label className="block text-xs font-bold text-muted-foreground dark:text-slate-300 uppercase tracking-wider">
                         {language === "ar"
                           ? "أو اختر من أفتارات الشخصيات المؤسسية الـ 16 الجاهزة (انقر للتطبيق الفوري ⚡):"
                           : "Or select from 16 sovereign executive presets (Click to apply instantly ⚡):"}
@@ -564,13 +568,13 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                               className={`group relative flex flex-col items-center gap-2 p-2.5 rounded-xl border text-center transition-all duration-150 ${
                                 isSelected
                                   ? "bg-brand/10 border-brand ring-2 ring-brand/50 shadow-md"
-                                  : "bg-white dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-700/80 hover:border-brand/40 hover:shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+                                  : "bg-card dark:bg-slate-800/80 border-border/80 dark:border-slate-700/80 hover:border-brand/40 hover:shadow-sm hover:bg-muted dark:hover:bg-slate-800"
                               }`}
                             >
-                              <div className="w-12 h-12 rounded-lg border border-slate-200/80 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-900 shadow-sm transition-transform group-hover:scale-105">
+                              <div className="w-12 h-12 rounded-lg border border-border/80 dark:border-slate-700 overflow-hidden bg-muted dark:bg-slate-900 shadow-sm transition-transform group-hover:scale-105">
                                 <img src={preset.url} alt={language === "ar" ? preset.name : preset.nameEn} className="w-full h-full object-cover rounded-lg" />
                               </div>
-                              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 leading-tight line-clamp-1">
+                              <span className="text-[11px] font-bold text-foreground dark:text-slate-200 leading-tight line-clamp-1">
                                 {language === "ar" ? preset.name : preset.nameEn}
                               </span>
                               {isSelected && (
@@ -594,7 +598,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                         placeholder={t("settings.display_name")}
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
-                        className="flex-1 p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
+                        className="flex-1 p-2.5 bg-card border border-border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
                       />
                     </div>
                   </div>
@@ -607,11 +611,11 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                       placeholder={t("settings.email")}
                       value={email}
                       disabled
-                      className="w-full p-2.5 bg-[#f8fafc] border border-slate-200 rounded-lg text-[var(--sb-bg)]/70 [var(--sb-bg)]/70 cursor-not-allowed"
+                      className="w-full p-2.5 bg-background border border-border rounded-lg text-[var(--sb-bg)]/70 [var(--sb-bg)]/70 cursor-not-allowed"
                     />
                   </div>
 
-                  <div className="pt-6 border-t border-slate-100 ">
+                  <div className="pt-6 border-t border-border ">
                     <h4 className="font-bold mb-4 text-[var(--sb-bg)] [var(--sb-bg)]">{t("settings.change_password")}</h4>
                     <div className="space-y-3">
                       <input 
@@ -620,7 +624,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                         placeholder={t("settings.new_password")}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
+                        className="w-full p-2.5 bg-card border border-border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
                       />
                       <input 
                         type="password" 
@@ -628,13 +632,13 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                         placeholder={t("settings.confirm_password")}
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
+                        className="w-full p-2.5 bg-card border border-border rounded-lg focus:ring-2 focus:ring-primary focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
                       />
                       <Button onClick={handleSaveProfile} size="sm" className="bg-brand hover:bg-brand-light text-white">{t("settings.update_account_password")}</Button>
                     </div>
                   </div>
 
-                  <div className="pt-6 border-t border-slate-100 ">
+                  <div className="pt-6 border-t border-border ">
                     <h4 className="text-red-600 font-bold mb-4">{t("settings.danger_zone")}</h4>
                     <button className="w-full sm:w-auto px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md shadow-red-500/20 transition-all active:scale-[0.98]">{t("settings.disable_account")}</button>
                   </div>
@@ -651,45 +655,45 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t("settings.theme_label", "Theme")}</label>
                     <div className="grid grid-cols-3 gap-4">
                       <button 
-                        onClick={() => setMode("dark")}
+                        onClick={() => setNextTheme('dark')}
                         className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
-                          mode === 'dark' 
+                          nextTheme === 'dark'
                             ? 'border-primary bg-primary/5 text-primary' 
                             : 'border-gray-200 text-gray-500 hover:border-gray-300 :border-gray-700'
                         }`}
                       >
                         <Moon className="w-6 h-6 mb-2" />
-                        <span className="text-sm font-medium">{t("settings.theme_dark")} {mode === 'dark' && `(${t("settings.theme_active")})`}</span>
+                        <span className="text-sm font-medium">{t("settings.theme_dark")} {nextTheme === 'dark' && `(${t("settings.theme_active")})`}</span>
                       </button>
                       <button 
-                        onClick={() => setMode("light")}
+                        onClick={() => setNextTheme('light')}
                         className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
-                          mode === 'light' 
+                          nextTheme === 'light'
                             ? 'border-primary bg-primary/5 text-primary' 
                             : 'border-gray-200 text-gray-500 hover:border-gray-300 :border-gray-700'
                         }`}
                       >
                         <Sun className="w-6 h-6 mb-2" />
-                        <span className="text-sm font-medium">{t("settings.theme_light")} {mode === 'light' && `(${t("settings.theme_active")})`}</span>
+                        <span className="text-sm font-medium">{t("settings.theme_light")} {nextTheme === 'light' && `(${t("settings.theme_active")})`}</span>
                       </button>
                       <button 
-                        onClick={() => setMode("system")}
+                        onClick={() => setNextTheme('system')}
                         className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
-                          mode === 'system' 
+                          nextTheme === 'system'
                             ? 'border-primary bg-primary/5 text-primary' 
                             : 'border-gray-200 text-gray-500 hover:border-gray-300 :border-gray-700'
                         }`}
                       >
                         <Laptop className="w-6 h-6 mb-2" />
-                        <span className="text-sm font-medium">{t("settings.theme_system")} {mode === 'system' && `(${t("settings.theme_active")})`}</span>
+                        <span className="text-sm font-medium">{t("settings.theme_system")} {nextTheme === 'system' && `(${t("settings.theme_active")})`}</span>
                       </button>
                     </div>
                   </div>
                   
                   {/* Redirect to dedicated Appearance Settings page */}
                   <div className="pt-6 border-t border-gray-100">
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                      <p className="text-sm text-slate-600 mb-3">{t("settings.go_to_appearance_desc")}</p>
+                    <div className="p-4 rounded-xl bg-muted border border-border text-center">
+                      <p className="text-sm text-muted-foreground mb-3">{t("settings.go_to_appearance_desc")}</p>
                       <button 
                         onClick={() => { onClose(); useAppStore.getState().setCurrentView('appearance_settings'); }}
                         className="px-6 py-2.5 bg-brand text-white text-sm font-bold rounded-lg hover:brightness-110 transition-all"
@@ -782,7 +786,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                       placeholder={t("settings.company_name_placeholder")}
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand focus:outline-none text-sm text-[var(--sb-bg)]"
+                      className="w-full p-2.5 bg-card border border-border rounded-lg focus:ring-2 focus:ring-brand focus:outline-none text-sm text-[var(--sb-bg)]"
                     />
                   </div>
 
@@ -793,10 +797,10 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                       accept="image/*"
                       title="Brand Logo File Upload"
                       onChange={handleLogoUpload}
-                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm text-[var(--sb-bg)] file:me-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-brand-light file:text-brand"
+                      className="w-full p-2 bg-card border border-border rounded-lg text-sm text-[var(--sb-bg)] file:me-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-brand-light file:text-brand"
                     />
                     {logoUrl && (
-                      <div className="mt-2 p-2 border border-gray-200 rounded bg-white flex items-center justify-between">
+                      <div className="mt-2 p-2 border border-gray-200 rounded bg-card flex items-center justify-between">
                         <img src={logoUrl} alt="Logo" className="h-8 object-contain" />
                         <Button variant="ghost" size="sm" onClick={() => setLogoUrl("")} className="text-red-500 text-xs">{t("settings.delete")}</Button>
                       </div>
@@ -812,13 +816,13 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                       accept="image/*,.ico"
                       title="Browser Favicon File Upload"
                       onChange={handleFaviconUpload}
-                      className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm text-[var(--sb-bg)] file:me-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-brand-light file:text-brand"
+                      className="w-full p-2 bg-card border border-border rounded-lg text-sm text-[var(--sb-bg)] file:me-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-brand-light file:text-brand"
                     />
                     {faviconUrlLocal && (
-                      <div className="mt-2 p-2 border border-gray-200 rounded bg-white flex items-center justify-between">
+                      <div className="mt-2 p-2 border border-gray-200 rounded bg-card flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <img src={faviconUrlLocal} alt="Favicon" className="w-6 h-6 object-contain rounded border border-slate-200 p-0.5 bg-slate-50" />
-                          <span className="text-xs text-slate-600">{language === "ar" ? "الأيقونة المخصصة نشطة" : "Custom Favicon Active"}</span>
+                          <img src={faviconUrlLocal} alt="Favicon" className="w-6 h-6 object-contain rounded border border-border p-0.5 bg-muted" />
+                          <span className="text-xs text-muted-foreground">{language === "ar" ? "الأيقونة المخصصة نشطة" : "Custom Favicon Active"}</span>
                         </div>
                         <Button variant="ghost" size="sm" onClick={() => { setFaviconUrlLocal(""); setFaviconUrl(null); }} className="text-red-500 text-xs">{t("settings.delete")}</Button>
                       </div>
@@ -833,7 +837,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                         title={t("settings.primary_color", "Brand Primary Color")}
                         value={primaryColor}
                         onChange={(e) => setPrimaryColor(e.target.value)}
-                        className="w-full h-10 p-1 bg-white border border-slate-200 rounded cursor-pointer"
+                        className="w-full h-10 p-1 bg-card border border-border rounded cursor-pointer"
                       />
                     </div>
                     <div>
@@ -842,7 +846,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                         title={t("settings.system_font", "Brand Font Family")}
                         value={fontFamily}
                         onChange={(e) => setFontFamily(e.target.value)}
-                        className="w-full p-2 bg-white border border-slate-200 rounded text-xs text-[var(--sb-bg)]"
+                        className="w-full p-2 bg-card border border-border rounded text-xs text-[var(--sb-bg)]"
                       >
                         <option value="Cairo">Cairo ({t("settings.font_cairo")})</option>
                         <option value="Tajawal">Tajawal ({t("settings.font_tajawal")})</option>
@@ -869,7 +873,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="flex items-center gap-2 border-slate-200 text-[var(--sb-bg)] hover:bg-[#f8fafc] :bg-slate-800"
+                    className="flex items-center gap-2 border-border text-[var(--sb-bg)] hover:bg-background :bg-slate-800"
                     onClick={handleGetLocation}
                     disabled={isFetchingLocation}
                   >
@@ -887,7 +891,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                         title={t("settings.office_latitude", "Office Latitude")}
                         value={officeLat}
                         onChange={(e) => setOfficeLat(e.target.value)}
-                        className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
+                        className="w-full p-2.5 bg-card border border-border rounded-lg focus:ring-2 focus:ring-brand focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
                       />
                     </div>
                     <div>
@@ -897,7 +901,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                         title={t("settings.office_longitude", "Office Longitude")}
                         value={officeLng}
                         onChange={(e) => setOfficeLng(e.target.value)}
-                        className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
+                        className="w-full p-2.5 bg-card border border-border rounded-lg focus:ring-2 focus:ring-brand focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
                       />
                     </div>
                   </div>
@@ -909,7 +913,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                       title={t("settings.radius_in_meters", "Radius in Meters")}
                       value={radiusM}
                       onChange={(e) => setRadiusM(e.target.value)}
-                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
+                      className="w-full p-2.5 bg-card border border-border rounded-lg focus:ring-2 focus:ring-brand focus:outline-none text-sm text-[var(--sb-bg)] [var(--sb-bg)]"
                     />
                   </div>
 
@@ -960,7 +964,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                     <select
                       value={baseCurrency}
                       onChange={(e) => setBaseCurrency(e.target.value)}
-                      className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-primary focus:outline-none shadow-2xs"
+                      className="w-full p-3 bg-card border border-border rounded-xl font-bold text-foreground focus:ring-2 focus:ring-primary focus:outline-none shadow-2xs"
                     >
                       <option value="SAR">{language === "ar" ? "SAR - الريال السعودي" : "SAR - Saudi Riyal"}</option>
                       <option value="USD">{language === "ar" ? "USD - الدولار الأمريكي ($)" : "USD - US Dollar ($)"}</option>
@@ -984,7 +988,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                     <select
                       value={secondaryCurrency}
                       onChange={(e) => setSecondaryCurrency(e.target.value)}
-                      className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-primary focus:outline-none shadow-2xs"
+                      className="w-full p-3 bg-card border border-border rounded-xl font-bold text-foreground focus:ring-2 focus:ring-primary focus:outline-none shadow-2xs"
                     >
                       <option value="USD">{language === "ar" ? "USD - الدولار الأمريكي ($)" : "USD - US Dollar ($)"}</option>
                       <option value="SAR">{language === "ar" ? "SAR - الريال السعودي" : "SAR - Saudi Riyal"}</option>
@@ -994,7 +998,7 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                     </select>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100">
+                  <div className="pt-4 border-t border-border">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       {language === "ar" ? "لغة واجهة النظام" : "System Interface Language"}
                     </label>
@@ -1002,14 +1006,14 @@ export default function SettingsModal({ isOpen, onClose, initialTab }: SettingsM
                       <button
                         type="button"
                         onClick={() => setLanguage("ar")}
-                        className={`p-3 rounded-xl border-2 font-bold flex items-center justify-center gap-2 transition-all ${language === "ar" ? "border-primary bg-primary/10 text-primary" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}
+                        className={`p-3 rounded-xl border-2 font-bold flex items-center justify-center gap-2 transition-all ${language === "ar" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-border"}`}
                       >
                         <span>{language === "ar" ? "العربية" : "Arabic"}</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setLanguage("en")}
-                        className={`p-3 rounded-xl border-2 font-bold flex items-center justify-center gap-2 transition-all ${language === "en" ? "border-primary bg-primary/10 text-primary" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}
+                        className={`p-3 rounded-xl border-2 font-bold flex items-center justify-center gap-2 transition-all ${language === "en" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-border"}`}
                       >
                         <span>{language === "ar" ? "الإنجليزية" : "English"}</span>
                       </button>

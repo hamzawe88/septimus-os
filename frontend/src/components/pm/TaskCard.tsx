@@ -1,48 +1,47 @@
 import React from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tag } from "@/components/ui/tag";
 import { CheckCircle2, Clock, PlayCircle } from "lucide-react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Task } from "@/types";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface TaskCardProps {
   task: Task;
   index: number;
   onTransition: (taskId: string, newStatus: string) => void;
+  onOpen: (taskId: string) => void;
 }
 
-export default function TaskCard({ task, index, onTransition }: TaskCardProps) {
-  // Determine next status
+export default function TaskCard({ task, index, onTransition, onOpen }: TaskCardProps) {
+  const { t } = useLocalization();
   let nextStatus = "";
   let actionIcon = null;
   let actionLabel = "";
-  let badgeColor = "";
+  let statusTone: "neutral" | "brand" | "warning" | "success" = "neutral";
 
   switch (task.Status) {
     case "todo":
       nextStatus = "in_progress";
-      actionIcon = <PlayCircle className="w-4 h-4 me-1" />;
-      actionLabel = "Start";
-      badgeColor = "bg-[#f8fafc]0/20 text-slate-400";
+      actionIcon = <PlayCircle />;
+      actionLabel = t("pm.kanban.actions.start");
       break;
     case "in_progress":
       nextStatus = "review";
-      actionIcon = <Clock className="w-4 h-4 me-1" />;
-      actionLabel = "Review";
-      badgeColor = "bg-brand/20 text-blue-400";
+      actionIcon = <Clock />;
+      actionLabel = t("pm.kanban.actions.review");
+      statusTone = "brand";
       break;
     case "review":
       nextStatus = "done";
-      actionIcon = <CheckCircle2 className="w-4 h-4 me-1" />;
-      actionLabel = "Complete";
-      badgeColor = "bg-yellow-500/20 text-yellow-400";
+      actionIcon = <CheckCircle2 />;
+      actionLabel = t("pm.kanban.actions.complete");
+      statusTone = "warning";
       break;
     case "done":
-      badgeColor = "bg-green-500/20 text-green-400";
+      statusTone = "success";
       break;
-    default:
-      badgeColor = "bg-gray-500/20 text-gray-400";
   }
 
   return (
@@ -52,27 +51,35 @@ export default function TaskCard({ task, index, onTransition }: TaskCardProps) {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className={`group relative p-4 mb-3 rounded-xl bg-white border border-slate-200 transition-all duration-300 shadow-sm cursor-grab ${
-            snapshot.isDragging ? 'rotate-2 scale-105 shadow-xl ring-2 ring-primary' : 'hover:border-slate-300 hover:shadow-md'
+          role="button"
+          tabIndex={0}
+          aria-label={`${t("pm.kanban.openTask")}: ${task.Title}`}
+          onClick={() => onOpen(task.ID)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onOpen(task.ID);
+            }
+          }}
+          className={`group relative mb-3 cursor-grab rounded-[var(--radius-surface)] border border-border bg-card p-4 text-card-foreground shadow-[var(--shadow-raised)] transition-all duration-300 ${
+            snapshot.isDragging ? 'rotate-2 scale-105 shadow-[var(--shadow-overlay)] ring-2 ring-ring' : 'hover:border-brand/30 hover:shadow-[var(--shadow-overlay)]'
           }`}
         >
-      <div className="flex justify-between items-start mb-2">
-        <Badge variant="outline" className={`border-0 ${badgeColor} font-medium`}>
-          {task.Status.replace("_", " ").toUpperCase()}
-        </Badge>
+      <div className="mb-2 flex items-start justify-between">
+        <Tag tone={statusTone}>
+          {t(`pm.kanban.status.${task.Status}`)}
+        </Tag>
         {task.Priority > 0 && (
-          <Badge variant="destructive" className="bg-red-500/20 text-red-400 border-0">
-            P{task.Priority}
-          </Badge>
+          <Tag tone="danger">{t("pm.kanban.priority")} P{task.Priority}</Tag>
         )}
       </div>
 
-      <h4 className="text-sm font-semibold text-slate-900 mb-1 line-clamp-2">{task.Title}</h4>
-      <p className="text-xs text-slate-500 mb-4 line-clamp-3">{task.Description}</p>
+      <h4 className="mb-1 line-clamp-2 text-sm font-semibold text-foreground">{task.Title}</h4>
+      {task.Description ? <p className="mb-4 line-clamp-3 text-xs text-muted-foreground">{task.Description}</p> : null}
 
-      <div className="flex justify-between items-center mt-auto">
+      <div className="mt-auto flex items-center justify-between">
         <Avatar className="h-6 w-6">
-          <AvatarFallback className="bg-primary/20 text-primary text-[10px]">UN</AvatarFallback>
+          <AvatarFallback className="bg-muted text-[10px] text-muted-foreground">{t("pm.kanban.unassignedInitial")}</AvatarFallback>
         </Avatar>
 
         {nextStatus && (
@@ -84,7 +91,8 @@ export default function TaskCard({ task, index, onTransition }: TaskCardProps) {
               e.stopPropagation();
               onTransition(task.ID, nextStatus);
             }}
-            className="h-7 px-2 text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors opacity-0 group-hover:opacity-100 z-10 relative"
+            className="relative z-10 opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100"
+            aria-label={`${actionLabel}: ${task.Title}`}
           >
             {actionIcon}
             {actionLabel}

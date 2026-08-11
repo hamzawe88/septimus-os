@@ -16,7 +16,7 @@ func newInternalApp() *fiber.App {
 	return app
 }
 
-func TestRequireInternalToken_DevModeAllowsWhenUnset(t *testing.T) {
+func TestRequireInternalToken_FailsClosedWhenUnset(t *testing.T) {
 	t.Setenv("INTERNAL_API_TOKEN", "")
 	app := newInternalApp()
 
@@ -25,8 +25,8 @@ func TestRequireInternalToken_DevModeAllowsWhenUnset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	if resp.StatusCode != fiber.StatusOK {
-		t.Errorf("dev mode (no token configured) should allow, got %d", resp.StatusCode)
+	if resp.StatusCode != fiber.StatusServiceUnavailable {
+		t.Errorf("missing internal token should fail closed, got %d", resp.StatusCode)
 	}
 }
 

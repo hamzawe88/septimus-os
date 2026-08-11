@@ -14,7 +14,7 @@ interface LoginScreenProps {
 }
 
 export default function LoginScreen({ onLogin }: LoginScreenProps) {
-  const { isRtl } = useLocalization();
+  const { isRtl, t } = useLocalization();
   const { logoUrl, theme, setTheme } = useThemeStore();
   const companyName = "Septimus OS";
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -33,6 +33,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user, password: pass }),
+        credentials: 'include',
       });
 
       const data = await res.json();
@@ -49,8 +50,8 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         "septimus_company_profile",
       ].forEach((k) => localStorage.removeItem(k));
 
-      localStorage.setItem("septimus_token", data.token);
       localStorage.setItem("septimus_user", JSON.stringify(data.user));
+      localStorage.setItem("currentWorkspaceId", data.user.workspace_id);
 
       onLogin();
     } catch (err: unknown) {
@@ -74,8 +75,8 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           className="bg-transparent text-white text-sm outline-none border-none cursor-pointer"
         >
           {Object.keys(THEME_PRESETS).map(preset => (
-            <option key={preset} value={preset} className="text-slate-900">
-              {preset.replace('theme-', '')}
+            <option key={preset} value={preset} className="text-foreground">
+              {t(THEME_PRESETS[preset as ThemePreset].labelKey)}
             </option>
           ))}
         </select>
@@ -107,8 +108,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           {/* Form */}
           <form onSubmit={handleSubmit} className="login-form">
             <div className="form-group">
-              <label className="form-label">{isRtl ? "البريد الإلكتروني أو اسم المستخدم" : "Email or username"}</label>
+              <label htmlFor="login-email" className="form-label">{isRtl ? "البريد الإلكتروني أو اسم المستخدم" : "Email or username"}</label>
               <Input
+                id="login-email"
+                name="email"
                 value={user}
                 onChange={(e) => setUser(e.target.value)}
                 className="login-input"
@@ -117,8 +120,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">{isRtl ? "كلمة المرور" : "Password"}</label>
+              <label htmlFor="login-password" className="form-label">{isRtl ? "كلمة المرور" : "Password"}</label>
               <Input
+                id="login-password"
+                name="password"
                 type="password"
                 value={pass}
                 onChange={(e) => setPass(e.target.value)}
@@ -138,7 +143,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           </form>
 
           {/* Switch to Signup / Create Workspace */}
-          <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800 text-center text-sm text-slate-600 dark:text-slate-400">
+          <div className="mt-6 pt-5 border-t border-border dark:border-slate-800 text-center text-sm text-muted-foreground dark:text-muted-foreground">
             <span>{isRtl ? "مؤسسة جديدة؟" : "Don't have an enterprise workspace yet?"} </span>
             <button
               type="button"

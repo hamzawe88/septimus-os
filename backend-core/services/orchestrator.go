@@ -19,7 +19,52 @@ func HandleEntityChange(entityID uuid.UUID) {
 		return
 	}
 
-	contentBytes, err := json.Marshal(entity.Data)
+	var recordData map[string]interface{}
+	if err := json.Unmarshal(entity.Data, &recordData); err != nil {
+		log.Printf("HandleEntityChange: Error decoding data: %v", err)
+		return
+	}
+	embeddingPayload := map[string]interface{}{
+		"definition_key": entity.EntityType,
+		"display_value":  entity.DisplayValue,
+		"fields":         recordData,
+	}
+	// File/user/relation values are identifiers, not semantic content. Exclude
+	// them from the embedding text while keeping numeric formulas and labels.
+	if entity.DefinitionID != nil {
+		var definition models.EntityDefinition
+		if err := database.DB.Where("id = ? AND workspace_id = ?", *entity.DefinitionID, entity.WorkspaceID).First(&definition).Error; err == nil {
+			var version models.EntitySchemaVersion
+			if err := database.DB.Where(
+				"workspace_id = ? AND definition_id = ? AND version = ?",
+				entity.WorkspaceID, definition.ID, entity.SchemaVersion,
+			).First(&version).Error; err != nil {
+				log.Printf("HandleEntityChange: published schema version unavailable for entity %s", entityID)
+				return
+			}
+			fields := parseFields(version.UISchema)
+			searchable := map[string]interface{}{}
+			for _, field := range fields {
+				switch field.Type {
+				case "file", "user", "relation":
+					continue
+				}
+				if !FieldIncludedInAI(field) {
+					if field.Key == definition.TitleFieldKey {
+						embeddingPayload["display_value"] = ""
+					}
+					continue
+				}
+				if value, exists := recordData[field.Key]; exists {
+					searchable[field.Key] = value
+				}
+			}
+			embeddingPayload["definition_label_ar"] = definition.LabelAr
+			embeddingPayload["definition_label_en"] = definition.LabelEn
+			embeddingPayload["fields"] = searchable
+		}
+	}
+	contentBytes, err := json.Marshal(embeddingPayload)
 	if err != nil {
 		log.Printf("HandleEntityChange: Error marshaling data: %v", err)
 		return
@@ -74,12 +119,13 @@ func processDealOrchestration(entity models.Entity) {
 	database.DB.Create(&newTask)
 
 	// Optionally notify via NATS to the orchestrator UI / log stream
-	logPayload, _ := json.Marshal(map[string]interface{}{
+	if err := events.PublishTenantEvent("agent.collaboration.log", entity.WorkspaceID, map[string]interface{}{
 		"agent_name":  "Orchestrator",
 		"action":      "Created Project from CRM Deal",
 		"input_data":  dealName,
 		"output_data": fmt.Sprintf("Project %s and Task created", newProject.ID),
 		"status":      "completed",
-	})
-	events.PublishEvent("agent.collaboration.log", logPayload)
+	}); err != nil {
+		log.Printf("agent.collaboration.log not published for entity %s: %v", entity.ID, err)
+	}
 }

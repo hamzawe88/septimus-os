@@ -12,7 +12,7 @@ func SearchUsers(c *fiber.Ctx) error {
 
 	var users []models.User
 	db := database.GetDB(c).Where("workspace_id = ?", workspaceID)
-	
+
 	if query != "" {
 		// Basic ILIKE search for email since we don't have a name field yet.
 		// If we had a Name field, we would search on that.

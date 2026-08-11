@@ -1,297 +1,272 @@
-import React, { useState, useEffect } from "react";
-import { Plus, Sheet, Loader2 } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { FolderKanban, Loader2, Plus, Sheet } from "lucide-react";
+import { DragDropContext, Droppable, type DropResult } from "@hello-pangea/dnd";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import TaskCard from "./TaskCard";
-import NewTaskModal from "./NewTaskModal";
-import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
-import { useAppStore } from "@/store/useAppStore";
-import { apiGet, apiPost, fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tag } from "@/components/ui/tag";
 import { useLocalization } from "@/contexts/LocalizationContext";
-import { Task } from "@/types";
+import { API_BASE_URL, apiGet, apiPost, fetchWithAuth } from "@/lib/apiClient";
+import { getAllProjectTasks } from "@/lib/pm";
+import { useAppStore } from "@/store/useAppStore";
+import type { Task } from "@/types";
+import NewTaskModal from "./NewTaskModal";
+import TaskCard from "./TaskCard";
+import TaskDetailsPanel from "./TaskDetailsPanel";
+
+interface Sprint {
+  ID: string;
+  Name: string;
+  Status: string;
+}
+
+const columns = [
+  { id: "todo", tone: "bg-muted-foreground" },
+  { id: "in_progress", tone: "bg-brand" },
+  { id: "review", tone: "bg-warning" },
+  { id: "blocked", tone: "bg-destructive" },
+  { id: "done", tone: "bg-success" },
+] as const;
 
 export default function KanbanBoard() {
   const { t } = useLocalization();
-  const { tasks, setTasks, projectId, setProjectId } = useAppStore();
+  const { tasks, setTasks, projectId } = useAppStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
-
-  // Export the current project's tasks to a new Google Sheet via the connected integration
-  const exportToSheets = async () => {
-    if (!projectId) return;
-    setIsExporting(true);
-    try {
-      const res = await fetchWithAuth(`${API_BASE_URL}/integrations/google/export-tasks?project_id=${projectId}`, {
-        method: "POST",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.spreadsheet_url) {
-        window.open(data.spreadsheet_url, "_blank", "noopener,noreferrer");
-      } else {
-        alert(data.error || t("integrations.sheetsExportFailed", "Failed to export tasks to Google Sheets."));
-      }
-    } catch (err) {
-      alert(err instanceof Error ? err.message : t("common.unexpectedError", "An unexpected error occurred."));
-    } finally {
-      setIsExporting(false);
-    }
-  };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [sprints, setSprints] = useState<any[]>([]);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-
-  // Constants for our columns based on backend State Machine
-  const columns = [
-    { id: "todo", title: "To Do" },
-    { id: "in_progress", title: "In Progress" },
-    { id: "review", title: "Review" },
-    { id: "done", title: "Done" },
-  ];
+  const [errorMessage, setErrorMessage] = useState("");
 
   const fetchTasksAndSprints = async (pid: string) => {
     try {
       const [tasksData, sprintsData] = await Promise.all([
-        apiGet<{tasks: Task[]}>(`/tasks?project_id=${pid}`),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        apiGet<any[]>(`/sprints?project_id=${pid}`)
+        getAllProjectTasks(pid),
+        apiGet<Sprint[]>(`/sprints?project_id=${pid}`),
       ]);
-      
-      setTasks(tasksData.tasks || []);
+      setTasks(tasksData);
       setSprints(sprintsData || []);
-    } catch (err) {
-      console.error(err);
+      setErrorMessage("");
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(t("pm.kanban.loadFailed"));
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    const fetchOrCreateProject = async () => {
-      try {
-        // Try fetching first project
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const data = await apiGet<any[]>("/projects");
-          if (data && data.length > 0) {
-            setProjectId(data[0].ID);
-            fetchTasksAndSprints(data[0].ID);
-            return;
-          }
-        } catch (e) {
-          console.warn("Failed to fetch projects, will create default", e);
-        }
-
-        // If no project, create a default one
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const newProj = await apiPost<any>("/projects", { name: "Default Project", settings: {} });
-        setProjectId(newProj.ID);
-        fetchTasksAndSprints(newProj.ID);
-      } finally {
+    if (!projectId) {
+      void Promise.resolve().then(() => {
+        setTasks([]);
+        setSprints([]);
         setIsLoading(false);
-      }
-    };
-
-    fetchOrCreateProject();
+      });
+      return;
+    }
+    void Promise.resolve().then(() => {
+      setIsLoading(true);
+      return fetchTasksAndSprints(projectId);
+    });
+    // fetchTasksAndSprints is intentionally scoped to the selected project.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setProjectId, setTasks]);
+  }, [projectId, setTasks]);
+
+  const exportToSheets = async () => {
+    if (!projectId) return;
+    setIsExporting(true);
+    setErrorMessage("");
+    try {
+      const response = await fetchWithAuth(
+        `${API_BASE_URL}/integrations/google/export-tasks?project_id=${projectId}`,
+        { method: "POST" },
+      );
+      const data = (await response.json().catch(() => ({}))) as {
+        spreadsheet_url?: string;
+        error?: string;
+      };
+      if (!response.ok || !data.spreadsheet_url) {
+        throw new Error(data.error || t("integrations.sheetsExportFailed"));
+      }
+      window.open(data.spreadsheet_url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : t("common.unexpectedError"),
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleTransition = async (taskId: string, newStatus: string) => {
     try {
       await apiPost(`/tasks/${taskId}/transition`, { status: newStatus });
-      // The local state update happens before this API call via onDragEnd
-    } catch (err) {
-      console.error("Transition error", err);
-      alert(`Transition failed: ${err instanceof Error ? err.message : String(err)}`);
-      // Re-fetch to revert optimistic update
-      fetchTasksAndSprints(projectId);
+      setErrorMessage("");
+    } catch (error) {
+      console.error("Task transition failed.", error);
+      setErrorMessage(t("pm.kanban.transitionFailed"));
+      if (projectId) await fetchTasksAndSprints(projectId);
     }
   };
 
   const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
-
     if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) return;
 
-    // Optimistically update the UI in global store
     const newStatus = destination.droppableId;
-    setTasks((prevTasks: Task[]) => prevTasks.map((t: Task) => t.ID === draggableId ? { ...t, Status: newStatus } : t));
-
-    // Send API request
-    handleTransition(draggableId, newStatus);
+    setTasks((current: Task[]) =>
+      current.map((task) =>
+        task.ID === draggableId ? { ...task, Status: newStatus } : task,
+      ),
+    );
+    void handleTransition(draggableId, newStatus);
   };
 
   if (isLoading) {
-    return <div className="flex-1 flex items-center justify-center text-slate-400">Loading Kanban Board...</div>;
+    return (
+      <div
+        className="grid flex-1 grid-cols-1 gap-4 p-6 md:grid-cols-2 xl:grid-cols-4"
+        aria-label={t("pm.kanban.loading")}
+      >
+        {[0, 1, 2, 3].map((item) => (
+          <Skeleton key={item} className="h-[420px] w-full" />
+        ))}
+      </div>
+    );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const activeSprint = sprints.find((s) => s.Status === "active") as any;
-  const sprintTasks = activeSprint ? tasks.filter((t) => t.SprintID === activeSprint.ID) : [];
+  if (!projectId) {
+    return (
+      <div className="flex h-full items-center justify-center p-6" data-testid="kanban-board">
+        <EmptyState
+          icon={<FolderKanban />}
+          title={t("pm.projectScope.noProjects")}
+          description={t("pm.projectScope.chooseOrCreate")}
+        />
+      </div>
+    );
+  }
 
-  const selectedTask = tasks.find(t => t.ID === selectedTaskId);
+  const activeSprint = sprints.find((sprint) => sprint.Status === "active");
+  const sprintTasks = activeSprint
+    ? tasks.filter((task) => task.SprintID === activeSprint.ID)
+    : [];
+  const selectedTask = tasks.find((task) => task.ID === selectedTaskId);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white text-slate-900 overflow-hidden relative">
-      {/* Kanban Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <div className="flex flex-col space-y-1">
-          <h2 className="text-xl font-bold text-gray-800">Board</h2>
+    <div
+      className="relative flex h-full flex-1 flex-col overflow-hidden bg-background text-foreground"
+      data-testid="kanban-board"
+    >
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border p-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-bold">{t("pm.kanban.title")}</h2>
           {activeSprint ? (
-             <span className="text-sm font-medium text-slate-500">Active Sprint: {activeSprint.Name}</span>
+            <span className="text-sm font-medium text-muted-foreground">
+              {t("pm.kanban.activeSprint")}: {activeSprint.Name}
+            </span>
           ) : (
-             <span className="text-sm font-medium text-amber-600">No active sprint. Please start a sprint from the Backlog view.</span>
+            <span className="text-sm font-medium text-warning">
+              {t("pm.kanban.noActiveSprint")}
+            </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             onClick={exportToSheets}
             disabled={isExporting || !projectId}
-            className="gap-2"
-            title={t("integrations.sheetsExportTitle", "Export tasks to Google Sheets")}
+            title={t("integrations.sheetsExportTitle")}
           >
-            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sheet className="w-4 h-4" />}
-            Export to Sheets
+            {isExporting ? <Loader2 className="animate-spin" /> : <Sheet />}
+            {t("pm.kanban.exportSheets")}
           </Button>
-          <Button onClick={() => setIsModalOpen(true)} className="gap-2">
-            <Plus className="w-4 h-4" /> New Task
+          <Button onClick={() => setIsModalOpen(true)} disabled={!projectId}>
+            <Plus />
+            {t("pm.kanban.newTask")}
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Board Area */}
+      {errorMessage ? (
+        <Alert tone="danger" className="m-4 mb-0">
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
-          <div className="flex h-full items-start space-x-6 min-w-max">
-            {columns.map((col) => {
-              const columnTasks = sprintTasks.filter((t) => t.Status === col.id);
+          <div className="flex h-full min-w-max items-start gap-6">
+            {columns.map((column) => {
+              const columnTasks = sprintTasks.filter(
+                (task) => task.Status === column.id,
+              );
               return (
-                <div key={col.id} className="w-80 flex flex-col h-full max-h-full bg-[#f8fafc]/50 rounded-xl border border-slate-100">
-                  <div className="flex items-center justify-between mb-2 px-3 py-3 border-b border-slate-100">
-                    <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${
-                        col.id === 'todo' ? 'bg-slate-400' :
-                        col.id === 'in_progress' ? 'bg-[#dfb2e5]' :
-                        col.id === 'review' ? 'bg-amber-400' : 'bg-emerald-400'
-                      }`} />
-                      {col.title}
+                <section
+                  key={column.id}
+                  className="flex h-full max-h-full w-80 flex-col rounded-[var(--radius-surface)] border border-border bg-surface-subtle"
+                >
+                  <div className="mb-2 flex items-center justify-between border-b border-border px-3 py-3">
+                    <h3 className="flex items-center gap-2 font-semibold">
+                      <span className={`size-2 rounded-full ${column.tone}`} aria-hidden />
+                      {t(`pm.kanban.status.${column.id}`)}
                     </h3>
-                    <span className="text-xs font-semibold bg-slate-100 text-slate-500 py-1 px-2 rounded-full">
-                      {columnTasks.length}
-                    </span>
+                    <Tag tone="neutral">{columnTasks.length}</Tag>
                   </div>
-                  
-                  {/* Column Content */}
-                  <Droppable droppableId={col.id}>
+                  <Droppable droppableId={column.id}>
                     {(provided, snapshot) => (
-                      <div 
+                      <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`flex-1 overflow-y-auto px-2 custom-scrollbar pb-4 transition-colors ${snapshot.isDraggingOver ? 'bg-slate-100/80 rounded-b-xl' : ''}`}
+                        className={`custom-scrollbar flex-1 overflow-y-auto px-2 pb-4 transition-colors ${
+                          snapshot.isDraggingOver
+                            ? "rounded-b-[var(--radius-surface)] bg-muted/80"
+                            : ""
+                        }`}
                       >
                         {columnTasks.length === 0 && !snapshot.isDraggingOver ? (
-                          <div className="h-24 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-sm text-slate-400">
-                            No tasks
-                          </div>
+                          <EmptyState
+                            title={t("pm.kanban.noTasks")}
+                            description={t("pm.kanban.noTasksDescription")}
+                            className="min-h-24 p-4"
+                          />
                         ) : (
                           columnTasks.map((task, index) => (
-                            <div key={task.ID} onClick={() => setSelectedTaskId(task.ID)}>
-                              <TaskCard task={task} index={index} onTransition={handleTransition} />
-                            </div>
+                            <TaskCard
+                              key={task.ID}
+                              task={task}
+                              index={index}
+                              onTransition={handleTransition}
+                              onOpen={setSelectedTaskId}
+                            />
                           ))
                         )}
                         {provided.placeholder}
                       </div>
                     )}
                   </Droppable>
-                </div>
+                </section>
               );
             })}
           </div>
         </div>
       </DragDropContext>
 
-      {/* Task Details Right Panel (Slide Over) */}
-      {selectedTask && (
-        <div className="absolute top-0 end-0 h-full w-[400px] bg-white shadow-2xl border-s border-slate-200 z-50 flex flex-col animate-in slide-in-from-right duration-200">
-          <div className="flex items-center justify-between p-4 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-slate-400">TASK-{selectedTask.ID.substring(0,4)}</span>
-            </div>
-            <button 
-              onClick={() => setSelectedTaskId(null)}
-              className="p-2 hover:bg-slate-100 rounded-md text-slate-500 transition-colors"
-              title="Close Task"
-              aria-label="Close Task"
-            >
-              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12.8536 2.85355C13.0488 2.65829 13.0488 2.34171 12.8536 2.14645C12.6583 1.95118 12.3417 1.95118 12.1464 2.14645L7.5 6.79289L2.85355 2.14645C2.65829 1.95118 2.34171 1.95118 2.14645 2.14645C1.95118 2.34171 1.95118 2.65829 2.14645 2.85355L6.79289 7.5L2.14645 12.1464C1.95118 12.3417 1.95118 12.6583 2.14645 12.8536C2.34171 13.0488 2.65829 13.0488 2.85355 12.8536L7.5 8.20711L12.1464 12.8536C12.3417 13.0488 12.6583 13.0488 12.8536 12.8536C13.0488 12.6583 13.0488 12.3417 12.8536 12.1464L8.20711 7.5L12.8536 2.85355Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path>
-              </svg>
-            </button>
-          </div>
-          <div className="p-6 overflow-y-auto flex-1">
-            <h2 className="text-2xl font-bold text-slate-900 mb-6 leading-tight">{selectedTask.Title}</h2>
-            
-            <div className="space-y-6">
-              {/* Properties */}
-              <div className="grid grid-cols-3 gap-y-4 text-sm">
-                <div className="text-slate-500">Status</div>
-                <div className="col-span-2">
-                  <span className="px-2 py-1 bg-slate-100 rounded-md font-medium text-slate-700 capitalize">
-                    {selectedTask.Status.replace('_', ' ')}
-                  </span>
-                </div>
-                
-                <div className="text-slate-500">Assignee</div>
-                <div className="col-span-2 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
-                    UN
-                  </div>
-                  <span className="text-slate-700 font-medium">Unassigned</span>
-                </div>
+      {selectedTask ? (
+        <TaskDetailsPanel task={selectedTask} onClose={() => setSelectedTaskId(null)} />
+      ) : null}
 
-                <div className="text-slate-500">Priority</div>
-                <div className="col-span-2">
-                  {selectedTask.Priority > 0 ? (
-                    <span className="text-red-600 font-medium flex items-center gap-1">
-                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.5 1V14M7.5 1L3.5 5M7.5 1L11.5 5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      High
-                    </span>
-                  ) : (
-                    <span className="text-slate-500 flex items-center gap-1">
-                      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 7.5H13" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      Normal
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="w-full h-px bg-slate-100" />
-
-              {/* Description */}
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900 mb-2">Description</h3>
-                <p className="text-slate-600 text-sm whitespace-pre-wrap leading-relaxed">
-                  {selectedTask.Description || "No description provided."}
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="p-4 border-t border-slate-100 bg-[#f8fafc]">
-            <button className="w-full py-2 bg-brand text-white rounded-md font-medium hover:bg-brand transition-colors">
-              Save Changes
-            </button>
-          </div>
-        </div>
-      )}
-      
-      <NewTaskModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        projectId={projectId} 
-        onTaskCreated={() => fetchTasksAndSprints(projectId)} 
+      <NewTaskModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        projectId={projectId}
+        onTaskCreated={() => fetchTasksAndSprints(projectId)}
       />
     </div>
   );

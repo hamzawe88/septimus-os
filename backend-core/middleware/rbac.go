@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/models"
 )
@@ -20,15 +21,32 @@ func CheckPermission(requiredPermission string) fiber.Handler {
 		userID := database.ParseUUID(userIDStr)
 
 		var user models.User
-		if err := database.DB.Preload("RoleRef").Where("id = ?", userID).First(&user).Error; err != nil {
+		userQuery := database.GetDB(c).Preload("RoleRef").Where("id = ?", userID)
+		if global, _ := c.Locals("allow_global_access").(bool); !global {
+			workspaceIDStr, ok := c.Locals("workspace_id").(string)
+			workspaceID := database.ParseUUID(workspaceIDStr)
+			if !ok || workspaceID == uuid.Nil {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "workspace context is required"})
+			}
+			userQuery = userQuery.Where("workspace_id = ?", workspaceID)
+		}
+		if err := userQuery.First(&user).Error; err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "user not found"})
 		}
 
-		// If user role string is "Admin" or "SuperAdmin", allow bypass immediately
-		if strings.EqualFold(user.Role, "admin") || strings.EqualFold(user.Role, "superadmin") {
+		// Workspace owners and admins have full authority inside their tenant;
+		// global super-admins retain the control-plane bypass.
+		if strings.EqualFold(user.Role, "owner") ||
+			strings.EqualFold(user.Role, "admin") ||
+			strings.EqualFold(user.Role, "super_admin") ||
+			strings.EqualFold(user.Role, "superadmin") {
 			return c.Next()
 		}
-		if user.RoleRef != nil && (strings.EqualFold(user.RoleRef.Name, "admin") || strings.EqualFold(user.RoleRef.Name, "superadmin")) {
+		if user.RoleRef != nil &&
+			(strings.EqualFold(user.RoleRef.Name, "owner") ||
+				strings.EqualFold(user.RoleRef.Name, "admin") ||
+				strings.EqualFold(user.RoleRef.Name, "super_admin") ||
+				strings.EqualFold(user.RoleRef.Name, "superadmin")) {
 			return c.Next()
 		}
 
@@ -40,13 +58,17 @@ func CheckPermission(requiredPermission string) fiber.Handler {
 
 		// Check RolePermission mapping
 		var count int64
-		database.DB.Model(&models.RolePermission{}).
+		database.GetDB(c).Model(&models.RolePermission{}).
 			Joins("JOIN permissions ON role_permissions.permission_id = permissions.id").
 			Where("role_permissions.role_id = ? AND permissions.name = ?", user.RoleID, requiredPermission).
 			Count(&count)
 
 		if count == 0 {
-			log.Printf("Access denied: User %s (Role: %s) missing permission %s", userID, user.RoleRef.Name, requiredPermission)
+			roleName := user.Role
+			if user.RoleRef != nil {
+				roleName = user.RoleRef.Name
+			}
+			log.Printf("Access denied: User %s (Role: %s) missing permission %s", userID, roleName, requiredPermission)
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "access denied: insufficient permissions"})
 		}
 

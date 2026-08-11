@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { useThemeStore } from "@/store/useThemeStore";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { ProvenanceSurface } from "@/components/ui/provenance";
 
 interface ForecastData {
   month: string;
@@ -48,19 +49,19 @@ export default function ForecastChart({ data, insight }: ForecastChartProps) {
   const { t } = useLocalization();
 
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 flex flex-col h-full">
+    <div className="bg-card dark:bg-card rounded-xl shadow-sm border border-border dark:border-border p-6 flex flex-col h-full">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+          <h2 className="text-lg font-bold text-foreground dark:text-muted-foreground">
             {t("finance.aiForecastTitle")}
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
             {t("finance.aiForecastSubtitle")}
           </p>
         </div>
-        <div className="bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-400 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
-          Gemini AI
+        <div className="bg-brand-light dark:bg-brand/20 text-brand dark:text-brand px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-brand animate-pulse"></span>
+          {t("finance.aiGenerated")}
         </div>
       </div>
 
@@ -70,18 +71,18 @@ export default function ForecastChart({ data, insight }: ForecastChartProps) {
             data={data}
             margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.2} />
             <XAxis
               dataKey="month"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#64748b", fontSize: 12 }}
+              tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
               dy={10}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fill: "#64748b", fontSize: 12 }}
+              tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
               tickFormatter={(value) => `$${value}`}
               dx={-10}
             />
@@ -90,11 +91,11 @@ export default function ForecastChart({ data, insight }: ForecastChartProps) {
                 backgroundColor: "rgba(15, 23, 42, 0.9)",
                 border: "none",
                 borderRadius: "8px",
-                color: "#fff",
+                color: "var(--color-paper)",
                 boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
               }}
-              itemStyle={{ color: "#e2e8f0", fontSize: "14px", fontWeight: 500 }}
-              labelStyle={{ color: "#94a3b8", marginBottom: "8px" }}
+              itemStyle={{ color: "var(--color-paper)", fontSize: "14px", fontWeight: 500 }}
+              labelStyle={{ color: "var(--muted-foreground)", marginBottom: "8px" }}
               formatter={(value) => [`$${Number(value || 0).toLocaleString()}`, ""]}
             />
             <Legend wrapperStyle={{ paddingTop: "20px" }} />
@@ -102,7 +103,7 @@ export default function ForecastChart({ data, insight }: ForecastChartProps) {
               type="monotone"
               name={t("finance.revenueLabel")}
               dataKey="revenue"
-              stroke="#3b82f6"
+              stroke="var(--info)"
               strokeWidth={3}
               dot={<CustomizedDot />}
               activeDot={{ r: 6, strokeWidth: 0 }}
@@ -111,7 +112,7 @@ export default function ForecastChart({ data, insight }: ForecastChartProps) {
               type="monotone"
               name={t("finance.expensesLabel")}
               dataKey="expenses"
-              stroke="#ef4444"
+              stroke="var(--destructive)"
               strokeWidth={3}
               dot={<CustomizedDot />}
               activeDot={{ r: 6, strokeWidth: 0 }}
@@ -121,19 +122,20 @@ export default function ForecastChart({ data, insight }: ForecastChartProps) {
       </div>
 
       {insight && (
-        <div className="mt-6 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-100 dark:border-slate-700">
+        <ProvenanceSurface level="assumption" className="mt-6">
           <div className="flex gap-3">
-            <div className="text-2xl">💡</div>
-            <div>
-              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
+            <span aria-hidden="true" className="text-2xl">💡</span>
+            <div className="space-y-1">
+              <h4 className="text-sm font-semibold text-foreground dark:text-muted-foreground mb-1">
                 {t("finance.aiInsightLabel")}
               </h4>
-              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground leading-relaxed">
                 {insight}
               </p>
+              <p className="text-xs text-warning">{t("finance.aiForecastProvenance")}</p>
             </div>
           </div>
-        </div>
+        </ProvenanceSurface>
       )}
     </div>
   );

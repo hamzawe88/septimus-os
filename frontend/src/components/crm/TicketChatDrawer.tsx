@@ -4,7 +4,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Send, MessageSquare, Clock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { apiPut } from "@/lib/apiClient";
+import { EmptyState } from "@/components/ui/empty-state";
+import { apiGet, apiPost } from "@/lib/apiClient";
 import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface TicketChatDrawerProps {
@@ -23,33 +24,8 @@ interface ChatMessage {
 }
 
 export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: TicketChatDrawerProps) {
-  const { isRtl } = useLocalization();
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    if (!ticket) return [];
-    const existingMessages = ticket.data?.messages;
-    if (Array.isArray(existingMessages) && existingMessages.length > 0) {
-      return existingMessages;
-    }
-    const initialSubject = ticket.name || ticket.data?.subject || (isRtl ? "بدون موضوع" : "No Subject");
-    const initialDesc = ticket.data?.description || (isRtl ? "مرحباً، أواجه مشكلة في هذا القسم وأحتاج إلى مساعدة الدعم الفني في أقرب وقت ممكن." : "Hello, I'm facing an issue here and need technical support as soon as possible.");
-    
-    return [
-      {
-        id: "msg-1",
-        sender: ticket.data?.customer || (isRtl ? "العميل" : "Customer"),
-        senderType: "customer",
-        text: isRtl ? `مرحباً، بخصوص التذكرة "${initialSubject}": ${initialDesc}` : `Hello, regarding ticket "${initialSubject}": ${initialDesc}`,
-        timestamp: "10:30",
-      },
-      {
-        id: "msg-2",
-        sender: isRtl ? "نظام الدعم الفني" : "System Support",
-        senderType: "system",
-        text: isRtl ? "تم استلام التذكرة وتحويلها إلى فريق الدعم المختص للمتابعة." : "Ticket received and forwarded to the appropriate support team.",
-        timestamp: "10:35",
-      }
-    ];
-  });
+  const { t, language } = useLocalization();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -57,6 +33,22 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  useEffect(() => {
+    const syncTimer = window.setTimeout(() => {
+	  if (!isOpen || !ticket?.id) return;
+      apiGet<{data: any[]}>(`/crm/tickets/${ticket.id}/messages`)
+		.then((response) => setMessages((response.data || []).slice().reverse().map((record) => ({
+          id: record.id,
+          sender: record.data?.sender ? t("crm.chat.supportYou") : t("crm.customer"),
+          senderType: record.data?.channel === "system" ? "system" : record.data?.sender ? "support" : "customer",
+          text: record.data?.body || "",
+          timestamp: new Date(record.data?.sent_at || record.created_at).toLocaleTimeString(language === "ar" ? "ar-EG" : "en-US", { hour: "2-digit", minute: "2-digit" }),
+		}))))
+        .catch(() => setMessages([]));
+    }, 0);
+    return () => window.clearTimeout(syncTimer);
+  }, [isOpen, language, t, ticket]);
 
   useEffect(() => {
     if (isOpen) {
@@ -72,10 +64,10 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
 
     const newMsg: ChatMessage = {
       id: "msg-" + (messages.length + 1),
-      sender: isRtl ? "الدعم الفني / أنت" : "Support / You",
+      sender: t("crm.chat.supportYou"),
       senderType: "support",
       text: content.trim(),
-      timestamp: new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
+      timestamp: new Date().toLocaleTimeString(language === "ar" ? "ar-EG" : "en-US", { hour: "2-digit", minute: "2-digit" }),
     };
 
     const updatedMessages = [...messages, newMsg];
@@ -84,77 +76,75 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
     setIsSending(true);
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
-      const updatedData = {
-        ...(ticket.data || {}),
-        messages: updatedMessages,
-      };
-
-      await apiPut(`/entities/${ticket.id}?workspace_id=${workspaceId}`, {
-        name: ticket.name || ticket.data?.subject || (isRtl ? "بدون موضوع" : "No Subject"),
-        data: updatedData,
+      const saved = await apiPost<any>(`/crm/tickets/${ticket.id}/messages`, {
+        body: content.trim(),
+        channel: "portal",
       });
+	  setMessages((current) => current.map((message) => message.id === newMsg.id ? { ...message, id: saved.id } : message));
 
       onUpdate();
     } catch (err) {
       console.error("Failed to save chat message to ticket", err);
+      setMessages(messages);
     } finally {
       setIsSending(false);
     }
   };
 
-  const quickReplies = isRtl ? [
-    "مرحباً بك، جاري العمل على حل المشكلة الآن وفحص السجلات.",
-    "تم حل المشكلة بنجاح، يرجى التحقق وإعلامنا في حال استمرارها.",
-    "نحتاج إلى مزيد من التفاصيل أو لقطة شاشة للمشكلة لمساعدتك بشكل أفضل.",
-  ] : [
-    "Hello, we are currently working on resolving the issue and checking logs.",
-    "The issue has been successfully resolved. Please check and let us know if it persists.",
-    "We need more details or a screenshot of the problem to assist you better.",
+  const quickReplies = [
+    t("crm.chat.replyInvestigating"),
+    t("crm.chat.replyResolved"),
+    t("crm.chat.replyNeedDetails"),
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-md h-full shadow-2xl border-s border-slate-200 flex flex-col animate-in slide-in-from-left duration-300">
-        
+    <div className="fixed inset-0 z-50 flex justify-end bg-[var(--color-ink)]/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="flex h-full w-full max-w-md animate-in flex-col border-s border-border bg-card shadow-[var(--shadow-overlay)] duration-300">
+
         {/* Header */}
-        <div className="p-5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="p-5 bg-muted border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-brand/10 text-brand flex items-center justify-center font-bold">
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                {isRtl ? "محادثة التذكرة #" : "Ticket Chat #"}{ticket.id.substring(0, 8)}
+              <h3 className="font-bold text-foreground flex items-center gap-2">
+                {t("crm.chat.title")} #{ticket.id.substring(0, 8)}
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                  ticket.data?.status === 'open' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'
+                  ticket.data?.status === 'open' ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'
                 }`}>
-                  {ticket.data?.status === 'open' ? (isRtl ? 'مفتوحة' : 'Open') : (isRtl ? 'محلولة' : 'Resolved')}
+                  {ticket.data?.status === 'open' ? t("crm.ticketStatus.open") : t("crm.ticketStatus.resolved")}
                 </span>
               </h3>
-              <p className="text-xs text-slate-500">{isRtl ? "العميل:" : "Customer:"} {ticket.data?.customer || (isRtl ? 'غير محدد' : 'Unspecified')}</p>
+              <p className="text-xs text-muted-foreground">{t("crm.customer")}: {ticket.data?.customer_name || t("common.unspecified")}</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 rounded-full transition-colors"
-            title={isRtl ? "إغلاق المحادثة" : "Close Chat"} 
-            aria-label={isRtl ? "إغلاق المحادثة" : "Close Chat"}>
+            className="p-2 text-muted-foreground hover:bg-muted/60 hover:text-muted-foreground rounded-full transition-colors"
+            title={t("crm.chat.close")}
+            aria-label={t("crm.chat.close")}>
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Messages Body */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/50">
-          {messages.map((msg) => {
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-muted/50">
+          {messages.length === 0 ? (
+            <EmptyState
+              icon={<MessageSquare />}
+              title={t("crm.chat.empty")}
+              description={t("crm.chat.emptyDescription")}
+            />
+          ) : messages.map((msg) => {
             const isSupport = msg.senderType === "support";
             const isSystem = msg.senderType === "system";
 
             if (isSystem) {
               return (
                 <div key={msg.id} className="flex justify-center my-3">
-                  <span className="bg-slate-200/80 text-slate-600 text-xs px-3 py-1 rounded-full flex items-center gap-1.5 font-medium shadow-sm">
-                    <Clock className="w-3 h-3 text-slate-500" />
+                  <span className="bg-muted/80 text-muted-foreground text-xs px-3 py-1 rounded-full flex items-center gap-1.5 font-medium shadow-sm">
+                    <Clock className="w-3 h-3 text-muted-foreground" />
                     {msg.text}
                   </span>
                 </div>
@@ -162,19 +152,19 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
             }
 
             return (
-              <div 
-                key={msg.id} 
+              <div
+                key={msg.id}
                 className={`flex flex-col ${isSupport ? "items-start" : "items-end"}`}
               >
                 <div className="flex items-center gap-1.5 mb-1 px-1">
-                  <span className="text-xs font-semibold text-slate-700">{msg.sender}</span>
-                  <span className="text-[10px] text-slate-400">{msg.timestamp}</span>
+                  <span className="text-xs font-semibold text-foreground">{msg.sender}</span>
+                  <span className="text-[10px] text-muted-foreground">{msg.timestamp}</span>
                 </div>
-                <div 
+                <div
                   className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                    isSupport 
-                      ? "bg-brand text-white rounded-se-none" 
-                      : "bg-white text-slate-800 border border-slate-200 rounded-ss-none"
+                    isSupport
+                      ? "bg-brand text-brand-foreground rounded-se-none"
+                      : "bg-card text-foreground border border-border rounded-ss-none"
                   }`}
                 >
                   {msg.text}
@@ -186,16 +176,16 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
         </div>
 
         {/* Quick Replies */}
-        <div className="p-3 bg-white border-t border-slate-100 flex flex-wrap gap-1.5">
-          <span className="text-xs text-slate-400 font-medium flex items-center gap-1 w-full mb-1">
-            <Sparkles className="w-3 h-3 text-amber-500" /> {isRtl ? "ردود سريعة جاهزة:" : "Quick replies:"}
+        <div className="p-3 bg-card border-t border-border flex flex-wrap gap-1.5">
+          <span className="text-xs text-muted-foreground font-medium flex items-center gap-1 w-full mb-1">
+            <Sparkles className="w-3 h-3 text-warning" /> {t("crm.chat.quickReplyTemplates")}
           </span>
           {quickReplies.map((reply, idx) => (
             <button
               key={idx}
               type="button"
               onClick={() => handleSend(reply)}
-              className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition-colors text-end truncate max-w-full"
+              className="text-xs bg-muted hover:bg-muted text-foreground px-3 py-1.5 rounded-lg transition-colors text-end truncate max-w-full"
             >
               {reply}
             </button>
@@ -203,26 +193,26 @@ export default function TicketChatDrawer({ isOpen, onClose, ticket, onUpdate }: 
         </div>
 
         {/* Input Area */}
-        <div className="p-4 bg-white border-t border-slate-200">
-          <form 
+        <div className="p-4 bg-card border-t border-border">
+          <form
             onSubmit={(e) => { e.preventDefault(); handleSend(); }}
             className="flex items-center gap-2"
           >
-            <input 
+            <input
               type="text"
-              placeholder={isRtl ? "اكتب ردك للعميل هنا..." : "Type your reply to the customer here..."}
+              placeholder={t("crm.chat.replyPlaceholder")}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all"
+              className="flex-1 border border-border rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all"
             />
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={!input.trim() || isSending}
-              className="bg-brand hover:bg-brand/90 text-white p-2.5 rounded-xl flex items-center justify-center transition-all disabled:opacity-50"
-              title={isRtl ? "إرسال" : "Send"}
-              aria-label={isRtl ? "إرسال" : "Send"}
+              className="flex items-center justify-center rounded-xl bg-brand p-2.5 text-brand-foreground transition-all hover:bg-brand-hover disabled:opacity-50"
+              title={t("crm.chat.send")}
+              aria-label={t("crm.chat.send")}
             >
-              <Send className="w-5 h-5 rotate-180" />
+              <Send className="h-5 w-5 rtl:rotate-180" />
             </Button>
           </form>
         </div>

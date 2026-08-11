@@ -18,18 +18,38 @@ import (
 // that must be encrypted at rest and never returned in cleartext to browsers.
 const aiProvidersKey = "ai_providers"
 
+// callerWorkspaceID returns the workspace from the authenticated caller's JWT
+// claims only. Unlike getWorkspaceID it never falls back to ?workspace_id —
+// settings routes must not let a client name the tenant they act on.
+func callerWorkspaceID(c *fiber.Ctx) uuid.UUID {
+	str, _ := c.Locals("workspace_id").(string)
+	if str == "" {
+		return uuid.Nil
+	}
+	return database.ParseUUID(str)
+}
+
 // SaveSettings handles saving JSON settings for a workspace under a specific key
 func SaveSettings(c *fiber.Ctx) error {
-	workspaceIDStr := c.Query("workspace_id")
 	key := c.Params("key")
-
-	if workspaceIDStr == "" || key == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "workspace_id and key are required"})
+	if key == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "key is required"})
 	}
 
-	workspaceID := database.ParseUUID(workspaceIDStr)
+	// The workspace comes from the JWT, never from ?workspace_id. This route is
+	// only JWT-protected, not permission-gated, so honouring the query param let
+	// any authenticated user overwrite another tenant's settings — including
+	// ai_providers, i.e. repointing that tenant's LLM baseUrl at a host they
+	// control. ?workspace_id is now ignored: the frontend still sends one from
+	// localStorage, which can legitimately be stale, so rejecting a mismatch
+	// would lock real users out of their own settings for no security gain.
+	// A mismatch is logged instead — it is either a stale client or a probe.
+	workspaceID := callerWorkspaceID(c)
 	if workspaceID == uuid.Nil {
-		return c.Status(400).JSON(fiber.Map{"error": "invalid workspace_id"})
+		return c.Status(401).JSON(fiber.Map{"error": "unauthorized"})
+	}
+	if q := c.Query("workspace_id"); q != "" && database.ParseUUID(q) != workspaceID {
+		log.Printf("settings: ignoring ?workspace_id=%s for caller in workspace %s", q, workspaceID)
 	}
 
 	// We expect the body to be valid JSON
@@ -43,7 +63,11 @@ func SaveSettings(c *fiber.Ctx) error {
 	// "keep the existing one" so the masked value the UI renders never clobbers
 	// a real secret on re-save.
 	if key == aiProvidersKey {
-		payload = encryptProviderKeys(workspaceID, payload)
+		var err error
+		payload, err = encryptProviderKeys(workspaceID, payload)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not encrypt provider credentials"})
+		}
 	}
 
 	jsonBytes, err := c.App().Config().JSONEncoder(payload)
@@ -91,25 +115,28 @@ func SaveSettings(c *fiber.Ctx) error {
 // GetSettings retrieves settings by key for browser-facing (JWT-protected)
 // callers. Provider API keys are masked so secrets never reach the client.
 func GetSettings(c *fiber.Ctx) error {
-	return getSettings(c, false)
+	return getSettings(c, false, callerWorkspaceID(c))
 }
 
 // GetSettingsInternal retrieves settings by key for trusted service-to-service
 // callers (the AI sidecar) reachable only via the internal, token-gated group.
 // Provider API keys are returned decrypted.
 func GetSettingsInternal(c *fiber.Ctx) error {
-	return getSettings(c, true)
+	// The internal workspace middleware authenticated and validated this header.
+	// Query parameters are deliberately ignored so a sidecar payload cannot read
+	// another tenant's decrypted provider credentials.
+	return getSettings(c, true, CurrentWorkspaceID(c))
 }
 
-func getSettings(c *fiber.Ctx, decrypt bool) error {
-	workspaceIDStr := c.Query("workspace_id")
+// getSettings reads one settings key. workspaceID is supplied by the caller —
+// derived from the JWT for browser routes, from the query for internal ones —
+// so a browser can never read another tenant's settings by changing a param.
+func getSettings(c *fiber.Ctx, decrypt bool, workspaceID uuid.UUID) error {
 	key := c.Params("key")
 
-	if workspaceIDStr == "" || key == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "workspace_id and key are required"})
+	if key == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "key is required"})
 	}
-
-	workspaceID := database.ParseUUID(workspaceIDStr)
 	if workspaceID == uuid.Nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid workspace_id"})
 	}
@@ -156,10 +183,10 @@ func providerList(payload interface{}) []map[string]interface{} {
 // encryptProviderKeys encrypts each non-empty apiKey. An empty (or masked)
 // incoming key is replaced with the currently stored ciphertext for that
 // provider, so the UI can safely re-save without resubmitting the secret.
-func encryptProviderKeys(workspaceID uuid.UUID, payload interface{}) interface{} {
+func encryptProviderKeys(workspaceID uuid.UUID, payload interface{}) (interface{}, error) {
 	providers := providerList(payload)
 	if providers == nil {
-		return payload
+		return payload, nil
 	}
 
 	// Load existing stored (still-encrypted) keys keyed by provider id.
@@ -193,13 +220,12 @@ func encryptProviderKeys(workspaceID uuid.UUID, payload interface{}) interface{}
 		}
 		enc, err := crypto.Encrypt(incoming)
 		if err != nil {
-			// No key configured (dev): store as-is rather than losing the value.
 			log.Printf("settings: could not encrypt api key for %q: %v", id, err)
-			enc = incoming
+			return nil, err
 		}
 		p["apiKey"] = enc
 	}
-	return payload
+	return payload, nil
 }
 
 // maskProviderKeys replaces stored keys with a display-safe mask.

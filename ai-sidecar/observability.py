@@ -41,7 +41,21 @@ COST_PER_MILLION: Dict[str, Dict[str, float]] = {
     "claude-3-5-haiku-20241022": {"prompt": 0.80, "completion": 4.00},
     "claude-sonnet-5": {"prompt": 3.00, "completion": 15.00},
     "claude-opus-3-7": {"prompt": 15.00, "completion": 75.00},
+    # Every id in providers.MODEL_TIERS must appear here or the cost dashboard
+    # silently bills it at the generic fallback rate. claude-haiku-4-5 is the
+    # default Anthropic *fast* tier — the highest-volume model in the system —
+    # and was being costed at 6x its real prompt price.
+    "claude-haiku-4-5-20251001": {"prompt": 1.00, "completion": 5.00},
+    "claude-opus-4-8": {"prompt": 5.00, "completion": 25.00},
+    # Locally hosted: no per-token vendor charge.
+    "llama3.2:3b": {"prompt": 0.0, "completion": 0.0},
+    "qwen3:8b": {"prompt": 0.0, "completion": 0.0},
+    "nomic-embed-text": {"prompt": 0.0, "completion": 0.0},
 }
+
+
+# Models seen without a price entry — logged once each, not per call.
+_unpriced_models_seen: set = set()
 
 
 def log_event(
@@ -64,8 +78,20 @@ def log_event(
 
 
 def estimate_cost_usd(model_name: str, prompt_tokens: int, completion_tokens: int) -> float:
-    """Calculate approximate cost in USD for a token usage event."""
-    rates = COST_PER_MILLION.get(model_name, {"prompt": 1.0, "completion": 3.0})
+    """Calculate approximate cost in USD for a token usage event.
+
+    An unlisted model falls back to a generic rate, which quietly produces wrong
+    figures on the cost dashboard — so the miss is logged, making "add the new
+    model to COST_PER_MILLION" a visible task rather than a silent inaccuracy.
+    """
+    rates = COST_PER_MILLION.get(model_name)
+    if rates is None:
+        if model_name and model_name not in _unpriced_models_seen:
+            _unpriced_models_seen.add(model_name)
+            log_event("ai.cost.unpriced_model", "",
+                      f"No pricing for {model_name!r}; estimating at the generic rate. "
+                      f"Add it to COST_PER_MILLION.")
+        rates = {"prompt": 1.0, "completion": 3.0}
     cost_prompt = (prompt_tokens / 1_000_000.0) * rates["prompt"]
     cost_completion = (completion_tokens / 1_000_000.0) * rates["completion"]
     return round(cost_prompt + cost_completion, 6)
@@ -83,9 +109,8 @@ def track_llm_usage(
     total_tokens = prompt_tokens + completion_tokens
     cost_usd = estimate_cost_usd(model_name, prompt_tokens, completion_tokens)
 
-    # Track daily tokens in memory
-    today_key = f"{workspace_id}_{time.strftime('%Y-%m-%d', time.gmtime())}"
-    _daily_token_tracker[today_key] = _daily_token_tracker.get(today_key, 0) + total_tokens
+    # Shared daily counter (Redis, memory fallback) — see _add_tokens.
+    _add_tokens(workspace_id, total_tokens)
 
     usage_data = {
         "provider": provider,
@@ -115,7 +140,7 @@ def track_llm_usage(
                 "total_tokens": total_tokens,
                 "estimated_cost_usd": cost_usd,
             },
-            headers=internal_headers(),
+            headers=internal_headers(workspace_id),
             timeout=3,
         )
     except Exception as e:
@@ -193,35 +218,78 @@ def make_usage_callback(workspace_id: str, provider: str, task_tier: str = "stro
     return _UsageTrackingCallback()
 
 
-def extract_usage_from_response(response: Any) -> Dict[str, int]:
-    """Safely extract token counts from LangChain / provider response metadata."""
-    prompt_tokens = 0
-    completion_tokens = 0
-
-    meta = getattr(response, "response_metadata", {})
-    if not isinstance(meta, dict):
-        meta = {}
-
-    # Check standard OpenAI/Anthropic/Gemini usage block
-    usage = meta.get("token_usage") or meta.get("usage") or {}
-    if isinstance(usage, dict):
-        prompt_tokens = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
-        completion_tokens = usage.get("completion_tokens") or usage.get("output_tokens") or 0
-
-    return {
-        "prompt_tokens": int(prompt_tokens),
-        "completion_tokens": int(completion_tokens),
-        "total_tokens": int(prompt_tokens) + int(completion_tokens),
-    }
-
-
 class BudgetExceededError(Exception):
     """Raised when a workspace exceeds its daily token or cost budget."""
     pass
 
 
-# In-memory daily usage tracking tracker: { f"{workspace_id}_{YYYY-MM-DD}": int }
+# Daily token counters.
+#
+# These lived in a plain process dict, which meant the "budget guardrail" reset
+# to zero on every sidecar restart, counted separately in each replica, and grew
+# one key per workspace per day forever. Redis makes the counter shared and
+# durable, with a TTL so yesterday's keys expire themselves. The in-memory dict
+# stays as the fallback for when Redis is unavailable — degraded, but never a
+# hard failure on the inference path.
 _daily_token_tracker: Dict[str, int] = {}
+
+_COUNTER_TTL_SECONDS = 60 * 60 * 36  # comfortably past a day, in any timezone
+_redis_client = None
+_redis_checked = False
+
+
+def _redis():
+    """Lazy Redis handle; None when unconfigured or unreachable."""
+    global _redis_client, _redis_checked
+    if _redis_checked:
+        return _redis_client
+    _redis_checked = True
+    url = os.getenv("REDIS_URL", "")
+    if not url:
+        return None
+    try:
+        import redis as _redis_lib
+
+        client = _redis_lib.Redis.from_url(url, socket_timeout=1, socket_connect_timeout=1)
+        client.ping()
+        _redis_client = client
+    except Exception as e:
+        log_event("ai.budget.redis_unavailable", "", f"Token counters fall back to memory: {e}")
+        _redis_client = None
+    return _redis_client
+
+
+def _counter_key(workspace_id: str) -> str:
+    return f"septimus:ai:tokens:{workspace_id}:{time.strftime('%Y-%m-%d', time.gmtime())}"
+
+
+def _add_tokens(workspace_id: str, tokens: int) -> None:
+    """Add to today's counter for a workspace. Never raises."""
+    key = _counter_key(workspace_id)
+    client = _redis()
+    if client is not None:
+        try:
+            pipe = client.pipeline()
+            pipe.incrby(key, tokens)
+            pipe.expire(key, _COUNTER_TTL_SECONDS)
+            pipe.execute()
+            return
+        except Exception as e:
+            log_event("ai.budget.redis_write_failed", workspace_id, str(e))
+    _daily_token_tracker[key] = _daily_token_tracker.get(key, 0) + tokens
+
+
+def _tokens_used_today(workspace_id: str) -> int:
+    """Today's token total for a workspace. Never raises; 0 when unknown."""
+    key = _counter_key(workspace_id)
+    client = _redis()
+    if client is not None:
+        try:
+            raw = client.get(key)
+            return int(raw) if raw else 0
+        except Exception:
+            pass
+    return _daily_token_tracker.get(key, 0)
 
 
 def check_budget_guardrails(workspace_id: str, lang: str = "ar", max_daily_tokens: int = 0) -> None:
@@ -238,8 +306,7 @@ def check_budget_guardrails(workspace_id: str, lang: str = "ar", max_daily_token
     if limit <= 0:
         return
 
-    today_key = f"{workspace_id}_{time.strftime('%Y-%m-%d', time.gmtime())}"
-    current_tokens = _daily_token_tracker.get(today_key, 0)
+    current_tokens = _tokens_used_today(workspace_id)
     if current_tokens >= limit:
         msg = (
             f"تم تجاوز سقف استهلاك التوكنات اليومي المسموح به لبيئة العمل ({limit} توكن/يوم). يرجى مراجعة إعدادات الذكاء الاصطناعي أو الانتظار لتجديد الرصيد اليومي."
@@ -333,4 +400,3 @@ def get_langfuse_handler(
     except Exception as e:
         _log_langfuse_once(f"Langfuse handler construction failed; LLM tracing disabled: {e}")
         return None
-

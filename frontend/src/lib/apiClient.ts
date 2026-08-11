@@ -1,28 +1,32 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+// Drive owns private MinIO streams; backend-core owns its metadata.
+export const DRIVE_BASE_URL = process.env.NEXT_PUBLIC_DRIVE_URL || '/api/v1/drive';
 // AI calls now go through the JWT-protected /api/v1/ai/* proxy in backend-core
 // (same origin as the rest of the API), never directly to the sidecar port.
 export const AI_BASE_URL = process.env.NEXT_PUBLIC_AI_URL || API_BASE_URL;
 export const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8002/connection/websocket';
+export const AUTH_UNAUTHORIZED_EVENT = 'septimus:unauthorized';
+
+import { useAppStore } from '@/store/useAppStore';
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('septimus_token');
   const headers = new Headers(options.headers || {});
-  
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  if (!headers.has('Content-Type') && options.body instanceof URLSearchParams === false) {
+  if (!headers.has('Content-Type') && !(options.body instanceof URLSearchParams) && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
   const response = await fetch(url, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
   if (response.status === 401) {
-    localStorage.removeItem('septimus_token');
-    window.location.href = '/';
+    useAppStore.getState().setIsLoggedIn(false);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
+    }
   } else if (response.status === 402) {
     try {
       const errorData = await response.clone().json();
@@ -80,6 +84,15 @@ export async function apiPut<T>(endpoint: string, data: unknown, base: string = 
   return res.json();
 }
 
+export async function apiPatch<T>(endpoint: string, data: unknown, base: string = API_BASE_URL): Promise<T> {
+  const res = await fetchWithAuth(`${base}${endpoint}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`PATCH ${endpoint} failed`);
+  return res.json();
+}
+
 export async function apiDelete<T>(endpoint: string, base: string = API_BASE_URL): Promise<T> {
   const res = await fetchWithAuth(`${base}${endpoint}`, {
     method: 'DELETE',
@@ -91,6 +104,16 @@ export async function apiDelete<T>(endpoint: string, base: string = API_BASE_URL
 
 export function getCurrentWorkspaceId(): string {
   if (typeof window === 'undefined') return "";
-  return localStorage.getItem('currentWorkspaceId') || "";
+  const stored = localStorage.getItem('currentWorkspaceId');
+  if (stored) return stored;
+  try {
+    const userStr = localStorage.getItem('septimus_user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      return user.workspace_id || "";
+    }
+  } catch (e) {
+    console.error("Error parsing user for workspace ID", e);
+  }
+  return "";
 }
-

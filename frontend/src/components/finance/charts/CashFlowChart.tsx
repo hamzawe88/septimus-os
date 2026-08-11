@@ -20,8 +20,8 @@ export default function CashFlowChart({ data }: CashFlowChartProps) {
   const { t } = useLocalization();
 
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 h-full flex flex-col transition-colors duration-300">
-      <h3 className="font-bold text-slate-800 dark:text-slate-100 mb-6">{t("finance.cashFlowTitle")}</h3>
+    <div className="bg-card dark:bg-card rounded-xl shadow-sm border border-border dark:border-border p-6 h-full flex flex-col transition-colors duration-300">
+      <h3 className="font-bold text-foreground dark:text-muted-foreground mb-6">{t("finance.cashFlowTitle")}</h3>
       <div className="flex-1 min-h-[300px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
@@ -30,44 +30,44 @@ export default function CashFlowChart({ data }: CashFlowChartProps) {
           >
             <defs>
               <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={primaryColor || "#3b82f6"} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={primaryColor || "#3b82f6"} stopOpacity={0} />
+                <stop offset="5%" stopColor={primaryColor || "var(--info)"} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={primaryColor || "var(--info)"} stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                <stop offset="5%" stopColor="var(--destructive)" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="var(--destructive)" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <XAxis 
-              dataKey="month" 
-              stroke="#888888" 
-              fontSize={12} 
-              tickLine={false} 
-              axisLine={false} 
+            <XAxis
+              dataKey="month"
+              stroke="var(--muted-foreground)"
+              fontSize={12}
+              tickLine={false}
+              axisLine={false}
             />
             <YAxis
-              stroke="#888888"
+              stroke="var(--muted-foreground)"
               fontSize={12}
               tickLine={false}
               axisLine={false}
               tickFormatter={(value) => `$${value}`}
             />
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333333" opacity={0.2} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.2} />
             <Tooltip
               contentStyle={{
                 backgroundColor: 'rgba(26, 26, 26, 0.9)',
                 border: 'none',
                 borderRadius: '8px',
-                color: '#fff',
+                color: 'var(--color-paper)',
                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
               }}
-              itemStyle={{ color: '#fff' }}
+              itemStyle={{ color: 'var(--color-paper)' }}
             />
             <Area
               type="monotone"
               dataKey="revenue"
               name={t("finance.revenueLabel")}
-              stroke={primaryColor || "#3b82f6"}
+              stroke={primaryColor || "var(--info)"}
               strokeWidth={3}
               fillOpacity={1}
               fill="url(#colorRevenue)"
@@ -77,7 +77,7 @@ export default function CashFlowChart({ data }: CashFlowChartProps) {
               type="monotone"
               dataKey="expenses"
               name={t("finance.expensesLabel")}
-              stroke="#ef4444"
+              stroke="var(--destructive)"
               strokeWidth={3}
               fillOpacity={1}
               fill="url(#colorExpenses)"

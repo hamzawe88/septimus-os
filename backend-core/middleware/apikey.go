@@ -3,6 +3,7 @@ package middleware
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -52,6 +53,25 @@ func RequireAPIKey(c *fiber.Ctx) error {
 	// Inject workspace ID for downstream handlers
 	c.Locals("workspace_id", apiKeyRecord.WorkspaceID.String())
 	c.Locals("api_key_id", apiKeyRecord.ID.String())
+	var scopes []string
+	if len(apiKeyRecord.Scopes) > 0 {
+		_ = json.Unmarshal(apiKeyRecord.Scopes, &scopes)
+	}
+	c.Locals("api_key_scopes", scopes)
 
 	return c.Next()
+}
+
+// RequireAPIKeyScope must be placed after RequireAPIKey. Wildcard keys retain
+// backwards compatibility, while scoped keys are now least-privilege.
+func RequireAPIKeyScope(required string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		scopes, _ := c.Locals("api_key_scopes").([]string)
+		for _, scope := range scopes {
+			if scope == "*" || strings.EqualFold(scope, required) {
+				return c.Next()
+			}
+		}
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "API key scope is insufficient", "required_scope": required})
+	}
 }

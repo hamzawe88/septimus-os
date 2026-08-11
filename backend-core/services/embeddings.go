@@ -10,14 +10,14 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
-	"github.com/google/generative-ai-go/genai"
 	"github.com/google/uuid"
 	"github.com/pgvector/pgvector-go"
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/models"
-	"google.golang.org/api/option"
+	"google.golang.org/genai"
 	"gorm.io/gorm/clause"
 )
 
@@ -28,29 +28,40 @@ const embeddingDimensions = 768
 
 // GenerateEmbedding calls Gemini API to create an embedding of size 768.
 func GenerateEmbedding(text string, apiKey string) ([]float32, error) {
+	return GenerateEmbeddingContext(context.Background(), text, apiKey)
+}
+
+// GenerateEmbeddingContext is the cancellable form used by latency-sensitive
+// search surfaces such as the global command menu.
+func GenerateEmbeddingContext(ctx context.Context, text string, apiKey string) ([]float32, error) {
 	if apiKey == "" {
 		return nil, errors.New("gemini API key is required")
 	}
 
-	ctx := context.Background()
-	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
-	if err != nil {
-		return nil, err
-	}
-	defer client.Close()
-
-	// text-embedding-004 produces 768 dimensions by default.
-	em := client.EmbeddingModel("text-embedding-004")
-	res, err := em.EmbedContent(ctx, genai.Text(text))
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey:  apiKey,
+		Backend: genai.BackendGeminiAPI,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	if len(res.Embedding.Values) == 0 {
+	dimensions := int32(embeddingDimensions)
+	res, err := client.Models.EmbedContent(
+		ctx,
+		"gemini-embedding-001",
+		genai.Text(text),
+		&genai.EmbedContentConfig{OutputDimensionality: &dimensions},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(res.Embeddings) == 0 || len(res.Embeddings[0].Values) == 0 {
 		return nil, errors.New("empty embedding returned")
 	}
 
-	return res.Embedding.Values, nil
+	return res.Embeddings[0].Values, nil
 }
 
 // ollamaEmbedURL resolves the Ollama server for a workspace: the ollama
@@ -69,6 +80,14 @@ func ollamaEmbedURL(workspaceID uuid.UUID) string {
 // generateOllamaEmbedding embeds text with a local Ollama model (default
 // nomic-embed-text, 768-dim) — no external API key required.
 func generateOllamaEmbedding(baseURL, text string) ([]float32, error) {
+	return generateOllamaEmbeddingContext(context.Background(), baseURL, text)
+}
+
+func generateOllamaEmbeddingContext(ctx context.Context, baseURL, text string) ([]float32, error) {
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if err := ValidateOutboundURL(baseURL); err != nil {
+		return nil, fmt.Errorf("ollama URL rejected: %w", err)
+	}
 	model := os.Getenv("OLLAMA_EMBED_MODEL")
 	if model == "" {
 		model = "nomic-embed-text"
@@ -79,8 +98,13 @@ func generateOllamaEmbedding(baseURL, text string) ([]float32, error) {
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Post(baseURL+"/api/embeddings", "application/json", bytes.NewReader(payload))
+	client := NewSafeHTTPClient(60 * time.Second)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/api/embeddings", bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("ollama embeddings request failed: %w", err)
 	}
@@ -102,34 +126,57 @@ func generateOllamaEmbedding(baseURL, text string) ([]float32, error) {
 	return out.Embedding, nil
 }
 
+// Model identifiers stored alongside every vector. Comparing vectors across
+// these is meaningless even though both are 768-dimensional.
+const (
+	modelGemini = "gemini:text-embedding-004"
+	modelOllama = "ollama:"
+)
+
 // EmbedText produces the workspace's embedding for a text. It prefers the
 // configured Gemini key (cloud quality) and falls back to local Ollama
 // (nomic-embed-text) so the knowledge base works with zero external keys.
-// Both produce 768 dimensions, so stored vectors stay comparable per source.
-func EmbedText(workspaceID uuid.UUID, text string) ([]float32, error) {
+//
+// It returns the model identifier alongside the vector: both embedders emit 768
+// dimensions but into different vector spaces, so callers must record which one
+// produced a stored vector and must never mix them at query time.
+func EmbedText(workspaceID uuid.UUID, text string) ([]float32, string, error) {
+	return EmbedTextContext(context.Background(), workspaceID, text)
+}
+
+func EmbedTextContext(ctx context.Context, workspaceID uuid.UUID, text string) ([]float32, string, error) {
 	if apiKey, err := GetProviderKey(workspaceID, "gemini"); err == nil && apiKey != "" {
-		if v, gerr := GenerateEmbedding(text, apiKey); gerr == nil {
-			return v, nil
+		if v, gerr := GenerateEmbeddingContext(ctx, text, apiKey); gerr == nil {
+			return v, modelGemini, nil
 		} else {
 			log.Printf("Gemini embedding failed for workspace %s (falling back to Ollama): %v", workspaceID, gerr)
 		}
 	}
-	return generateOllamaEmbedding(ollamaEmbedURL(workspaceID), text)
+	model := os.Getenv("OLLAMA_EMBED_MODEL")
+	if model == "" {
+		model = "nomic-embed-text"
+	}
+	v, err := generateOllamaEmbeddingContext(ctx, ollamaEmbedURL(workspaceID), text)
+	if err != nil {
+		return nil, "", err
+	}
+	return v, modelOllama + model, nil
 }
 
 // StoreEmbedding generates an embedding and saves it to pgvector.
 func StoreEmbedding(workspaceID uuid.UUID, entityType string, entityID uuid.UUID, content string) error {
-	vector, err := EmbedText(workspaceID, content)
+	vector, model, err := EmbedText(workspaceID, content)
 	if err != nil {
 		return fmt.Errorf("failed to generate embedding: %w", err)
 	}
 
 	doc := models.DocumentEmbedding{
-		WorkspaceID: workspaceID,
-		EntityType:  entityType,
-		EntityID:    entityID,
-		Content:     content,
-		Embedding:   pgvector.NewVector(vector),
+		WorkspaceID:    workspaceID,
+		EntityType:     entityType,
+		EntityID:       entityID,
+		Content:        content,
+		Embedding:      pgvector.NewVector(vector),
+		EmbeddingModel: model,
 	}
 
 	return database.DB.Create(&doc).Error
@@ -142,15 +189,23 @@ func SearchSimilar(workspaceID uuid.UUID, query string, limit int) ([]models.Doc
 
 // SearchSimilarByType performs a semantic search using cosine distance filtered by entity_type if provided
 func SearchSimilarByType(workspaceID uuid.UUID, entityType string, query string, limit int) ([]models.DocumentEmbedding, error) {
-	queryVector, err := EmbedText(workspaceID, query)
+	return SearchSimilarByTypeContext(context.Background(), workspaceID, entityType, query, limit)
+}
+
+func SearchSimilarByTypeContext(ctx context.Context, workspaceID uuid.UUID, entityType string, query string, limit int) ([]models.DocumentEmbedding, error) {
+	queryVector, model, err := EmbedTextContext(ctx, workspaceID, query)
 	if err != nil {
 		return nil, err
 	}
 
 	// Search DB (Cosine Distance: <=>)
 	var results []models.DocumentEmbedding
-	queryDB := database.DB.Order(clause.Expr{SQL: "embedding <=> ?", Vars: []interface{}{pgvector.NewVector(queryVector)}}).
-		Where("workspace_id = ?", workspaceID)
+	queryDB := database.DB.WithContext(ctx).Order(clause.Expr{SQL: "embedding <=> ?", Vars: []interface{}{pgvector.NewVector(queryVector)}}).
+		Where("workspace_id = ?", workspaceID).
+		// Only compare against vectors from the same embedder. Rows written by a
+		// different model live in a different vector space, so including them
+		// returns confident nonsense rather than no result.
+		Where("embedding_model = ?", model)
 	if entityType != "" {
 		queryDB = queryDB.Where("entity_type = ?", entityType)
 	}
@@ -165,6 +220,10 @@ func SearchSimilarByType(workspaceID uuid.UUID, entityType string, query string,
 // Each arm is best-effort: if one errors or returns nothing, the other still
 // answers, so hybrid is never worse than the previous dense-only search.
 func SearchHybrid(workspaceID uuid.UUID, entityType string, query string, limit int) ([]models.DocumentEmbedding, error) {
+	return SearchHybridContext(context.Background(), workspaceID, entityType, query, limit)
+}
+
+func SearchHybridContext(ctx context.Context, workspaceID uuid.UUID, entityType string, query string, limit int) ([]models.DocumentEmbedding, error) {
 	if limit <= 0 {
 		limit = 5
 	}
@@ -174,8 +233,8 @@ func SearchHybrid(workspaceID uuid.UUID, entityType string, query string, limit 
 		pool = 20
 	}
 
-	dense, denseErr := SearchSimilarByType(workspaceID, entityType, query, pool)
-	lexical := searchLexical(workspaceID, entityType, query, pool)
+	lexical := searchLexicalContext(ctx, workspaceID, entityType, query, pool)
+	dense, denseErr := SearchSimilarByTypeContext(ctx, workspaceID, entityType, query, pool)
 
 	if len(lexical) == 0 {
 		if denseErr != nil {
@@ -192,9 +251,18 @@ func SearchHybrid(workspaceID uuid.UUID, entityType string, query string, limit 
 // searchLexical runs a language-agnostic full-text search over the embedded
 // content. The 'simple' config tokenizes without a stemming dictionary, which
 // is the correct choice for Arabic (Postgres ships no Arabic FTS dictionary).
+//
+// Deliberately NOT filtered by embedding_model: lexical matching reads `content`
+// and is independent of which embedder wrote the row. That makes this arm the
+// safety net for a workspace whose provider changed — documents the dense arm
+// can no longer compare against are still reachable by their words.
 func searchLexical(workspaceID uuid.UUID, entityType, query string, limit int) []models.DocumentEmbedding {
+	return searchLexicalContext(context.Background(), workspaceID, entityType, query, limit)
+}
+
+func searchLexicalContext(ctx context.Context, workspaceID uuid.UUID, entityType, query string, limit int) []models.DocumentEmbedding {
 	var results []models.DocumentEmbedding
-	q := database.DB.
+	q := database.DB.WithContext(ctx).
 		Where("workspace_id = ?", workspaceID).
 		Where("to_tsvector('simple', content) @@ plainto_tsquery('simple', ?)", query).
 		Order(clause.Expr{

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useCallback } from "react";
 
 import LoginScreen from "@/components/shared/LoginScreen";
 import TopBar from "@/components/layout/TopBar";
@@ -21,31 +21,48 @@ import ReportsCenter from "@/components/reports/ReportsCenter";
 import AutomationsView from "@/components/automations/AutomationsView";
 import KnowledgeBase from "@/components/workdocs/KnowledgeBase";
 import AdminDashboard from "@/components/admin/AdminDashboard";
-import AuditLogsView from "@/components/admin/AuditLogsView";
+import DriveView from "@/components/drive/DriveView";
 import SettingsLayout from "@/components/settings/SettingsLayout";
 import LiquidDashboard from "@/components/dashboard/LiquidDashboard";
+import PmDashboard from "@/components/pm/PmDashboard";
+import PmAnalytics from "@/components/pm/PmAnalytics";
+import PmPlanning from "@/components/pm/PmPlanning";
+import ProjectScopeBar from "@/components/pm/ProjectScopeBar";
 import CrmPage from "./crm/page";
 import HrPage from "./hr/page";
 import FinancePage from "./finance/page";
+import MeetingsPage from "./meetings/page";
+import MyLeavePage from "./me/leave/page";
+import MyPayslipsPage from "./me/payslips/page";
+import MyProfilePage from "./me/profile/page";
+import MyPerformancePage from "./me/performance/page";
 import { useAppStore } from "@/store/useAppStore";
+import { usePmStore } from "@/store/usePmStore";
+import { useKnowledgeStore } from "@/store/useKnowledgeStore";
+import { useAutomationStore } from "@/store/useAutomationStore";
 import ThreadsListSidebar from "@/components/chat/ThreadsListSidebar";
 import FullPageChat from "@/components/chat/FullPageChat";
 import AppStoreHub from "@/components/plugins/AppStoreHub";
 import MyOrbitPage from "@/components/orbit/MyOrbitPage";
 import { CorrespondenceView } from "@/components/correspondence/CorrespondenceView";
+import ImpersonationBanner from "@/components/layout/ImpersonationBanner";
 
 import { fetchWithAuth, API_BASE_URL, WS_URL } from "@/lib/apiClient";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 // ─── Root Component ──────────────────────────────────────────────────────────
 
 export default function Home() {
+  const { t } = useLocalization();
   const {
+    isAuthLoading, setIsAuthLoading,
     isLoggedIn, setIsLoggedIn,
+    setIsImpersonated, setOriginalAdminId,
     activeChannelId, setActiveChannelId,
     activeDmId,
     setChannels,
-    messages, setMessages,
+    setMessages,
     setOnlineUsers,
     isEntityModalOpen, setIsEntityModalOpen,
     setCentrifuge,
@@ -53,24 +70,47 @@ export default function Home() {
     setIsRagSidebarOpen,
     isSidebarOpen,
     setHasMoreMessages,
-    setMessageCursor
+    setMessageCursor,
+    projectId
   } = useAppStore();
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { activeTab: pmTab } = usePmStore();
+  const { activeTab: knowledgeTab } = useKnowledgeStore();
+  const { activeTab: automationTab } = useAutomationStore();
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
+  // Auth hydration uses the backend's HttpOnly session cookie. No bearer token
+  // is stored in localStorage or a script-readable cookie.
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    let active = true;
+    const hydrate = async () => {
+      try {
+        const response = await fetchWithAuth(`${API_BASE_URL}/auth/session`);
+        if (!active) return;
+        if (!response.ok) {
+          setIsLoggedIn(false);
+          return;
+        }
+        const data = await response.json();
+        const user = data.user || {};
+        setIsLoggedIn(true);
+        if (user.workspace_id) localStorage.setItem("currentWorkspaceId", user.workspace_id);
+        if (user.is_impersonated) {
+          setIsImpersonated(true);
+          setOriginalAdminId(user.original_admin_id || null);
+        }
+      } catch {
+        if (active) setIsLoggedIn(false);
+      } finally {
+        if (active) setIsAuthLoading(false);
+      }
+    };
+    void hydrate();
+    return () => { active = false; };
+  }, [setIsLoggedIn, setIsAuthLoading, setIsImpersonated, setOriginalAdminId]);
 
   // Initialize channels and WS connection
   useEffect(() => {
     if (!isLoggedIn) return;
-    const token = localStorage.getItem("septimus_token");
-    if (!token) return;
 
     const savedUserStr = localStorage.getItem("septimus_user");
     const savedAvatar = localStorage.getItem("septimus_avatar");
@@ -95,7 +135,7 @@ export default function Home() {
       .then(data => {
         const channelsData = Array.isArray(data) ? data : [];
         setChannels(channelsData);
-        if (channelsData && channelsData.length > 0 && !activeChannelId) {
+        if (channelsData && channelsData.length > 0 && !useAppStore.getState().activeChannelId) {
           setActiveChannelId(channelsData[0].id || channelsData[0].ID);
         }
       });
@@ -144,7 +184,17 @@ export default function Home() {
     initCentrifuge();
 
     // Setup custom event listener for RAG sidebar toggle
-    const handleToggleRag = () => setIsRagSidebarOpen(true);
+    const handleToggleRag = () => {
+      // Proper toggle: open if closed, close if open
+      // Also clear activeThread so RAG view takes priority
+      const { isRagSidebarOpen: currentOpen, setActiveThread } = useAppStore.getState();
+      if (currentOpen) {
+        setIsRagSidebarOpen(false);
+      } else {
+        setActiveThread(null); // Clear thread so RAG view shows
+        setIsRagSidebarOpen(true);
+      }
+    };
     window.addEventListener('toggle-rag-sidebar', handleToggleRag);
 
     return () => {
@@ -177,12 +227,26 @@ export default function Home() {
     }
   }, [activeChannelId, activeDmId, currentView, fetchInitialMessages]);
 
+  if (isAuthLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="mb-4 flex size-16 items-center justify-center rounded-[var(--radius-surface)] bg-brand text-2xl font-bold text-brand-foreground">
+            S
+          </div>
+          <p className="font-medium text-muted-foreground">{t("common.checkingSession")}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isLoggedIn) {
     return <LoginScreen onLogin={() => setIsLoggedIn(true)} />;
   }
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden">
+      <ImpersonationBanner />
       {/* ── Top Bar ── */}
       <TopBar />
 
@@ -193,85 +257,127 @@ export default function Home() {
         {currentView === "chat" || currentView === "dm" ? (
           <FullPageChat />
         ) : currentView === "dashboard" ? (
-          <div className="flex-1 overflow-auto bg-white">
+          <div className="flex-1 overflow-auto bg-background">
             <ErrorBoundary name="Liquid Dashboard">
               <LiquidDashboard />
             </ErrorBoundary>
           </div>
-        ) : currentView === "kanban" ? (
-          <div className="flex-1 overflow-auto bg-white">
-            <ErrorBoundary name="Kanban Board">
-              <KanbanBoard />
-            </ErrorBoundary>
+        ) : currentView === "pm" ? (
+          <div className="flex min-h-0 flex-1 flex-col bg-background">
+            <ProjectScopeBar />
+            {pmTab === "dashboard" ? (
+            <div className="min-h-0 flex-1 overflow-auto bg-background">
+              <ErrorBoundary name="PM Dashboard">
+                <PmDashboard />
+              </ErrorBoundary>
+            </div>
+          ) : pmTab === "kanban" ? (
+            <div className="min-h-0 flex-1 overflow-auto bg-background">
+              <ErrorBoundary name="Kanban Board">
+                <KanbanBoard />
+              </ErrorBoundary>
+            </div>
+          ) : pmTab === "backlog" ? (
+            <div className="min-h-0 flex-1 overflow-auto bg-background">
+              <ErrorBoundary name="Backlog & Sprints">
+                <BacklogView />
+              </ErrorBoundary>
+            </div>
+          ) : pmTab === "table" ? (
+            <div className="min-h-0 flex-1 overflow-hidden bg-background">
+              <ErrorBoundary name="Dynamic Board">
+                <DynamicBoard />
+              </ErrorBoundary>
+            </div>
+          ) : pmTab === "analytics" ? (
+            <div className="min-h-0 flex-1 overflow-hidden bg-background">
+              <ErrorBoundary name="PM Analytics">
+                <PmAnalytics />
+              </ErrorBoundary>
+            </div>
+          ) : pmTab === "planning" ? (
+            <div className="min-h-0 flex-1 overflow-hidden bg-background">
+              <ErrorBoundary name="PM Planning">
+                <PmPlanning />
+              </ErrorBoundary>
+            </div>
+          ) : pmTab === "reports" ? (
+            <div className="min-h-0 flex-1 overflow-hidden bg-background">
+              <ReportsCenter />
+            </div>
+          ) : (
+            <div className="flex flex-1 items-center justify-center overflow-hidden bg-background text-muted-foreground">
+              {t("common.selectSidebarItem")}
+            </div>
+          )}
           </div>
-        ) : currentView === "backlog" ? (
-          <div className="flex-1 overflow-auto bg-white">
-            <ErrorBoundary name="Backlog & Sprints">
-              <BacklogView />
-            </ErrorBoundary>
-          </div>
-        ) : currentView === "table" ? (
-          <div className="flex-1 overflow-hidden bg-white">
-            <ErrorBoundary name="Dynamic Board">
-              <DynamicBoard />
-            </ErrorBoundary>
-          </div>
-        ) : currentView === "entity_creator" ? (
-          <div className="flex-1 overflow-hidden bg-white">
-            <EntityCreator />
-          </div>
-        ) : currentView === "workdocs" ? (
-          <div className="flex-1 overflow-hidden bg-white flex">
-            <WorkDocsView projectId="5bf90680-cf33-44ae-851c-eef563e82920" />
-          </div>
-        ) : currentView === "knowledge_base" ? (
-          <div className="flex-1 overflow-hidden bg-white flex">
-            <KnowledgeBase />
-          </div>
+        ) : currentView === "knowledge" ? (
+          knowledgeTab === "workdocs" ? (
+            <div className="flex-1 overflow-hidden bg-card flex">
+              <WorkDocsView projectId={projectId || undefined} />
+            </div>
+          ) : knowledgeTab === "knowledge_base" ? (
+            <div className="flex-1 overflow-hidden bg-card flex">
+              <KnowledgeBase />
+            </div>
+          ) : knowledgeTab === "drive" ? (
+            <div className="flex-1 overflow-auto bg-[var(--bg-primary)]">
+              <ErrorBoundary name="Septimus Drive">
+                <DriveView />
+              </ErrorBoundary>
+            </div>
+          ) : (
+            <div className="flex-1 overflow-hidden bg-card flex items-center justify-center text-muted-foreground">
+              Select an item from the sidebar
+            </div>
+          )
+        ) : currentView === "automation" ? (
+          automationTab === "workflows" ? (
+            <div className="flex-1 overflow-hidden bg-card">
+              <WorkflowBuilder />
+            </div>
+          ) : automationTab === "automations" ? (
+            <div className="flex-1 overflow-hidden bg-card">
+              <AutomationsView />
+            </div>
+          ) : automationTab === "entity_creator" ? (
+            <div className="flex-1 overflow-hidden bg-card">
+              <EntityCreator />
+            </div>
+          ) : (
+            <div className="flex-1 overflow-hidden bg-card flex items-center justify-center text-muted-foreground">
+              Select an item from the sidebar
+            </div>
+          )
         ) : currentView === "orchestrator" ? (
-          <div className="flex-1 overflow-hidden bg-[#f8fafc] flex flex-col min-h-0">
+          <div className="flex-1 overflow-hidden bg-background flex flex-col min-h-0">
             <AgentOrchestrator />
           </div>
         ) : currentView === "admin_dashboard" ? (
-          <div className="flex-1 overflow-hidden bg-white">
+          <div className="flex-1 overflow-hidden bg-card">
             <AdminDashboard />
           </div>
-        ) : currentView === "audit_logs" ? (
-          <div className="flex-1 overflow-hidden bg-white">
-            <AuditLogsView />
-          </div>
+
         ) : ['system_settings', 'saas_settings', 'roles_settings', 'webhooks_settings', 'apikeys_settings', 'appearance_settings', 'localization_settings', 'company_profile'].includes(currentView) ? (
-          <div className="flex-1 overflow-hidden bg-white">
+          <div className="flex-1 overflow-hidden bg-card">
             <SettingsLayout />
           </div>
-        ) : currentView === "reports" ? (
-          <div className="flex-1 overflow-hidden bg-white ">
-            <ReportsCenter />
-          </div>
-        ) : currentView === "automations" ? (
-          <div className="flex-1 overflow-hidden bg-white">
-            <AutomationsView />
-          </div>
         ) : currentView === "crm" ? (
-          <div className="flex-1 overflow-hidden bg-white">
+          <div className="flex-1 overflow-hidden bg-card">
             <CrmPage />
           </div>
         ) : currentView === "hr" ? (
-          <div className="flex-1 overflow-hidden bg-white">
+          <div className="flex-1 overflow-hidden bg-card">
             <HrPage />
           </div>
         ) : currentView === "finance" ? (
-          <div className="flex-1 overflow-hidden bg-white">
+          <div className="flex-1 overflow-hidden bg-card">
             <FinancePage />
-          </div>
-        ) : currentView === "workflows" ? (
-          <div className="flex-1 overflow-hidden bg-white">
-            <WorkflowBuilder />
           </div>
         ) : currentView === "plugins" ? (
           <AppStoreHub />
         ) : currentView === "correspondence" ? (
-          <div className="flex-1 overflow-hidden flex flex-col min-h-0 bg-slate-50 dark:bg-slate-950">
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0 bg-muted dark:bg-slate-950">
             <CorrespondenceView />
           </div>
         ) : currentView === "orbit" ? (
@@ -280,8 +386,22 @@ export default function Home() {
               <MyOrbitPage />
             </ErrorBoundary>
           </div>
+        ) : currentView === "meetings" ? (
+          <div className="flex-1 overflow-hidden bg-muted dark:bg-slate-950">
+            <ErrorBoundary name="Meetings">
+              <MeetingsPage />
+            </ErrorBoundary>
+          </div>
+        ) : currentView === "my_leave" ? (
+          <div className="flex-1 overflow-hidden bg-card"><MyLeavePage /></div>
+        ) : currentView === "my_payslips" ? (
+          <div className="flex-1 overflow-hidden bg-card"><MyPayslipsPage /></div>
+        ) : currentView === "my_profile" ? (
+          <div className="flex-1 overflow-hidden bg-card"><MyProfilePage /></div>
+        ) : currentView === "my_performance" ? (
+          <div className="flex-1 overflow-hidden bg-card"><MyPerformancePage /></div>
         ) : (
-          <div className="flex-1 overflow-hidden bg-white flex items-center justify-center text-slate-400">
+          <div className="flex-1 overflow-hidden bg-card flex items-center justify-center text-muted-foreground">
             Select an item from the sidebar
           </div>
         )}

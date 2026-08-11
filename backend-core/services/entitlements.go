@@ -28,6 +28,7 @@ const (
 	FeatRealtimeVoice   = "realtime.voice"
 	FeatPublicAPI       = "api.public"
 	FeatMCP             = "mcp"
+	FeatDataBuilder     = "data.builder"
 )
 
 // AllFeatureKeys is the ordered catalog surfaced to the admin plan editor.
@@ -36,6 +37,7 @@ var AllFeatureKeys = []string{
 	FeatCRMDeals, FeatFinanceInvoices, FeatCorrespondence,
 	FeatAIChat, FeatAIAgents, FeatRAG, FeatWorkflows, FeatIntegrations,
 	FeatReportsAI, FeatFinanceForecast, FeatRealtimeVoice, FeatPublicAPI, FeatMCP,
+	FeatDataBuilder,
 }
 
 // ── Limit catalog (per-resource caps; -1 = unlimited) ────────────────────────
@@ -46,10 +48,13 @@ const (
 	LimAITokensMonth = "ai_tokens_month"
 	LimIntegrations  = "integrations"
 	LimWorkflows     = "workflows"
+	LimDataSchemas   = "data_schemas"
+	LimSchemaFields  = "schema_fields"
 )
 
 var AllLimitKeys = []string{
 	LimUsers, LimProjects, LimStorageGB, LimAITokensMonth, LimIntegrations, LimWorkflows,
+	LimDataSchemas, LimSchemaFields,
 }
 
 // Unlimited sentinel for limit values.
@@ -70,7 +75,7 @@ var defaultTierFeatures = map[string]map[string]bool{
 		FeatChat: true, FeatPMKanban: true, FeatHRAttendance: true,
 		FeatCRMDeals: true, FeatFinanceInvoices: true, FeatCorrespondence: true,
 		FeatAIChat: true, FeatAIAgents: true, FeatRAG: true,
-		FeatWorkflows: true, FeatIntegrations: true,
+		FeatWorkflows: true, FeatIntegrations: true, FeatDataBuilder: true,
 	},
 	"enterprise": {
 		FeatChat: true, FeatPMKanban: true, FeatHRAttendance: true,
@@ -78,15 +83,15 @@ var defaultTierFeatures = map[string]map[string]bool{
 		FeatAIChat: true, FeatAIAgents: true, FeatRAG: true,
 		FeatWorkflows: true, FeatIntegrations: true,
 		FeatReportsAI: true, FeatFinanceForecast: true, FeatRealtimeVoice: true,
-		FeatPublicAPI: true, FeatMCP: true,
+		FeatPublicAPI: true, FeatMCP: true, FeatDataBuilder: true,
 	},
 }
 
 var defaultTierLimits = map[string]map[string]int64{
-	"free":       {LimUsers: 5, LimProjects: 3, LimStorageGB: 1, LimAITokensMonth: 0, LimIntegrations: 0, LimWorkflows: 0},
-	"starter":    {LimUsers: 25, LimProjects: 15, LimStorageGB: 10, LimAITokensMonth: 0, LimIntegrations: 2, LimWorkflows: 3},
-	"business":   {LimUsers: 100, LimProjects: 100, LimStorageGB: 100, LimAITokensMonth: 500000, LimIntegrations: 10, LimWorkflows: 50},
-	"enterprise": {LimUsers: Unlimited, LimProjects: Unlimited, LimStorageGB: 1000, LimAITokensMonth: 5000000, LimIntegrations: Unlimited, LimWorkflows: Unlimited},
+	"free":       {LimUsers: 5, LimProjects: 3, LimStorageGB: 1, LimAITokensMonth: 0, LimIntegrations: 0, LimWorkflows: 0, LimDataSchemas: 0, LimSchemaFields: 0},
+	"starter":    {LimUsers: 25, LimProjects: 15, LimStorageGB: 10, LimAITokensMonth: 0, LimIntegrations: 2, LimWorkflows: 3, LimDataSchemas: 0, LimSchemaFields: 0},
+	"business":   {LimUsers: 100, LimProjects: 100, LimStorageGB: 100, LimAITokensMonth: 500000, LimIntegrations: 10, LimWorkflows: 50, LimDataSchemas: 25, LimSchemaFields: 50},
+	"enterprise": {LimUsers: Unlimited, LimProjects: Unlimited, LimStorageGB: 1000, LimAITokensMonth: 5000000, LimIntegrations: Unlimited, LimWorkflows: Unlimited, LimDataSchemas: Unlimited, LimSchemaFields: 100},
 }
 
 // NormalizeTier maps blanks/unknowns to "free" and tolerates the "plan_" prefix

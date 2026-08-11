@@ -1,116 +1,175 @@
 "use client";
 
-import React, { useState } from "react";
-import { Workflow, Play, CheckCircle2, PauseCircle, Activity, Zap } from "lucide-react";
+import { useState } from "react";
+import {
+  Activity,
+  CheckCircle2,
+  PauseCircle,
+  Play,
+  Workflow,
+  Zap,
+} from "lucide-react";
+
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { Button } from "@/components/ui/button";
+import { Tag } from "@/components/ui/tag";
+
+const INITIAL_WORKFLOWS = [
+  {
+    id: "w1",
+    nameKey: "w1Name",
+    status: "active",
+    lastRunKey: "0800AM",
+    runsToday: 1,
+  },
+  {
+    id: "w2",
+    nameKey: "w2Name",
+    status: "active",
+    lastRunKey: "1230PM",
+    runsToday: 4,
+  },
+  {
+    id: "w3",
+    nameKey: "w3Name",
+    status: "paused",
+    lastRunKey: "yesterday",
+    runsToday: 0,
+  },
+];
 
 export default function WorkflowsWidget() {
   const { t } = useLocalization();
   const [runningId, setRunningId] = useState<string | null>(null);
-  const [workflows, setWorkflows] = useState([
-    { id: "w1", name: t("dashboard.workflows.w1Name", "Daily Attendance Auto-Sync"), status: "active", lastRun: t("dashboard.workflows.0800AM", "08:00 AM"), runsToday: 1 },
-    { id: "w2", name: t("dashboard.workflows.w2Name", "Multi-Currency Treasury Scraper"), status: "active", lastRun: t("dashboard.workflows.1230PM", "12:30 PM"), runsToday: 4 },
-    { id: "w3", name: t("dashboard.workflows.w3Name", "Sovereign Lead Scoring Bot"), status: "paused", lastRun: t("dashboard.workflows.yesterday", "Yesterday"), runsToday: 0 },
-  ]);
+  const [workflows, setWorkflows] = useState(INITIAL_WORKFLOWS);
 
-  const handleRunWorkflow = (id: string) => {
+  const runWorkflow = (id: string) => {
     setRunningId(id);
-    setTimeout(() => {
-      setWorkflows((prev) =>
-        prev.map((w) => (w.id === id ? { ...w, lastRun: t("dashboard.workflows.justNow", "Just now"), runsToday: w.runsToday + 1 } : w))
+    window.setTimeout(() => {
+      setWorkflows((current) =>
+        current.map((workflow) =>
+          workflow.id === id
+            ? {
+                ...workflow,
+                lastRunKey: "justNow",
+                runsToday: workflow.runsToday + 1,
+              }
+            : workflow,
+        ),
       );
       setRunningId(null);
     }, 800);
   };
 
-  const handleToggleStatus = (id: string) => {
-    setWorkflows((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, status: w.status === "active" ? "paused" : "active" } : w))
+  const toggleStatus = (id: string) => {
+    setWorkflows((current) =>
+      current.map((workflow) =>
+        workflow.id === id
+          ? {
+              ...workflow,
+              status: workflow.status === "active" ? "paused" : "active",
+            }
+          : workflow,
+      ),
     );
   };
 
   return (
-    <div className="flex flex-col justify-between h-full space-y-3">
-      {/* Header */}
+    <div className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-          <Workflow className="w-4 h-4 text-indigo-500" />
-          {t("dashboard.workflows.title", "Automated Pipelines & Bots")}
-        </span>
-        <span className="text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full">
-          {workflows.filter((w) => w.status === "active").length} {t("dashboard.workflows.active", "Active")}
-        </span>
+        <h3 className="flex items-center gap-1.5 text-xs font-bold">
+          <Workflow className="size-4 text-brand" aria-hidden />
+          {t("dashboard.workflows.title")}
+        </h3>
+        <Tag tone="brand">
+          {workflows.filter((workflow) => workflow.status === "active").length}{" "}
+          {t("dashboard.workflows.active")}
+        </Tag>
       </div>
 
-      {/* Workflow List */}
-      <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto pr-1 max-h-[190px]">
-        {workflows.map((wf) => {
-          const isRunning = runningId === wf.id;
-          const isActive = wf.status === "active";
-
+      <div className="flex max-h-[195px] flex-1 flex-col gap-2.5 overflow-y-auto">
+        {workflows.map((workflow) => {
+          const isRunning = runningId === workflow.id;
+          const isActive = workflow.status === "active";
           return (
-            <div
-              key={wf.id}
-              className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-2 ${
+            <article
+              key={workflow.id}
+              className={`flex items-center justify-between gap-2 rounded-[var(--radius-surface)] border p-3 transition-colors ${
                 isActive
-                  ? "bg-slate-50 dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-700"
-                  : "bg-slate-100/50 dark:bg-slate-900/40 border-slate-200/40 dark:border-slate-800 opacity-75"
+                  ? "border-border bg-muted/35"
+                  : "border-border/60 bg-muted/20 opacity-70"
               }`}
             >
-              <div className="min-w-0 flex items-start gap-2.5">
-                <button
-                  onClick={() => handleToggleStatus(wf.id)}
-                  title={isActive ? t("common.pause", "Pause Workflow") : t("common.activate", "Activate Workflow")}
-                  className={`mt-0.5 w-6 h-6 rounded-lg flex items-center justify-center transition ${
-                    isActive
-                      ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/20"
-                      : "bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-400"
-                  }`}
+              <div className="flex min-w-0 items-start gap-2.5">
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant={isActive ? "secondary" : "ghost"}
+                  className={isActive ? "text-success" : ""}
+                  onClick={() => toggleStatus(workflow.id)}
+                  title={
+                    isActive ? t("common.pause") : t("common.activate")
+                  }
+                  aria-label={
+                    isActive ? t("common.pause") : t("common.activate")
+                  }
                 >
-                  {isActive ? <CheckCircle2 className="w-3.5 h-3.5" /> : <PauseCircle className="w-3.5 h-3.5" />}
-                </button>
+                  {isActive ? <CheckCircle2 /> : <PauseCircle />}
+                </Button>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{wf.name}</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
+                  <p className="truncate text-xs font-bold">
+                    {t(`dashboard.workflows.${workflow.nameKey}`)}
+                  </p>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                     <span>
-                      {t("dashboard.workflows.lastRun", "Last:")} <strong>{wf.lastRun}</strong>
+                      {t("dashboard.workflows.lastRun")}{" "}
+                      <strong>
+                        {t(
+                          `dashboard.workflows.${workflow.lastRunKey}`,
+                        )}
+                      </strong>
                     </span>
-                    <span>•</span>
+                    <span aria-hidden>·</span>
                     <span>
-                      <strong>{wf.runsToday}</strong> {t("dashboard.workflows.runs", "runs")}
+                      <strong>{workflow.runsToday}</strong>{" "}
+                      {t("dashboard.workflows.runs")}
                     </span>
                   </p>
                 </div>
               </div>
-
-              <button
-                onClick={() => handleRunWorkflow(wf.id)}
+              <Button
+                type="button"
+                size="sm"
+                variant={isRunning ? "secondary" : "default"}
+                onClick={() => runWorkflow(workflow.id)}
                 disabled={isRunning}
-                className={`p-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                  isRunning
-                    ? "bg-indigo-100 dark:bg-indigo-950 text-indigo-600 animate-pulse"
-                    : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-600/20"
-                }`}
               >
                 {isRunning ? (
-                  <Activity className="w-3.5 h-3.5 animate-spin" />
+                  <Activity className="animate-spin" />
                 ) : (
-                  <Play className="w-3.5 h-3.5 fill-current" />
+                  <Play />
                 )}
-                <span className="hidden sm:inline">{isRunning ? t("dashboard.workflows.running", "Running") : t("dashboard.workflows.run", "Run")}</span>
-              </button>
-            </div>
+                <span className="hidden sm:inline">
+                  {isRunning
+                    ? t("dashboard.workflows.running")
+                    : t("dashboard.workflows.run")}
+                </span>
+              </Button>
+            </article>
           );
         })}
       </div>
 
-      {/* Bottom info banner */}
-      <div className="p-2.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40 flex items-center justify-between text-[11px] text-blue-800 dark:text-blue-300 font-medium">
-        <div className="flex items-center gap-1.5">
-          <Zap className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-          <span>{t("dashboard.workflows.n8nConnected", "Connected to Sovereign n8n Engine")}</span>
-        </div>
-        <span className="font-mono font-bold text-[10px]">{t("dashboard.workflows.zeroErrors", "0 ERRORS")}</span>
+      <div className="flex items-center justify-between gap-2 rounded-[var(--radius-control)] border border-info/20 bg-info/10 p-2.5 text-xs font-medium text-info">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Zap className="size-3.5 shrink-0" aria-hidden />
+          <span className="truncate">
+            {t("dashboard.workflows.n8nConnected")}
+          </span>
+        </span>
+        <span className="shrink-0 font-mono text-xs font-bold">
+          {t("dashboard.workflows.zeroErrors")}
+        </span>
       </div>
     </div>
   );

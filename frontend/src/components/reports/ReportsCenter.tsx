@@ -16,20 +16,20 @@ export default function ReportsCenter() {
   const [activeTab, setActiveTab] = useState<"attendance" | "projects" | "communication" | "ai" | "aiCost" | "okrs">("attendance");
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#0f0f0f] w-full overflow-hidden transition-colors">
+    <div data-testid="reports-center" className="flex flex-col h-full bg-card dark:bg-[#0f0f0f] w-full overflow-hidden transition-colors">
       {/* Header */}
-      <div className="flex-none px-8 py-6 border-b border-slate-200 dark:border-slate-700 dark:bg-[#121212]">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+      <div className="flex-none px-8 py-6 border-b border-border dark:border-slate-700 dark:bg-[#121212]">
+        <h1 className="text-2xl font-bold text-foreground dark:text-white flex items-center gap-2">
           <PieChart className="w-6 h-6 text-[var(--primary-hex)]" />
           {t("reports.title")}
         </h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">
+        <p className="text-muted-foreground dark:text-muted-foreground mt-1">
           {t("reports.subtitle")}
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex-none px-8 py-4 border-b border-slate-200 dark:border-slate-700 bg-[#f8fafc] dark:bg-[#121212]">
+      <div className="flex-none px-8 py-4 border-b border-border dark:border-slate-700 bg-background dark:bg-[#121212]">
         <div className="flex gap-4">
           <TabButton 
             active={activeTab === "attendance"} 
@@ -71,7 +71,7 @@ export default function ReportsCenter() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-8 bg-[#f8fafc] dark:bg-[#1a1a1a]">
+      <div className="flex-1 overflow-y-auto p-8 bg-background dark:bg-[#1a1a1a]">
         {activeTab === "attendance" && <AttendanceReport />}
         {activeTab === "projects" && <ProjectsReport />}
         {activeTab === "communication" && <CommunicationReport />}
@@ -90,7 +90,7 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
       className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm transition-colors ${
         active 
           ? "font-semibold shadow-sm border bg-[var(--primary-light)] text-[var(--primary-hex)] border-[var(--primary-hex)]" 
-          : "text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-200 dark:hover:bg-slate-700 border border-transparent"
+          : "text-muted-foreground dark:text-slate-300 font-medium hover:bg-slate-200 dark:hover:bg-slate-700 border border-transparent"
       }`}
     >
       {icon}

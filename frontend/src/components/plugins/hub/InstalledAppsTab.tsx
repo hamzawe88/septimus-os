@@ -96,7 +96,7 @@ export default function InstalledAppsTab() {
   const connectedCount = apps.filter(a => a.status === "connected").length;
 
   return (
-    <div className="w-full h-full p-8 overflow-y-auto bg-slate-50/50">
+    <div className="w-full h-full p-8 overflow-y-auto bg-muted/50">
       <div className="max-w-5xl mx-auto">
         {/* Header Section */}
         <div className="flex items-start justify-between mb-8">
@@ -105,10 +105,10 @@ export default function InstalledAppsTab() {
               <Plug className="w-7 h-7" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-foreground dark:text-white">
                 {t("plugins.storeTitle")}
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                 {t("plugins.storeSubtitle")}
               </p>
             </div>
@@ -124,23 +124,23 @@ export default function InstalledAppsTab() {
         </div>
 
         {/* Status Banner */}
-        <div className="flex items-center gap-3 mb-8 px-5 py-4 bg-white dark:bg-[#1a1d21] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <CheckCircle2 className={`w-5 h-5 ${connectedCount > 0 ? "text-emerald-500" : "text-slate-400"}`} />
-          <span className="text-sm text-slate-600 dark:text-slate-300">
-            {t("plugins.youHave")} <span className="font-bold text-slate-900 dark:text-white">{connectedCount}</span> {t("plugins.activeAppsText")}
+        <div className="flex items-center gap-3 mb-8 px-5 py-4 bg-card dark:bg-[#1a1d21] rounded-2xl border border-border dark:border-slate-800 shadow-sm">
+          <CheckCircle2 className={`w-5 h-5 ${connectedCount > 0 ? "text-emerald-500" : "text-muted-foreground"}`} />
+          <span className="text-sm text-muted-foreground dark:text-slate-300">
+            {t("plugins.youHave")} <span className="font-bold text-foreground dark:text-white">{connectedCount}</span> {t("plugins.activeAppsText")}
           </span>
         </div>
 
         {/* Apps Grid */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
             <RefreshCw className="w-10 h-10 mb-4 animate-spin opacity-40" />
             <p>{t("plugins.loading", "Loading integrations...")}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* === SOVEREIGN DIWAN APPLICATION CARD === */}
-            <div className="relative overflow-hidden flex flex-col p-6 rounded-2xl border transition-all duration-300 bg-white dark:bg-[#1a1d21] border-amber-300 dark:border-amber-700/50 shadow-lg shadow-amber-500/5 ring-1 ring-amber-400/20">
+            <div className="relative overflow-hidden flex flex-col p-6 rounded-2xl border transition-all duration-300 bg-card dark:bg-[#1a1d21] border-amber-300 dark:border-amber-700/50 shadow-lg shadow-amber-500/5 ring-1 ring-amber-400/20">
               <div className="absolute top-0 end-0 w-full h-1 bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500" />
               <div className="flex items-start justify-between mb-4">
                 <div className="w-14 h-14 rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
@@ -151,19 +151,19 @@ export default function InstalledAppsTab() {
                 </span>
               </div>
               <div className="mb-6 flex-1">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                <h3 className="text-lg font-bold text-foreground dark:text-white mb-1">
                   {isRtl ? "ديوان المراسلات الرسمية والأرشيف الإلكتروني الذكي" : "Official Diwan & Smart Archiving Studio"}
                 </h3>
                 <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 mb-3">
                   {isRtl ? "إدارة سيادية وأرشفة متقدمة" : "Governmental & Enterprise Archiving"}
                 </span>
-                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                <p className="text-sm text-muted-foreground dark:text-slate-300 leading-relaxed">
                   {isRtl
                     ? "منظومة المراسلات الرسمية برقم تسلسلي مقفول، ومحرك القوالب التفاعلي Canvas، وأرشفة شجرية متقدمة مع الختم الرقمي المشفر QR."
                     : "Official enterprise correspondence with advisory-locked serial numbers, interactive Canvas studio, and hierarchical ltree archiving with external QR seal."}
                 </p>
               </div>
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto">
+              <div className="pt-4 border-t border-border dark:border-slate-800 mt-auto">
                 <Button
                   onClick={() => setCurrentView('correspondence')}
                   className="w-full flex items-center justify-center gap-2 rounded-xl h-11 text-sm font-bold bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-md transition-all cursor-pointer"
@@ -183,8 +183,8 @@ export default function InstalledAppsTab() {
                 key={app.id} 
                 className={`relative overflow-hidden flex flex-col p-6 rounded-2xl border transition-all duration-300 ${
                   isConnected 
-                    ? "bg-white border-brand shadow-md shadow-brand/10 ring-1 ring-brand/20" 
-                    : "bg-white/80 border-slate-200 hover:border-slate-300 hover:shadow-sm"
+                    ? "bg-card border-brand shadow-md shadow-brand/10 ring-1 ring-brand/20" 
+                    : "bg-white/80 border-border hover:border-border hover:shadow-sm"
                 }`}
               >
                 {/* Active Indicator Line */}
@@ -193,27 +193,27 @@ export default function InstalledAppsTab() {
                 )}
 
                 <div className="flex items-start justify-between mb-4">
-                  <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center ${iconBgMap[app.icon] || "bg-slate-50 border-slate-200"}`}>
-                    {iconMap[app.icon] || <Plug className="w-7 h-7 text-slate-400" />}
+                  <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center ${iconBgMap[app.icon] || "bg-muted border-border"}`}>
+                    {iconMap[app.icon] || <Plug className="w-7 h-7 text-muted-foreground" />}
                   </div>
                   <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase ${
-                    isConnected ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                    isConnected ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-muted text-muted-foreground dark:bg-slate-800 dark:text-muted-foreground"
                   }`}>
                     {isConnected ? t("plugins.connectedActive") : t("plugins.disconnected")}
                   </span>
                 </div>
                 
                 <div className="mb-6 flex-1">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{integrationName(app, isRtl)}</h3>
-                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 mb-3">
+                  <h3 className="text-lg font-bold text-foreground dark:text-white mb-1">{integrationName(app, isRtl)}</h3>
+                  <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-muted dark:bg-slate-800 text-muted-foreground dark:text-muted-foreground mb-3">
                     {catLabel(app.category)}
                   </span>
-                  <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                  <p className="text-sm text-muted-foreground dark:text-slate-300 leading-relaxed">
                     {integrationDescription(app, isRtl)}
                   </p>
                 </div>
 
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 mt-auto flex items-center gap-2">
+                <div className="pt-4 border-t border-border dark:border-slate-800 mt-auto flex items-center gap-2">
                   {isConnected ? (
                     <>
                       <Button

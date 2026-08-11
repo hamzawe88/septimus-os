@@ -6,7 +6,27 @@ yourdomain.com {
     
     # Enable Gzip compression
     encode gzip
-    
+
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        Cross-Origin-Opener-Policy "same-origin"
+        Cross-Origin-Resource-Policy "same-site"
+        X-Permitted-Cross-Domain-Policies "none"
+    }
+
+    handle /api/v1/drive/files {
+        reverse_proxy backend-core:4000
+    }
+
+    handle /api/v1/drive/* {
+        reverse_proxy septimus-drive:4001
+    }
+
     handle /api/* {
         reverse_proxy backend-core:4000
     }

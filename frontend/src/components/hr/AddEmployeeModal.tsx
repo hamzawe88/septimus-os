@@ -29,8 +29,7 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
   e.preventDefault();
   try {
    setLoading(true);
-   await apiPost("/entities", {
-    type: "hr_employee",
+   await apiPost("/employees", {
     name: formData.name,
     data: {
      email: formData.email,
@@ -53,32 +52,32 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
 
  return (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-   <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative">
+   <div className="bg-card rounded-xl shadow-lg w-full max-w-md p-6 relative">
     <button title={t("common.close")} aria-label={t("common.close")} onClick={onClose}
-     className="absolute top-4 end-4 p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors">
+     className="absolute top-4 end-4 p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground rounded-full transition-colors">
      <X className="w-5 h-5" />
     </button>
 
-    <h2 className="text-xl font-bold text-slate-800 mb-6">{t("hr.addEmployee")}</h2>
+    <h2 className="text-xl font-bold text-foreground mb-6">{t("hr.addEmployee")}</h2>
 
     <form onSubmit={handleSubmit} className="space-y-4">
      <div>
-      <label htmlFor="field-1" className="block text-sm font-medium text-slate-700 mb-1">{t("hr.employeeName")}</label>
+      <label htmlFor="field-1" className="block text-sm font-medium text-foreground mb-1">{t("hr.employeeName")}</label>
       <input placeholder={t("hr.employeeName")} title={t("hr.employeeName")} aria-label={t("hr.employeeName")} id="field-1" 
        type="text" 
        required
-       className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
+       className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
        value={formData.name}
        onChange={(e) => setFormData({...formData, name: e.target.value})}
       />
      </div>
      
      <div>
-      <label htmlFor="field-2" className="block text-sm font-medium text-slate-700 mb-1">{t("hr.email")}</label>
+      <label htmlFor="field-2" className="block text-sm font-medium text-foreground mb-1">{t("hr.email")}</label>
       <input placeholder={t("hr.email")} title={t("hr.email")} aria-label={t("hr.email")} id="field-2" 
        type="email" 
        required
-       className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
+       className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
        value={formData.email}
        onChange={(e) => setFormData({...formData, email: e.target.value})}
       />
@@ -86,21 +85,21 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
 
      <div className="grid grid-cols-2 gap-4">
       <div>
-       <label htmlFor="field-3" className="block text-sm font-medium text-slate-700 mb-1">{t("hr.department")}</label>
+       <label htmlFor="field-3" className="block text-sm font-medium text-foreground mb-1">{t("hr.department")}</label>
       <input placeholder={t("hr.department")} title={t("hr.department")} aria-label={t("hr.department")} id="field-3" 
         type="text" 
         required
-        className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
+        className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
         value={formData.department}
         onChange={(e) => setFormData({...formData, department: e.target.value})}
        />
       </div>
       <div>
-       <label htmlFor="field-4" className="block text-sm font-medium text-slate-700 mb-1">{t("hr.jobTitle")}</label>
+       <label htmlFor="field-4" className="block text-sm font-medium text-foreground mb-1">{t("hr.jobTitle")}</label>
       <input placeholder={t("hr.jobTitle")} title={t("hr.jobTitle")} aria-label={t("hr.jobTitle")} id="field-4" 
         type="text" 
         required
-        className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
+        className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
         value={formData.role}
         onChange={(e) => setFormData({...formData, role: e.target.value})}
        />
@@ -108,12 +107,12 @@ export default function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmpl
      </div>
 
      <div>
-      <label htmlFor="field-5" className="block text-sm font-medium text-slate-700 mb-1">{t("hr.baseSalary")}</label>
+      <label htmlFor="field-5" className="block text-sm font-medium text-foreground mb-1">{t("hr.baseSalary")}</label>
       <input placeholder={t("hr.baseSalary")} title={t("hr.baseSalary")} aria-label={t("hr.baseSalary")} id="field-5" 
        type="number" 
        required
        min="0"
-       className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
+       className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
        value={formData.salary}
        onChange={(e) => setFormData({...formData, salary: e.target.value})}
       />

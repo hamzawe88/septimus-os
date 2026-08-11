@@ -30,15 +30,15 @@ type PathBottleneck struct {
 }
 
 type FinanceCRMMetrics struct {
-	TotalInvoices        int     `json:"total_invoices"`
-	OverdueInvoices      int     `json:"overdue_invoices"`
-	OverduePercentage    float64 `json:"overdue_percentage"`
-	TotalInvoiceAmount   float64 `json:"total_invoice_amount"`
-	OverdueAmount        float64 `json:"overdue_amount"`
-	TotalDeals           int     `json:"total_deals"`
-	WonDeals             int     `json:"won_deals"`
-	DealConversionRate   float64 `json:"deal_conversion_rate"`
-	TotalDealValue       float64 `json:"total_deal_value"`
+	TotalInvoices      int     `json:"total_invoices"`
+	OverdueInvoices    int     `json:"overdue_invoices"`
+	OverduePercentage  float64 `json:"overdue_percentage"`
+	TotalInvoiceAmount float64 `json:"total_invoice_amount"`
+	OverdueAmount      float64 `json:"overdue_amount"`
+	TotalDeals         int     `json:"total_deals"`
+	WonDeals           int     `json:"won_deals"`
+	DealConversionRate float64 `json:"deal_conversion_rate"`
+	TotalDealValue     float64 `json:"total_deal_value"`
 }
 
 type OperationalMetrics struct {
@@ -64,19 +64,9 @@ type MinedOrganizationalPatterns struct {
 // enforces Section 4 re-derivation (exact numerics and denominators), and publishes
 // events.analytics.mine_requested to the ai-sidecar NATS JetStream for candidate fact distillation.
 func MineOrganizationalPatterns(c *fiber.Ctx) error {
-	var workspaceID uuid.UUID
-	if val := c.Locals("workspace_id"); val != nil {
-		if str, ok := val.(string); ok {
-			workspaceID = database.ParseUUID(str)
-		}
-	}
+	workspaceID := CurrentWorkspaceID(c)
 	if workspaceID == uuid.Nil {
-		if qID := c.Query("workspace_id"); qID != "" {
-			workspaceID = database.ParseUUID(qID)
-		}
-	}
-	if workspaceID == uuid.Nil {
-		workspaceID = resolveDefaultWorkspaceID()
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "workspace_id is required"})
 	}
 
 	patterns, err := ComputeOrganizationalPatterns(workspaceID)
@@ -130,7 +120,8 @@ func ComputeOrganizationalPatterns(workspaceID uuid.UUID) (*MinedOrganizationalP
 
 	for _, c := range corrs {
 		statusLower := strings.ToLower(c.Status)
-		if statusLower == "pending_approval" || statusLower == "draft" {
+		switch statusLower {
+		case "pending_approval", "draft":
 			out.CorrespondenceMetrics.PendingCount++
 			path := c.Path
 			if path == "" {
@@ -139,7 +130,7 @@ func ComputeOrganizationalPatterns(workspaceID uuid.UUID) (*MinedOrganizationalP
 			pathPendingMap[path]++
 			daysOpen := time.Since(c.CreatedAt).Hours() / 24.0
 			pathDaysMap[path] += daysOpen
-		} else if statusLower == "signed" || statusLower == "dispatched" || statusLower == "archived" {
+		case "signed", "dispatched", "archived":
 			out.CorrespondenceMetrics.SignedOrDispatched++
 			completedOrSigned++
 			days := c.UpdatedAt.Sub(c.CreatedAt).Hours() / 24.0
@@ -173,8 +164,8 @@ func ComputeOrganizationalPatterns(workspaceID uuid.UUID) (*MinedOrganizationalP
 
 	// 2. Finance & CRM Mining (from JSONB entities)
 	var entities []models.Entity
-	if err := database.DB.Where("workspace_id = ? AND entity_type IN (?, ?, ?, ?)",
-		workspaceID, "invoice", "finance_invoice", "deal", "crm_deal").Find(&entities).Error; err == nil {
+	if err := database.DB.Where("workspace_id = ? AND (entity_type IN ? OR (entity_type = ? AND definition_id IS NOT NULL))",
+		workspaceID, []string{"invoice", "finance_invoice"}, "crm_opportunity").Find(&entities).Error; err == nil {
 
 		for _, e := range entities {
 			var dataMap map[string]interface{}
@@ -185,7 +176,8 @@ func ComputeOrganizationalPatterns(workspaceID uuid.UUID) (*MinedOrganizationalP
 			status, _ := extractJSONString(dataMap, "status")
 			amount, _ := extractJSONFloat(dataMap, "amount", "total_amount", "value")
 
-			if e.EntityType == "invoice" || e.EntityType == "finance_invoice" {
+			switch e.EntityType {
+			case "invoice", "finance_invoice":
 				out.FinanceCRMMetrics.TotalInvoices++
 				out.FinanceCRMMetrics.TotalInvoiceAmount += amount
 				statusLower := strings.ToLower(status)
@@ -193,11 +185,13 @@ func ComputeOrganizationalPatterns(workspaceID uuid.UUID) (*MinedOrganizationalP
 					out.FinanceCRMMetrics.OverdueInvoices++
 					out.FinanceCRMMetrics.OverdueAmount += amount
 				}
-			} else if e.EntityType == "deal" || e.EntityType == "crm_deal" {
+			case "crm_opportunity":
 				out.FinanceCRMMetrics.TotalDeals++
 				out.FinanceCRMMetrics.TotalDealValue += amount
 				stage, _ := extractJSONString(dataMap, "stage")
-				if strings.ToLower(stage) == "won" || strings.ToLower(status) == "won" {
+				stage = strings.ToLower(strings.TrimSpace(stage))
+				status = strings.ToLower(strings.TrimSpace(status))
+				if stage == "won" || stage == "closed_won" || status == "won" || status == "closed_won" {
 					out.FinanceCRMMetrics.WonDeals++
 				}
 			}

@@ -55,10 +55,12 @@ from reasoning_manual import (
     get_injection_defense_prompt,
     get_reasoning_directives,
     get_validation_gate_prompt,
+    get_identity_directive,
 )
 
 
-def system_prompt_for(agent_type: str, lang: str) -> str:
+def system_prompt_for(agent_type: str, lang: str, llm_preferences: dict = None) -> str:
+    identity = get_identity_directive(lang)
     table = SYS_PROMPTS.get(lang, SYS_PROMPTS["en"])
     base_role = table.get(agent_type.lower(), table["general"])
     reasoning_directives = get_reasoning_directives(agent_type, lang)
@@ -66,5 +68,37 @@ def system_prompt_for(agent_type: str, lang: str) -> str:
     # Every agent can reach retrieved content through its tools, so the
     # untrusted-content boundary belongs in every agent's system prompt.
     injection_defense = get_injection_defense_prompt(lang)
-    return f"{base_role}\n\n{reasoning_directives}\n\n{validation_gate}\n\n{injection_defense}"
+
+    generative_ui_directive = (
+        "\n\n## GENERATIVE UI (WIDGET RENDERING)\n"
+        "If the user asks to create a quote, workflow, or interactive form, you MUST output ONLY a JSON block like this:\n"
+        "```json\n"
+        "{\n"
+        '  "type": "generative_ui",\n'
+        '  "widget": "AddQuoteModal" (or another appropriate widget name)\n'
+        "}\n"
+        "```\n"
+        "Do not include any extra conversational text if you are returning this JSON."
+    ) if lang != "ar" else (
+        "\n\n## واجهة المستخدم التوليدية (GENERATIVE UI)\n"
+        "إذا طلب المستخدم إنشاء عرض سعر (Quote) أو مسار عمل (Workflow) أو نموذج تفاعلي، يجب عليك إرجاع كتلة JSON فقط كالتالي:\n"
+        "```json\n"
+        "{\n"
+        '  "type": "generative_ui",\n'
+        '  "widget": "AddQuoteModal"\n'
+        "}\n"
+        "```\n"
+        "لا تقم بإضافة أي نص حواري آخر إذا كنت ترجع هذا الـ JSON."
+    )
+
+    prefs_section = ""
+    if llm_preferences:
+        import json
+        prefs_str = json.dumps(llm_preferences, ensure_ascii=False, indent=2)
+        if lang == "ar":
+            prefs_section = f"\n\n## تفضيلات المستخدم (USER PREFERENCES)\nيجب عليك تكييف نبرتك وتنسيقك بدقة وفقًا للتفضيلات التالية:\n{prefs_str}"
+        else:
+            prefs_section = f"\n\n## USER PREFERENCES\nYou must adapt your tone and formatting strictly according to the following preferences:\n{prefs_str}"
+
+    return f"{base_role}\n\n{reasoning_directives}\n\n{validation_gate}\n\n{injection_defense}\n\n{identity}{generative_ui_directive}{prefs_section}"
 

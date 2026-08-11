@@ -13,6 +13,7 @@ import (
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/events"
 	"github.com/septimus-os/backend-core/models"
+	"github.com/septimus-os/backend-core/services"
 	"github.com/septimus-os/backend-core/services/crypto"
 )
 
@@ -38,22 +39,32 @@ func ConfigAI(c *fiber.Ctx) error {
 		}
 	}
 	if wsIDStr == "" {
+		// Set by the Go AI proxy from the caller's JWT before forwarding; the
+		// Authorization header is stripped at that boundary, so this is the only
+		// tenant signal an internal call carries.
 		wsIDStr = c.Get("X-Workspace-ID")
 	}
-	if wsIDStr == "" {
-		wsIDStr = c.Query("workspace_id")
-	}
+	// No ?workspace_id= fallback: ConfigAI writes provider API keys, this route
+	// is JWT-protected only, and the session always names a tenant here — the
+	// parameter could only ever have been someone naming a tenant that is not
+	// theirs.
 	if wsIDStr == "" || wsIDStr == "nil" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing workspace context"})
 	}
 
+	// Fail closed: a provider key that cannot be encrypted must never be
+	// persisted. The previous behaviour logged the failure and stored the key in
+	// cleartext, silently downgrading encryption-at-rest to none.
 	encKey := input.APIKey
 	if input.APIKey != "" {
-		if enc, err := crypto.Encrypt(input.APIKey); err != nil {
-			log.Printf("ConfigAI: could not encrypt api key: %v", err)
-		} else {
-			encKey = enc
+		enc, err := crypto.Encrypt(input.APIKey)
+		if err != nil {
+			log.Printf("ConfigAI: refusing to store api key — encryption failed: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "could not encrypt the API key; check SETTINGS_ENC_KEY. Nothing was saved.",
+			})
 		}
+		encKey = enc
 	}
 
 	wsUUID := database.ParseUUID(wsIDStr)
@@ -210,16 +221,78 @@ type QueuePendingApprovalRequest struct {
 	WorkspaceID string                 `json:"workspace_id"`
 	EntityType  string                 `json:"entity_type"`
 	Data        map[string]interface{} `json:"data"`
+	ProjectID   string                 `json:"project_id"`
+	UseInbox    bool                   `json:"use_inbox"`
 	Reason      string                 `json:"reason"`
 }
 
 // approvalPayload is the structured action stored on a PendingApproval so the
 // approver can execute exactly what the agent proposed.
 type approvalPayload struct {
-	Action      string                 `json:"action"` // "create_entity"
+	Action      string                 `json:"action"` // create_entity | create_pm_task
 	WorkspaceID string                 `json:"workspace_id"`
 	EntityType  string                 `json:"entity_type"`
 	Data        map[string]interface{} `json:"data"`
+	ProjectID   string                 `json:"project_id,omitempty"`
+	UseInbox    bool                   `json:"use_inbox,omitempty"`
+}
+
+func approvalText(data map[string]interface{}, key string) string {
+	if data == nil || data[key] == nil {
+		return ""
+	}
+	return fmt.Sprint(data[key])
+}
+
+func approvalInt(data map[string]interface{}, keys ...string) int {
+	for _, key := range keys {
+		switch value := data[key].(type) {
+		case float64:
+			return int(value)
+		case int:
+			return value
+		}
+	}
+	return 0
+}
+
+// executeApprovalPayload keeps UI and webhook approvals on the same command
+// boundary. Legacy queued task proposals are transparently routed to PM Inbox
+// instead of reopening the retired generic-entity write path.
+func executeApprovalPayload(db *gorm.DB, payload approvalPayload) (string, error) {
+	workspaceID, err := uuid.Parse(payload.WorkspaceID)
+	if err != nil {
+		return "", err
+	}
+	if payload.Action == "create_pm_task" || (payload.Action == "create_entity" && isRetiredPMEntityType(payload.EntityType)) {
+		projectID, parseErr := uuid.Parse(payload.ProjectID)
+		if parseErr != nil {
+			project, ensureErr := services.EnsurePMInboxProject(db, workspaceID, nil)
+			if ensureErr != nil {
+				return "", ensureErr
+			}
+			projectID = project.ID
+		}
+		task, createErr := services.CreatePMTask(db, workspaceID, services.CreatePMTaskInput{
+			ProjectID: projectID, Title: approvalText(payload.Data, "title"),
+			Description: approvalText(payload.Data, "description"),
+			Priority:    approvalInt(payload.Data, "priority"),
+			StoryPoints: approvalInt(payload.Data, "story_points", "points"), Source: "approved_ai",
+		})
+		if createErr != nil {
+			return "", createErr
+		}
+		go ExecuteWorkflowsByTrigger(workspaceID, "task.created", map[string]interface{}{
+			"task_id": task.ID.String(), "project_id": task.ProjectID.String(),
+			"title": task.Title, "status": task.Status, "source": "approved_ai",
+		})
+		return fmt.Sprintf("Created PM task %s", task.ID), nil
+	}
+	entity, err := createEntityRecordWithDB(db, workspaceID, nil, nil, payload.EntityType, payload.Data)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("Created %s entity %s", payload.EntityType, entity.ID), nil
 }
 
 // GetPendingApprovals returns pending human-in-the-loop approvals
@@ -246,15 +319,33 @@ func QueuePendingApproval(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
 	}
 
+	// An approval carries a write that an admin will later execute, so it must
+	// name a real tenant. An unparseable id used to become uuid.Nil and land the
+	// proposed write in a workspace nobody owns (or reviews).
+	wsUUID := database.ParseUUID(req.WorkspaceID)
+	if wsUUID == uuid.Nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "valid workspace_id is required"})
+	}
+
+	action := "create_entity"
+	useInbox := req.UseInbox
+	if isRetiredPMEntityType(req.EntityType) {
+		action = "create_pm_task"
+		if req.ProjectID == "" {
+			useInbox = true
+		}
+	}
 	payloadBytes, _ := json.Marshal(approvalPayload{
-		Action:      "create_entity",
+		Action:      action,
 		WorkspaceID: req.WorkspaceID,
 		EntityType:  req.EntityType,
 		Data:        req.Data,
+		ProjectID:   req.ProjectID,
+		UseInbox:    useInbox,
 	})
 
 	pending := models.PendingApproval{
-		WorkspaceID: database.ParseUUID(req.WorkspaceID),
+		WorkspaceID: wsUUID,
 		AgentName:   req.AgentName,
 		ActionType:  req.ActionType,
 		Payload:     string(payloadBytes),
@@ -268,13 +359,10 @@ func QueuePendingApproval(c *fiber.Ctx) error {
 	// Nudge the UI to refresh its approvals queue.
 	events.NatsConn.Publish("system.notifications", []byte(`{"type": "agent_approval_required", "agent": "chat"}`))
 
-	workspaceUUID := database.ParseUUID(req.WorkspaceID)
 	// Push the new approval straight into the AI Center's live queue.
-	PublishAgentApproval(workspaceUUID, &pending, false)
-	if workspaceUUID != uuid.Nil {
-		go DispatchWebhookEvent(workspaceUUID, "hitl.approval_required", pending)
-	}
-	go ExecuteWorkflowsByTrigger("hitl.approval_required", map[string]interface{}{
+	PublishAgentApproval(wsUUID, &pending, false)
+	go DispatchWebhookEvent(wsUUID, "hitl.approval_required", pending)
+	go ExecuteWorkflowsByTrigger(getWorkspaceID(c), "hitl.approval_required", map[string]interface{}{
 		"pending_id":   pending.ID.String(),
 		"agent_name":   pending.AgentName,
 		"action_type":  pending.ActionType,
@@ -325,16 +413,12 @@ func ApprovePendingAction(c *fiber.Ctx) error {
 		outcome := "Action approved"
 		status := "completed"
 
-		if payload.Action == "create_entity" {
-			workspaceID, err := uuid.Parse(payload.WorkspaceID)
-			if err != nil {
-				outcome = "Approved but workspace id invalid; entity not created"
-				status = "failed"
-			} else if entity, err := createEntityRecord(workspaceID, payload.EntityType, payload.Data); err != nil {
+		if payload.Action == "create_entity" || payload.Action == "create_pm_task" {
+			if executed, err := executeApprovalPayload(database.GetDB(c), payload); err != nil {
 				outcome = "Approved but execution failed: " + err.Error()
 				status = "failed"
 			} else {
-				outcome = fmt.Sprintf("Created %s entity %s", payload.EntityType, entity.ID)
+				outcome = executed
 			}
 		}
 
@@ -369,7 +453,7 @@ func ApprovePendingAction(c *fiber.Ctx) error {
 	if wsUUID != uuid.Nil {
 		go DispatchWebhookEvent(wsUUID, "hitl.approval_resolved", pending)
 	}
-	go ExecuteWorkflowsByTrigger("hitl.approval_resolved", map[string]interface{}{
+	go ExecuteWorkflowsByTrigger(getWorkspaceID(c), "hitl.approval_resolved", map[string]interface{}{
 		"pending_id":  pending.ID.String(),
 		"status":      pending.Status,
 		"agent_name":  pending.AgentName,

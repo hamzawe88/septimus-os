@@ -46,7 +46,7 @@ export default function SmartActionHub() {
     <div className="fixed bottom-6 start-6 z-[9990] flex flex-col items-start gap-3 select-none transition-all duration-300">
       {/* Expanded Accordion / Popover State */}
       {isExpanded && (
-        <div className="w-72 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200">
+        <div className="w-72 bg-card dark:bg-slate-900 rounded-2xl shadow-2xl border border-border dark:border-slate-800 overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
             <div className="flex items-center gap-2">
@@ -65,7 +65,7 @@ export default function SmartActionHub() {
           </div>
 
           {/* Action List */}
-          <div className="p-2 space-y-1 divide-y divide-slate-100 dark:divide-slate-800/60">
+          <div className="p-2 space-y-1 divide-y divide-border dark:divide-slate-800/60">
             {/* Action 1: Copilot AI */}
             <button
               onClick={handleOpenCopilot}
@@ -76,10 +76,10 @@ export default function SmartActionHub() {
                   <Bot className="w-5 h-5" />
                 </div>
                 <div className="text-start">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  <p className="text-sm font-semibold text-foreground dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                     {t("smart_dock_ai") || "Copilot AI Assistant"}
                   </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">
                     {isRtl ? "المساعد الذكي العام (⌘I)" : "Supervisor AI (⌘I)"}
                   </p>
                 </div>
@@ -90,7 +90,7 @@ export default function SmartActionHub() {
             {/* Action 2: Direct Messages */}
             <div className="pt-1">
               <div className="px-3 py-1.5 flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                   {t("smart_dock_dms") || "Direct Messages"}
                 </span>
                 {totalUnreadCount > 0 && (
@@ -110,19 +110,19 @@ export default function SmartActionHub() {
                       <button
                         key={id}
                         onClick={() => handleOpenChat(id, data.name)}
-                        className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors text-start"
+                        className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-muted dark:hover:bg-slate-800/80 transition-colors text-start"
                       >
                         <div className="flex items-center gap-2.5">
-                          <Avatar className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                          <Avatar className="w-8 h-8 rounded-lg border border-border dark:border-slate-700 shadow-sm">
                             <AvatarFallback className="bg-gradient-to-br from-[#2563EB] to-[#60A5FA] text-white font-bold text-xs rounded-lg shadow-inner">
                               {data.name.charAt(0).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">
+                            <p className="text-xs font-semibold text-foreground dark:text-slate-200 leading-tight">
                               {data.name}
                             </p>
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground">
                               {isRtl ? "رسالة جديدة" : "New message"}
                             </p>
                           </div>
@@ -135,7 +135,7 @@ export default function SmartActionHub() {
                   })}
                 </div>
               ) : (
-                <div className="px-3 py-4 text-center text-xs text-slate-400 dark:text-slate-500">
+                <div className="px-3 py-4 text-center text-xs text-muted-foreground dark:text-muted-foreground">
                   {isRtl ? "لا توجد رسائل غير مقروءة" : "No unread messages"}
                 </div>
               )}
@@ -148,14 +148,14 @@ export default function SmartActionHub() {
                 className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-emerald-50/80 dark:hover:bg-emerald-950/30 group transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${isHuddleSimulated ? "bg-emerald-500 text-white animate-pulse" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"} transition-colors`}>
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${isHuddleSimulated ? "bg-emerald-500 text-white animate-pulse" : "bg-muted dark:bg-slate-800 text-muted-foreground dark:text-slate-300"} transition-colors`}>
                     <Headphones className="w-5 h-5" />
                   </div>
                   <div className="text-start">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    <p className="text-sm font-semibold text-foreground dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                       {t("smart_dock_huddle") || "Active Huddle"}
                     </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">
                       {isHuddleSimulated 
                         ? (isRtl ? "مكالمة جارية..." : "Call in progress...") 
                         : (isRtl ? "انقر لبدء/الانضمام لغرفة" : "Click to join huddle")}
@@ -196,7 +196,7 @@ export default function SmartActionHub() {
           </span>
         )}
 
-        <div className="ps-1 border-s border-slate-700/60 text-slate-400 group-hover:text-white transition-colors">
+        <div className="ps-1 border-s border-slate-700/60 text-white/70 group-hover:text-white transition-colors">
           {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
         </div>
       </button>

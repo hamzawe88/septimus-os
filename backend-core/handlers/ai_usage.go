@@ -30,9 +30,12 @@ func IngestAITokenUsage(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	workspaceID := database.ParseUUID(req.WorkspaceID)
+	workspaceID := CurrentWorkspaceID(c)
 	if workspaceID == uuid.Nil {
-		workspaceID = resolveDefaultWorkspaceID()
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "workspace_id is required"})
+	}
+	if req.WorkspaceID != "" && database.ParseUUID(req.WorkspaceID) != workspaceID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "workspace metadata does not match request context"})
 	}
 
 	total := req.TotalTokens

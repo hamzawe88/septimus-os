@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { Search, X, MessageSquare } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
 import { useLocalization } from "@/contexts/LocalizationContext";
 
@@ -14,11 +16,23 @@ interface SearchResult {
 }
 
 export default function GlobalSearchModal() {
-  const { isRtl } = useLocalization();
+  const { t } = useLocalization();
   const { isGlobalSearchOpen, setIsGlobalSearchOpen } = useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    const handleOpenSearch = (e: Event) => {
+      const customEvent = e as CustomEvent<{ query: string }>;
+      if (customEvent.detail?.query) {
+        setSearchQuery(customEvent.detail.query);
+      }
+      setIsGlobalSearchOpen(true);
+    };
+    window.addEventListener("septimus:open-global-search", handleOpenSearch);
+    return () => window.removeEventListener("septimus:open-global-search", handleOpenSearch);
+  }, [setIsGlobalSearchOpen]);
 
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
@@ -46,71 +60,89 @@ export default function GlobalSearchModal() {
   if (!isGlobalSearchOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[10vh] bg-black/60 backdrop-blur-sm px-4">
-      <div className="relative w-full max-w-2xl bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
-        
-        {/* Search Header */}
-        <div className="flex items-center px-4 py-3 border-b border-slate-200 bg-white">
-          <Search className="w-5 h-5 text-slate-400 me-3" />
+    <div className="fixed inset-0 z-[200] flex items-start justify-center bg-overlay/60 px-4 pt-[10vh] backdrop-blur-sm">
+      <div
+        aria-label={t("chat.globalSearch.title")}
+        aria-modal="true"
+        className="relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-[var(--radius-surface)] border border-border bg-popover text-popover-foreground shadow-[var(--shadow-overlay)]"
+        role="dialog"
+      >
+        <div className="flex items-center border-b border-border bg-popover px-4 py-3">
+          <Search className="me-3 size-5 text-muted-foreground" aria-hidden />
           <input
             autoFocus
             type="text"
-            placeholder={isRtl ? "ابحث في القنوات والرسائل والأشخاص..." : "Search channels, messages, or people..."}
-            className="flex-1 bg-transparent border-none outline-none text-slate-900 placeholder-slate-400 text-lg"
+            placeholder={t("chat.globalSearch.placeholder")}
+            className="min-w-0 flex-1 border-none bg-transparent text-lg text-foreground outline-none placeholder:text-muted-foreground"
             value={searchQuery}
+            aria-label={t("chat.globalSearch.inputLabel")}
             onChange={(e) => {
               const value = e.target.value;
               setSearchQuery(value);
               if (value.trim().length < 2) setResults([]);
             }}
           />
-          <button 
+          <button
+            type="button"
             onClick={() => setIsGlobalSearchOpen(false)}
-            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 transition-colors ms-2"
-            aria-label={isRtl ? "إغلاق البحث الشامل" : "Close Global Search"}
+            className="ms-2 rounded-[var(--radius-control)] p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={t("chat.globalSearch.close")}
           >
-            <X className="w-5 h-5" />
+            <X className="size-5" />
           </button>
         </div>
 
-        {/* Search Results */}
         <ScrollArea className="flex-1 p-2">
           {searchQuery.trim().length > 0 ? (
             <div className="py-2">
-              <h3 className="px-3 text-xs font-semibold text-[var(--sb-bg)] uppercase tracking-wider mb-2">{isRtl ? "النتائج" : "Results"}</h3>
+              <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+                {t("chat.globalSearch.results")}
+              </h3>
               {isSearching ? (
-                <div className="p-4 text-sm text-slate-500 text-center">{isRtl ? "جارِ البحث..." : "Searching..."}</div>
+                <div className="space-y-2 p-3" aria-label={t("chat.globalSearch.searching")}>
+                  <Skeleton className="h-14 w-full" />
+                  <Skeleton className="h-14 w-full" />
+                  <Skeleton className="h-14 w-full" />
+                </div>
               ) : results.length === 0 ? (
-                <div className="p-4 text-sm text-slate-500 text-center">{isRtl ? "لا نتائج لـ" : "No results found for"} &quot;{searchQuery}&quot;</div>
+                <EmptyState
+                  icon={<Search aria-hidden />}
+                  title={t("chat.globalSearch.noResults")}
+                  description={`${t("chat.globalSearch.noResultsFor")} “${searchQuery}”`}
+                  className="border-0 py-8 shadow-none"
+                />
               ) : (
                 results.map((res, idx) => (
                   <button
+                    type="button"
                     key={res.ID || idx}
-                    className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-50 focus:bg-slate-100 transition-colors text-start group"
+                    className="group flex w-full items-center gap-3 rounded-[var(--radius-control)] px-3 py-3 text-start transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
                   >
-                    <div className="flex items-center justify-center w-8 h-8 rounded bg-slate-100 text-slate-500 group-hover:text-[var(--sb-bg)] transition-colors shrink-0">
-                      <MessageSquare className="w-4 h-4" />
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-muted text-muted-foreground transition-colors group-hover:text-brand">
+                      <MessageSquare className="size-4" aria-hidden />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-slate-900 font-medium">
-                          {res.User?.Email || res.AIAgentRole || "System"}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground">
+                          {res.User?.Email || res.AIAgentRole || t("chat.system")}
                         </span>
-                        <span className="text-slate-500 text-xs">
-                          {isRtl ? "في" : "in"} {res.Channel?.Name || (isRtl ? "غير معروف" : "Unknown")}
+                        <span className="text-xs text-muted-foreground">
+                          {t("chat.globalSearch.inChannel")} {res.Channel?.Name || t("chat.globalSearch.unknownChannel")}
                         </span>
                       </div>
-                      <div className="text-slate-500 text-sm truncate">{res.Content}</div>
+                      <div className="truncate text-sm text-muted-foreground">{res.Content}</div>
                     </div>
                   </button>
                 ))
               )}
             </div>
           ) : (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-400">
-              <Search className="w-12 h-12 mb-4 opacity-20" />
-              <p>{isRtl ? "اكتب للبحث في مساحة العمل" : "Type to search across your workspace"}</p>
-            </div>
+            <EmptyState
+              icon={<Search aria-hidden />}
+              title={t("chat.globalSearch.emptyTitle")}
+              description={t("chat.globalSearch.emptyDescription")}
+              className="border-0 py-12 shadow-none"
+            />
           )}
         </ScrollArea>
       </div>

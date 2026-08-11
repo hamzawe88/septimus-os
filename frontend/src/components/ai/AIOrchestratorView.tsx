@@ -67,19 +67,19 @@ export default function AIOrchestratorView() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#1a1d21] p-8 overflow-y-auto transition-colors">
+    <div className="flex-1 flex flex-col h-full bg-muted dark:bg-[#1a1d21] p-8 overflow-y-auto transition-colors">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-6 border-b border-slate-200 dark:border-slate-800 gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 pb-6 border-b border-border dark:border-slate-800 gap-4">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-brand/10 dark:bg-brand/20 rounded-xl">
             <Sparkles className="w-8 h-8 text-brand" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            <h1 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
               {isRtl ? "مركز الذكاء الاصطناعي" : "AI Center"} 
-              <span dir="ltr" className="text-slate-400 font-normal text-lg">(AI Orchestrator)</span>
+              <span dir="ltr" className="text-muted-foreground font-normal text-lg">(AI Orchestrator)</span>
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-muted-foreground dark:text-muted-foreground mt-1">
               {isRtl ? "إدارة، مراقبة، ونشر الوكلاء المستقلين في مساحة العمل." : "Manage, monitor, and deploy autonomous agents in the workspace."}
             </p>
           </div>
@@ -95,68 +95,68 @@ export default function AIOrchestratorView() {
 
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-        <div className="p-6 bg-white dark:bg-[#222529] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm group hover:border-brand/50 transition-colors">
+        <div className="p-6 bg-card dark:bg-[#222529] border border-border dark:border-slate-800 rounded-2xl shadow-sm group hover:border-brand/50 transition-colors">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-bold text-slate-500 dark:text-slate-400">Active Agents</span>
+            <span className="text-sm font-bold text-muted-foreground dark:text-muted-foreground">Active Agents</span>
             <div className="p-2 bg-brand/10 rounded-lg group-hover:scale-110 transition-transform">
               <Cpu className="w-5 h-5 text-brand" />
             </div>
           </div>
-          <div className="text-3xl font-black text-slate-900 dark:text-white font-mono">{agents.filter(a => a.data?.status === 'Running').length}</div>
+          <div className="text-3xl font-black text-foreground dark:text-white font-mono">{agents.filter(a => a.data?.status === 'Running').length}</div>
         </div>
 
-        <div className="p-6 bg-white dark:bg-[#222529] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm group hover:border-emerald-500/50 transition-colors">
+        <div className="p-6 bg-card dark:bg-[#222529] border border-border dark:border-slate-800 rounded-2xl shadow-sm group hover:border-emerald-500/50 transition-colors">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-bold text-slate-500 dark:text-slate-400">Tasks Executed (24h)</span>
+            <span className="text-sm font-bold text-muted-foreground dark:text-muted-foreground">Tasks Executed (24h)</span>
             <div className="p-2 bg-emerald-500/10 rounded-lg group-hover:scale-110 transition-transform">
               <Activity className="w-5 h-5 text-emerald-500" />
             </div>
           </div>
-          <div className="text-3xl font-black text-slate-900 dark:text-white font-mono">14</div>
+          <div className="text-3xl font-black text-foreground dark:text-white font-mono">14</div>
         </div>
 
-        <div className="p-6 bg-white dark:bg-[#222529] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm group hover:border-rose-500/50 transition-colors">
+        <div className="p-6 bg-card dark:bg-[#222529] border border-border dark:border-slate-800 rounded-2xl shadow-sm group hover:border-rose-500/50 transition-colors">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{isRtl ? "الأخطاء" : "Errors"}</span>
+            <span className="text-sm font-bold text-muted-foreground dark:text-muted-foreground">{isRtl ? "الأخطاء" : "Errors"}</span>
             <div className="p-2 bg-rose-500/10 rounded-lg group-hover:scale-110 transition-transform">
               <ShieldAlert className="w-5 h-5 text-rose-500" />
             </div>
           </div>
-          <div className="text-3xl font-black text-slate-900 dark:text-white font-mono">0</div>
+          <div className="text-3xl font-black text-foreground dark:text-white font-mono">0</div>
         </div>
 
-        <div className="p-6 bg-white dark:bg-[#222529] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm group hover:border-amber-500/50 transition-colors">
+        <div className="p-6 bg-card dark:bg-[#222529] border border-border dark:border-slate-800 rounded-2xl shadow-sm group hover:border-amber-500/50 transition-colors">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{isRtl ? "استهلاك الحوسبة" : "Compute Usage"}</span>
+            <span className="text-sm font-bold text-muted-foreground dark:text-muted-foreground">{isRtl ? "استهلاك الحوسبة" : "Compute Usage"}</span>
             <div className="p-2 bg-amber-500/10 rounded-lg group-hover:scale-110 transition-transform">
               <Sparkles className="w-5 h-5 text-amber-500" />
             </div>
           </div>
-          <div dir="ltr" className="text-3xl font-black text-slate-900 dark:text-white font-mono text-end rtl:text-start">4.2M <span className="text-sm text-slate-400">tokens</span></div>
+          <div dir="ltr" className="text-3xl font-black text-foreground dark:text-white font-mono text-end rtl:text-start">4.2M <span className="text-sm text-muted-foreground">tokens</span></div>
         </div>
       </div>
 
       {/* Active Agents Table */}
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+        <h2 className="text-xl font-bold text-foreground dark:text-white flex items-center gap-2">
           {isRtl ? "قائمة الوكلاء" : "Agent List"}
-          <span dir="ltr" className="text-sm font-normal text-slate-400">(Deployed Agents)</span>
+          <span dir="ltr" className="text-sm font-normal text-muted-foreground">(Deployed Agents)</span>
         </h2>
       </div>
       
-      <div className="bg-white dark:bg-[#222529] border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden mb-8 shadow-sm">
+      <div className="bg-card dark:bg-[#222529] border border-border dark:border-slate-800 rounded-2xl overflow-hidden mb-8 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-start text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+            <thead className="bg-muted dark:bg-slate-800/50 border-b border-border dark:border-slate-800">
               <tr>
-                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">{isRtl ? "الوكيل" : "Agent"}</th>
-                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">{isRtl ? "الحالة" : "Status"}</th>
-                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">{isRtl ? "مدة التشغيل" : "Uptime"}</th>
-                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-start rtl:text-end">{isRtl ? "المهام النشطة" : "Active Tasks"}</th>
-                <th className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300 text-end rtl:text-start">{isRtl ? "الإجراءات" : "Actions"}</th>
+                <th className="px-6 py-4 font-bold text-muted-foreground dark:text-slate-300 text-start rtl:text-end">{isRtl ? "الوكيل" : "Agent"}</th>
+                <th className="px-6 py-4 font-bold text-muted-foreground dark:text-slate-300 text-start rtl:text-end">{isRtl ? "الحالة" : "Status"}</th>
+                <th className="px-6 py-4 font-bold text-muted-foreground dark:text-slate-300 text-start rtl:text-end">{isRtl ? "مدة التشغيل" : "Uptime"}</th>
+                <th className="px-6 py-4 font-bold text-muted-foreground dark:text-slate-300 text-start rtl:text-end">{isRtl ? "المهام النشطة" : "Active Tasks"}</th>
+                <th className="px-6 py-4 font-bold text-muted-foreground dark:text-slate-300 text-end rtl:text-start">{isRtl ? "الإجراءات" : "Actions"}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-border dark:divide-slate-800">
               {agents.map((agent) => {
                 const data = agent.data || {};
                 const status = data.status || "Idle";
@@ -165,8 +165,8 @@ export default function AIOrchestratorView() {
                 const tasks = data.tasks || 0;
                 
                 return (
-                  <tr key={agent.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="px-6 py-4 font-bold text-slate-900 dark:text-white flex items-center gap-3">
+                  <tr key={agent.id} className="hover:bg-muted dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="px-6 py-4 font-bold text-foreground dark:text-white flex items-center gap-3">
                       <BotAvatar name={name} />
                       <span dir="ltr">{name}</span>
                     </td>
@@ -174,19 +174,19 @@ export default function AIOrchestratorView() {
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${
                         status === "Running" 
                           ? "bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" 
-                          : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                          : "bg-muted dark:bg-slate-800 text-foreground dark:text-slate-300"
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${status === "Running" ? "bg-emerald-500" : "bg-slate-400"}`} />
                         <span dir="ltr">{status}</span>
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-mono" dir="ltr">{uptime}</td>
-                    <td className="px-6 py-4 text-slate-900 dark:text-white font-mono">{tasks}</td>
+                    <td className="px-6 py-4 text-muted-foreground dark:text-muted-foreground font-mono" dir="ltr">{uptime}</td>
+                    <td className="px-6 py-4 text-foreground dark:text-white font-mono">{tasks}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={() => alert(isRtl ? `إعدادات الوكيل ${name} ستتوفر في المرحلة القادمة.` : `Settings for agent ${name} will be available in the next phase.`)}
-                          className="p-2 text-slate-400 hover:text-brand hover:bg-brand/10 rounded-lg transition-colors" 
+                          className="p-2 text-muted-foreground hover:text-brand hover:bg-brand/10 rounded-lg transition-colors" 
                           title={isRtl ? "الإعدادات" : "Settings"}
                         >
                           <Settings2 className="w-5 h-5" />
@@ -194,7 +194,7 @@ export default function AIOrchestratorView() {
                         {status === "Running" && (
                           <button 
                             onClick={() => handleStopAgent(agent.id)}
-                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" 
+                            className="p-2 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" 
                             title={isRtl ? "إيقاف" : "Stop"}
                           >
                             <Square className="w-5 h-5 fill-current" />
@@ -208,11 +208,11 @@ export default function AIOrchestratorView() {
               {agents.length === 0 && !isLoading && (
                 <tr>
                   <td colSpan={5} className="px-6 py-16 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
-                      <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                        <Sparkles className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                    <div className="flex flex-col items-center justify-center text-muted-foreground dark:text-muted-foreground">
+                      <div className="w-16 h-16 bg-muted dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                        <Sparkles className="w-8 h-8 text-slate-300 dark:text-muted-foreground" />
                       </div>
-                      <p className="text-base font-bold text-slate-600 dark:text-slate-400">{isRtl ? "لا يوجد وكلاء حالياً" : "No agents available"}</p>
+                      <p className="text-base font-bold text-muted-foreground dark:text-muted-foreground">{isRtl ? "لا يوجد وكلاء حالياً" : "No agents available"}</p>
                       <p className="text-sm mt-1">{isRtl ? "انقر على \"نشر وكيل جديد\" للبدء في مساحة العمل." : "Click on \"Deploy Agent\" to get started in the workspace."}</p>
                     </div>
                   </td>

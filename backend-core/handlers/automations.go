@@ -82,7 +82,7 @@ func GetAutomationTemplates(c *fiber.Ctx) error {
 // ActivateAutomation simulates activating a workflow in n8n
 func ActivateAutomation(c *fiber.Ctx) error {
 	id := c.Params("id")
-	
+
 	// In a real integration, we would:
 	// 1. Fetch the n8n JSON workflow template.
 	// 2. Make a POST request to n8n API to create the workflow.
@@ -93,7 +93,7 @@ func ActivateAutomation(c *fiber.Ctx) error {
 		if tpl.ID == id {
 			templates[i].Status = "active"
 			return c.JSON(fiber.Map{
-				"message": "Automation activated successfully in n8n",
+				"message":  "Automation activated successfully in n8n",
 				"template": templates[i],
 			})
 		}

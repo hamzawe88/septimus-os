@@ -11,7 +11,7 @@ interface AddCustomerModalProps {
 }
 
 export default function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCustomerModalProps) {
-  const { isRtl } = useLocalization();
+  const { t } = useLocalization();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -26,20 +26,11 @@ export default function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCust
     e.preventDefault();
     try {
       setLoading(true);
-      let workspaceId = localStorage.getItem("currentWorkspaceId");
-      if (!workspaceId || workspaceId === "undefined" || workspaceId === "null") {
-        workspaceId = "";
-      }
-      await apiPost("/entities", {
-        workspace_id: workspaceId,
-        entity_type: "lead",
-        data: {
-          name: formData.name,
-          email: formData.email,
-          company: formData.company,
-          status: formData.status,
-          created_at: new Date().toISOString(),
-        },
+	  await apiPost("/crm/accounts", {
+		name: formData.company,
+		contact_name: formData.name,
+		email: formData.email,
+		status: formData.status,
       });
       onSuccess();
       onClose();
@@ -52,56 +43,56 @@ export default function AddCustomerModal({ isOpen, onClose, onSuccess }: AddCust
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative">
-        <button 
+      <div className="bg-card rounded-xl shadow-lg w-full max-w-md p-6 relative">
+        <button
           onClick={onClose}
-          className="absolute top-4 end-4 p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors"
-          title="Close" aria-label="Close">
+          className="absolute top-4 end-4 p-2 text-muted-foreground hover:bg-muted hover:text-muted-foreground rounded-full transition-colors"
+          title={t("common.close")} aria-label={t("common.close")}>
           <X className="w-5 h-5" />
         </button>
 
-        <h2 className="text-xl font-bold text-slate-800 mb-6">Add New Customer</h2>
+        <h2 className="text-xl font-bold text-foreground mb-6">{t("crm.forms.addCustomer")}</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="field-1" className="block text-sm font-medium text-slate-700 mb-1">Customer Name</label>
-            <input placeholder="Customer Name" id="field-1" title="Customer Name" aria-label="Customer Name" 
-              type="text" 
+            <label htmlFor="field-1" className="block text-sm font-medium text-foreground mb-1">{t("crm.forms.customerName")}</label>
+            <input placeholder={t("crm.forms.customerName")} id="field-1" title={t("crm.forms.customerName")} aria-label={t("crm.forms.customerName")}
+              type="text"
               required
-              className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
+              className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
             />
           </div>
-          
+
           <div>
-            <label htmlFor="field-2" className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-            <input placeholder="Email Address" id="field-2" title="Email Address" aria-label="Email Address" 
-              type="email" 
+            <label htmlFor="field-2" className="block text-sm font-medium text-foreground mb-1">{t("crm.forms.email")}</label>
+            <input placeholder={t("crm.forms.email")} id="field-2" title={t("crm.forms.email")} aria-label={t("crm.forms.email")}
+              type="email"
               required
-              className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
+              className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
               value={formData.email}
               onChange={(e) => setFormData({...formData, email: e.target.value})}
             />
           </div>
 
           <div>
-            <label htmlFor="field-3" className="block text-sm font-medium text-slate-700 mb-1">Company</label>
-            <input placeholder="Company Name" id="field-3" title="Company Name" aria-label="Company Name" 
-              type="text" 
+            <label htmlFor="field-3" className="block text-sm font-medium text-foreground mb-1">{t("crm.forms.company")}</label>
+            <input placeholder={t("crm.forms.companyPlaceholder")} id="field-3" title={t("crm.forms.company")} aria-label={t("crm.forms.company")}
+              type="text"
               required
-              className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
+              className="w-full border border-border rounded-lg px-4 py-2 focus:ring-2 focus:ring-brand focus:border-transparent outline-none"
               value={formData.company}
               onChange={(e) => setFormData({...formData, company: e.target.value})}
             />
           </div>
 
-          <div className="flex justify-end gap-3 mt-8">
+          <div className="mt-8 flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={onClose}>
-              {isRtl ? "إلغاء" : "Cancel"}
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={loading} className="bg-brand hover:bg-brand/90">
-              {loading ? "Saving..." : "Save Customer"}
+              {loading ? t("common.saving") : t("crm.forms.saveCustomer")}
             </Button>
           </div>
         </form>

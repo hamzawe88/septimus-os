@@ -27,19 +27,12 @@ func SaveInstitutionalFact(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "content is required"})
 	}
 
-	var workspaceID uuid.UUID
-	if req.WorkspaceID != "" {
-		workspaceID = database.ParseUUID(req.WorkspaceID)
-	}
+	workspaceID := CurrentWorkspaceID(c)
 	if workspaceID == uuid.Nil {
-		if val := c.Locals("workspace_id"); val != nil {
-			if str, ok := val.(string); ok {
-				workspaceID = database.ParseUUID(str)
-			}
-		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "workspace_id is required"})
 	}
-	if workspaceID == uuid.Nil {
-		workspaceID = resolveDefaultWorkspaceID()
+	if req.WorkspaceID != "" && database.ParseUUID(req.WorkspaceID) != workspaceID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "workspace metadata does not match request context"})
 	}
 
 	entityID := uuid.New()
@@ -57,19 +50,9 @@ func SaveInstitutionalFact(c *fiber.Ctx) error {
 }
 
 func GetInstitutionalFacts(c *fiber.Ctx) error {
-	var workspaceID uuid.UUID
-	if val := c.Locals("workspace_id"); val != nil {
-		if str, ok := val.(string); ok {
-			workspaceID = database.ParseUUID(str)
-		}
-	}
+	workspaceID := CurrentWorkspaceID(c)
 	if workspaceID == uuid.Nil {
-		if qId := c.Query("workspace_id"); qId != "" {
-			workspaceID = database.ParseUUID(qId)
-		}
-	}
-	if workspaceID == uuid.Nil {
-		workspaceID = resolveDefaultWorkspaceID()
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "workspace_id is required"})
 	}
 
 	var facts []models.DocumentEmbedding
@@ -101,7 +84,11 @@ func DeleteInstitutionalFact(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid fact uuid"})
 	}
 
-	result := database.GetDB(c).Where("id = ? OR entity_id = ?", factUUID, factUUID).Delete(&models.DocumentEmbedding{})
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "workspace_id is required"})
+	}
+	result := database.GetDB(c).Where("workspace_id = ? AND (id = ? OR entity_id = ?)", workspaceID, factUUID, factUUID).Delete(&models.DocumentEmbedding{})
 	if result.Error != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to delete fact"})
 	}

@@ -49,8 +49,8 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.props.fallback) return this.props.fallback;
 
     return (
-      <div className="flex-1 flex items-center justify-center p-8 bg-slate-50">
-        <div className="max-w-md w-full bg-white rounded-2xl border border-red-100 shadow-lg overflow-hidden">
+      <div className="flex-1 flex items-center justify-center p-8 bg-muted">
+        <div className="max-w-md w-full bg-card rounded-2xl border border-red-100 shadow-lg overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-red-500 to-rose-600 px-6 py-4 flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
@@ -68,16 +68,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
           {/* Body */}
           <div className="p-6 space-y-4">
-            <p className="text-slate-600 text-sm leading-relaxed">
+            <p className="text-muted-foreground text-sm leading-relaxed">
               An unexpected error occurred. You can try again or reload the page.
             </p>
 
             {/* Error details toggle */}
             {this.state.error && (
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
+              <div className="border border-border rounded-lg overflow-hidden">
                 <button
                   onClick={() => this.setState(s => ({ showDetails: !s.showDetails }))}
-                  className="w-full px-4 py-2 flex items-center justify-between text-xs font-semibold text-slate-500 bg-slate-50 hover:bg-slate-100 transition-colors"
+                  className="w-full px-4 py-2 flex items-center justify-between text-xs font-semibold text-muted-foreground bg-muted hover:bg-muted transition-colors"
                 >
                   Error Details (for developers)
                   <ChevronDown
@@ -105,7 +105,7 @@ export class ErrorBoundary extends Component<Props, State> {
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="px-4 py-2 bg-slate-100 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-200 transition-colors"
+                className="px-4 py-2 bg-muted text-foreground text-sm font-semibold rounded-lg hover:bg-slate-200 transition-colors"
               >
                 Reload Page
               </button>

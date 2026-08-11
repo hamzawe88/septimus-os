@@ -26,7 +26,7 @@ import { BillingStatusResponse, CheckoutSessionResponse } from "@/types/billing"
 import { Button } from "@/components/ui/button";
 import { useLocalization } from "@/contexts/LocalizationContext";
 import { useAppStore } from "@/store/useAppStore";
-import UpgradeModal from "./UpgradeModal";
+
 
 interface SaaSPlan {
   id?: string;
@@ -171,9 +171,9 @@ export default function BillingDashboard() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 space-y-4 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-3xl border border-slate-200/50 dark:border-slate-800/50 p-8 shadow-sm">
+      <div className="flex flex-col items-center justify-center h-96 space-y-4 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-3xl border border-border/50 dark:border-slate-800/50 p-8 shadow-sm">
         <RefreshCw className="w-8 h-8 animate-spin text-brand" />
-        <span className="text-slate-500 dark:text-slate-400 font-medium text-sm">
+        <span className="text-muted-foreground dark:text-muted-foreground font-medium text-sm">
           {t('billingDashboard.syncingData')}
         </span>
       </div>
@@ -202,7 +202,7 @@ export default function BillingDashboard() {
   const aiPct = Math.min(100, ((data.usage?.ai_tokens?.current ?? 0) / (data.usage?.ai_tokens?.max || 1)) * 100);
 
   return (
-    <div dir={isRtl ? "rtl" : "ltr"} className={`space-y-8 pb-12 text-slate-800 dark:text-slate-100 mx-auto transition-all duration-300 ${isSidebarOpen ? 'max-w-7xl' : 'max-w-full'}`}>
+    <div dir={isRtl ? "rtl" : "ltr"} className={`space-y-8 pb-12 text-foreground dark:text-slate-100 mx-auto transition-all duration-300 ${isSidebarOpen ? 'max-w-7xl' : 'max-w-full'}`}>
       
       {/* Success Notification Banner */}
       {successBanner && (
@@ -229,7 +229,7 @@ export default function BillingDashboard() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 relative z-10">
           <div className="space-y-4 max-w-3xl">
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-300 text-xs font-semibold tracking-wide shadow-sm">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-muted/80 dark:bg-slate-800/80 backdrop-blur-sm border border-border/50 dark:border-slate-700/50 text-muted-foreground dark:text-slate-300 text-xs font-semibold tracking-wide shadow-sm">
                 <Building2 className="w-3.5 h-3.5" />
                 <span>{t('billingDashboard.workspaceTenant')} {data.workspace.Name}</span>
               </div>
@@ -246,13 +246,13 @@ export default function BillingDashboard() {
               )}
             </div>
             
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight flex flex-wrap items-center gap-4 text-slate-900 dark:text-white">
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight flex flex-wrap items-center gap-4 text-foreground dark:text-white">
               <span>{t('billingDashboard.controlCenter')}</span>
               <span className="px-4 py-1 rounded-xl text-lg font-bold uppercase bg-brand text-brand-foreground shadow-lg shadow-brand/25 ring-1 ring-white/20">
                 {currentTier}
               </span>
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-base leading-relaxed max-w-2xl">
+            <p className="text-muted-foreground dark:text-muted-foreground text-base leading-relaxed max-w-2xl">
               {t('billingDashboard.controlCenterDesc')}
             </p>
           </div>
@@ -261,9 +261,9 @@ export default function BillingDashboard() {
             <Button
               onClick={loadStatus}
               variant="outline"
-              className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all rounded-xl h-11 px-5"
+              className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-border/60 dark:border-slate-700/60 shadow-sm hover:bg-muted dark:hover:bg-slate-700 transition-all rounded-xl h-11 px-5"
             >
-              <RefreshCw className="w-4 h-4 me-2 text-slate-500" />
+              <RefreshCw className="w-4 h-4 me-2 text-muted-foreground" />
               {t('billingDashboard.refresh')}
             </Button>
             <Button
@@ -278,7 +278,7 @@ export default function BillingDashboard() {
         </div>
 
         {/* Clean Line Tabs */}
-        <div className="flex items-center gap-6 mt-10 border-b border-slate-200/50 dark:border-slate-700/50 overflow-x-auto hide-scrollbar relative z-10">
+        <div className="flex items-center gap-6 mt-10 border-b border-border/50 dark:border-slate-700/50 overflow-x-auto hide-scrollbar relative z-10">
           {[
             { id: 'overview', icon: Zap, label: t('billingDashboard.liveQuotas') },
             { id: 'plans', icon: Sparkles, label: t('billingDashboard.upgradePlans') },
@@ -291,7 +291,7 @@ export default function BillingDashboard() {
               className={`pb-4 text-sm font-bold transition-all flex items-center gap-2 shrink-0 border-b-2 ${
                 activeTab === tab.id
                   ? "border-brand text-brand"
-                  : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600"
+                  : "border-transparent text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-slate-200 hover:border-border dark:hover:border-slate-600"
               }`}
             >
               <tab.icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-brand' : 'opacity-70'}`} />
@@ -310,25 +310,25 @@ export default function BillingDashboard() {
               <div className="w-12 h-12 rounded-2xl bg-brand/10 flex items-center justify-center text-brand ring-1 ring-brand/20">
                 <Users className="w-5 h-5" />
               </div>
-              <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
                 {t('billingDashboard.activeSeats')}
               </span>
             </div>
             <div>
               <div className="flex justify-between items-end mb-3">
                 <span className="text-4xl font-black tracking-tight">{data.usage?.users?.current ?? 0}</span>
-                <span className="text-sm font-semibold text-slate-400 mb-1">
+                <span className="text-sm font-semibold text-muted-foreground mb-1">
                   / {(data.usage?.users?.max ?? 0) > 10000 || (data.usage?.users?.max ?? 0) < 0 ? "∞" : data.usage?.users?.max ?? 0} {t('billingDashboard.usersCount')}
                 </span>
               </div>
-              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-muted dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                 <div
                   className="bg-brand h-full rounded-full transition-all duration-1000 ease-out"
                   style={{ width: `${userPct}%` }}
                 />
               </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground leading-relaxed">
               {t('billingDashboard.seatsDesc')}
             </p>
           </div>
@@ -339,25 +339,25 @@ export default function BillingDashboard() {
               <div className="w-12 h-12 rounded-2xl bg-brand/10 flex items-center justify-center text-brand ring-1 ring-brand/20">
                 <Database className="w-5 h-5" />
               </div>
-              <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
                 {t('billingDashboard.encryptedStorage')}
               </span>
             </div>
             <div>
               <div className="flex justify-between items-end mb-3">
-                <span className="text-4xl font-black tracking-tight">{data.usage?.storage_gb?.current ?? 0}<span className="text-lg text-slate-400 ms-1">GB</span></span>
-                <span className="text-sm font-semibold text-slate-400 mb-1">
+                <span className="text-4xl font-black tracking-tight">{Math.round((data.usage?.storage_gb?.current ?? 0) * 100) / 100}<span className="text-lg text-muted-foreground ms-1">GB</span></span>
+                <span className="text-sm font-semibold text-muted-foreground mb-1">
                   / {data.usage?.storage_gb?.max ?? 0} GB
                 </span>
               </div>
-              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-muted dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                 <div
                   className="bg-brand h-full rounded-full transition-all duration-1000 ease-out"
                   style={{ width: `${storagePct}%` }}
                 />
               </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground leading-relaxed">
               {t('billingDashboard.storageDesc')}
             </p>
           </div>
@@ -369,25 +369,25 @@ export default function BillingDashboard() {
               <div className="w-12 h-12 rounded-2xl bg-brand/10 flex items-center justify-center text-brand ring-1 ring-brand/20">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+              <span className="text-xs font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
                 {t('billingDashboard.aiTokens')}
               </span>
             </div>
             <div className="relative z-10">
               <div className="flex justify-between items-end mb-3">
                 <span className="text-4xl font-black tracking-tight">{(data.usage?.ai_tokens?.current ?? 0).toLocaleString()}</span>
-                <span className="text-sm font-semibold text-slate-400 mb-1">
+                <span className="text-sm font-semibold text-muted-foreground mb-1">
                   / {(data.usage?.ai_tokens?.max ?? 0) < 0 ? "∞" : (data.usage?.ai_tokens?.max ?? 0).toLocaleString()} {t('billingDashboard.tokensCount')}
                 </span>
               </div>
-              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-muted dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                 <div
                   className="bg-brand h-full rounded-full transition-all duration-1000 ease-out"
                   style={{ width: `${aiPct}%` }}
                 />
               </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed relative z-10">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground leading-relaxed relative z-10">
               {t('billingDashboard.aiDesc')}
             </p>
           </div>
@@ -402,13 +402,13 @@ export default function BillingDashboard() {
               <h2 className="text-2xl font-extrabold flex items-center gap-2">
                 {t('billingDashboard.availablePlans')}
               </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-lg">
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-2 max-w-lg">
                 {t('billingDashboard.plansDesc')}
               </p>
             </div>
             
-            <div className="flex items-center gap-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm">
-              <span className="text-xs font-bold text-slate-400 dark:text-slate-500 ms-3 uppercase tracking-wider">{t('billingDashboard.gateway')}</span>
+            <div className="flex items-center gap-3 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md p-1.5 rounded-2xl border border-border/60 dark:border-slate-800/60 shadow-sm">
+              <span className="text-xs font-bold text-muted-foreground dark:text-muted-foreground ms-3 uppercase tracking-wider">{t('billingDashboard.gateway')}</span>
               <div className="flex items-center gap-1">
                 {['stripe', 'moamalat', 'onepay'].map((g) => (
                   <button
@@ -416,8 +416,8 @@ export default function BillingDashboard() {
                     onClick={() => setGateway(g)}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                       gateway === g 
-                        ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' 
-                        : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        ? 'bg-card dark:bg-slate-800 text-foreground dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-700' 
+                        : 'text-muted-foreground hover:text-foreground dark:hover:text-slate-300'
                     }`}
                   >
                     {g === 'stripe' ? 'Stripe' : g === 'moamalat' ? 'Moamalat' : 'OnePay'}
@@ -447,7 +447,7 @@ export default function BillingDashboard() {
                     className={`relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[2rem] p-8 border transition-all duration-300 flex flex-col h-full
                       ${plan.recommended 
                         ? "border-brand shadow-xl shadow-brand/10 md:-mt-4" 
-                        : "border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700"
+                        : "border-border dark:border-slate-800 shadow-sm hover:shadow-md hover:border-border dark:hover:border-slate-700"
                       }
                       ${isCurrent ? "ring-2 ring-brand/50 ring-offset-2 ring-offset-slate-50 dark:ring-offset-slate-950" : ""}
                     `}
@@ -469,21 +469,21 @@ export default function BillingDashboard() {
                       <h3 className="text-xl font-bold mb-2">
                         {isRtl ? plan.name_ar : plan.name_en}
                       </h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 min-h-[40px]">
+                      <p className="text-sm text-muted-foreground dark:text-muted-foreground min-h-[40px]">
                         {isRtl ? plan.description_ar : plan.description_en}
                       </p>
                     </div>
 
                     <div className="mb-8">
                       <div className="flex items-baseline gap-1">
-                        <span className="text-5xl font-black tracking-tight text-slate-900 dark:text-white">
+                        <span className="text-5xl font-black tracking-tight text-foreground dark:text-white">
                           {plan.price === 0 ? t('billingDashboard.free') : plan.price}
                         </span>
                         {plan.price > 0 && (
-                          <span className="text-slate-500 font-semibold">{plan.currency}</span>
+                          <span className="text-muted-foreground font-semibold">{plan.currency}</span>
                         )}
                       </div>
-                      <span className="text-xs text-slate-400 font-medium mt-1 block">
+                      <span className="text-xs text-muted-foreground font-medium mt-1 block">
                         / {isRtl ? "شهرياً للشركة" : "month per tenant"}
                       </span>
                     </div>
@@ -491,8 +491,8 @@ export default function BillingDashboard() {
                     <div className="space-y-4 mb-8 flex-1">
                       {(isRtl ? parsedFeaturesAr : parsedFeaturesEn).map((feat, idx) => (
                         <div key={idx} className="flex items-start gap-3">
-                          <Check className={`w-5 h-5 shrink-0 mt-0.5 ${plan.recommended ? "text-brand" : "text-slate-500"}`} />
-                          <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">{feat}</span>
+                          <Check className={`w-5 h-5 shrink-0 mt-0.5 ${plan.recommended ? "text-brand" : "text-muted-foreground"}`} />
+                          <span className="text-sm text-foreground dark:text-slate-300 font-medium">{feat}</span>
                         </div>
                       ))}
                     </div>
@@ -502,10 +502,10 @@ export default function BillingDashboard() {
                       disabled={isCurrent || upgradingTier === plan.tier_id}
                       className={`w-full h-12 rounded-xl font-bold text-sm transition-all ${
                         isCurrent
-                          ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-200 dark:border-slate-700"
+                          ? "bg-muted dark:bg-slate-800 text-muted-foreground cursor-not-allowed border border-border dark:border-slate-700"
                           : plan.recommended
                             ? "bg-brand hover:bg-brand-hover text-brand-foreground shadow-lg shadow-brand/20"
-                            : "bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900"
+                            : "bg-slate-900 hover:bg-slate-800 dark:bg-card dark:hover:bg-slate-200 text-white dark:text-foreground"
                       }`}
                     >
                       {upgradingTier === plan.tier_id ? (
@@ -527,13 +527,13 @@ export default function BillingDashboard() {
       {/* TAB 3: INVOICES & HISTORY */}
       {activeTab === 'invoices' && (
         <div className="bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl rounded-[2rem] border border-white/40 dark:border-slate-800/60 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-8 border-b border-border dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <FileText className="w-5 h-5 text-brand" />
                 <span>{t('billingDashboard.recentInvoices')}</span>
               </h2>
-              <div className="text-xs font-mono text-slate-400 mt-2">
+              <div className="text-xs font-mono text-muted-foreground mt-2">
                 CustomerID: {data.subscription?.stripe_customer_id || "None"}
               </div>
             </div>
@@ -542,7 +542,7 @@ export default function BillingDashboard() {
           <div className="overflow-x-auto">
             {data.invoices && data.invoices.length > 0 ? (
               <table className="w-full text-sm text-start">
-                <thead className="bg-slate-50/50 dark:bg-slate-800/50 text-slate-500 uppercase text-xs font-bold tracking-wider">
+                <thead className="bg-muted/50 dark:bg-slate-800/50 text-muted-foreground uppercase text-xs font-bold tracking-wider">
                   <tr>
                     <th className="px-8 py-5 text-start">{t('billingDashboard.invoiceId')}</th>
                     <th className="px-8 py-5 text-start">{t('billingDashboard.paidAt')}</th>
@@ -551,13 +551,13 @@ export default function BillingDashboard() {
                     <th className="px-8 py-5 text-start">{t('billingDashboard.receipt')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                <tbody className="divide-y divide-border dark:divide-slate-800/50">
                   {(data.invoices || []).map((inv) => (
-                    <tr key={inv.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <tr key={inv.id} className="hover:bg-muted dark:hover:bg-slate-800/50 transition-colors">
                       <td className="px-8 py-5 font-mono text-brand font-medium">
                         {inv.stripe_invoice_id}
                       </td>
-                      <td className="px-8 py-5 text-slate-600 dark:text-slate-400 font-mono text-xs">
+                      <td className="px-8 py-5 text-muted-foreground dark:text-muted-foreground font-mono text-xs">
                         {new Date(inv.paid_at).toLocaleString()}
                       </td>
                       <td className="px-8 py-5 font-bold font-mono">
@@ -574,7 +574,7 @@ export default function BillingDashboard() {
                             href={inv.invoice_pdf_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-slate-500 hover:text-brand font-medium transition-colors"
+                            className="inline-flex items-center gap-1 text-muted-foreground hover:text-brand font-medium transition-colors"
                           >
                             <Download className="w-4 h-4" />
                             <span>{t('billingDashboard.downloadPdf')}</span>
@@ -592,11 +592,11 @@ export default function BillingDashboard() {
               </table>
             ) : (
               <div className="py-20 text-center flex flex-col items-center">
-                <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-400 mb-4 ring-1 ring-slate-100 dark:ring-slate-700">
+                <div className="w-16 h-16 bg-muted dark:bg-slate-800 rounded-full flex items-center justify-center text-muted-foreground mb-4 ring-1 ring-slate-100 dark:ring-slate-700">
                   <FileText className="w-8 h-8 opacity-50" />
                 </div>
-                <p className="text-slate-500 dark:text-slate-400 font-medium mb-2">{t('billingDashboard.noInvoices')}</p>
-                <p className="text-sm text-slate-400 max-w-sm mx-auto">
+                <p className="text-muted-foreground dark:text-muted-foreground font-medium mb-2">{t('billingDashboard.noInvoices')}</p>
+                <p className="text-sm text-muted-foreground max-w-sm mx-auto">
                   {t('billingDashboard.noInvoicesDesc')}
                 </p>
               </div>
@@ -608,51 +608,51 @@ export default function BillingDashboard() {
       {/* TAB 4: SECURITY & RLS AUDIT */}
       {activeTab === 'security' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl rounded-[2rem] p-8 text-slate-900 dark:text-white border border-white/40 dark:border-slate-800/60 shadow-sm relative overflow-hidden">
+          <div className="bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl rounded-[2rem] p-8 text-foreground dark:text-white border border-white/40 dark:border-slate-800/60 shadow-sm relative overflow-hidden">
             <div className="absolute -top-24 -end-24 w-64 h-64 bg-brand/10 dark:bg-brand/30 rounded-full blur-[80px] pointer-events-none" />
             <div className="flex items-start gap-4 relative z-10">
               <div className="p-3 bg-brand/10 dark:bg-white/10 rounded-2xl shrink-0 backdrop-blur-sm border border-brand/20 dark:border-white/10">
                 <Lock className="w-6 h-6 text-brand" />
               </div>
               <div>
-                <h3 className="font-bold text-lg mb-2 text-slate-900 dark:text-white">{t('billingDashboard.rlsIsolation')}</h3>
-                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                <h3 className="font-bold text-lg mb-2 text-foreground dark:text-white">{t('billingDashboard.rlsIsolation')}</h3>
+                <p className="text-sm text-muted-foreground dark:text-slate-300 leading-relaxed">
                   {t('billingDashboard.rlsDesc')}
                 </p>
               </div>
             </div>
             
-            <div className="mt-8 bg-slate-50 dark:bg-black/40 rounded-xl p-4 border border-slate-200 dark:border-white/10">
+            <div className="mt-8 bg-muted dark:bg-black/40 rounded-xl p-4 border border-border dark:border-white/10">
               <div className="text-xs font-mono text-brand mb-2"># RLS Verification Check</div>
-              <div className="font-mono text-sm text-slate-700 dark:text-slate-300">
+              <div className="font-mono text-sm text-foreground dark:text-slate-300">
                 <span className="text-brand">SELECT</span> current_setting(<span className="text-brand">&apos;app.current_workspace_id&apos;</span>);<br/>
-                <span className="text-slate-500">-- Returns: {data.workspace.ID}</span>
+                <span className="text-muted-foreground">-- Returns: {data.workspace.ID}</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl rounded-[2rem] p-8 text-slate-900 dark:text-white border border-white/40 dark:border-slate-800/60 shadow-sm relative overflow-hidden">
+          <div className="bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl rounded-[2rem] p-8 text-foreground dark:text-white border border-white/40 dark:border-slate-800/60 shadow-sm relative overflow-hidden">
             <div className="absolute -bottom-24 -start-24 w-64 h-64 bg-brand/5 dark:bg-brand/10 rounded-full blur-[80px] pointer-events-none" />
             <div className="flex items-start gap-4 relative z-10">
               <div className="p-3 bg-brand/10 dark:bg-white/10 rounded-2xl shrink-0 backdrop-blur-sm border border-brand/20 dark:border-white/10">
                 <Globe className="w-6 h-6 text-brand" />
               </div>
               <div>
-                <h3 className="font-bold text-lg mb-2 text-slate-900 dark:text-white">{t('billingDashboard.subdomainTelemetry')}</h3>
-                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                <h3 className="font-bold text-lg mb-2 text-foreground dark:text-white">{t('billingDashboard.subdomainTelemetry')}</h3>
+                <p className="text-sm text-muted-foreground dark:text-slate-300 leading-relaxed">
                   {t('billingDashboard.telemetryDesc')}
                 </p>
               </div>
             </div>
 
-            <div className="mt-8 bg-slate-50 dark:bg-black/40 rounded-xl p-4 border border-slate-200 dark:border-white/10">
+            <div className="mt-8 bg-muted dark:bg-black/40 rounded-xl p-4 border border-border dark:border-white/10">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-mono text-slate-500 dark:text-slate-400">Node Cluster</span>
+                <span className="text-xs font-mono text-muted-foreground dark:text-muted-foreground">Node Cluster</span>
                 <span className="text-xs font-mono text-brand flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-brand animate-pulse"/>ONLINE</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-mono text-slate-500 dark:text-slate-400">Workspace Hash</span>
-                <span className="text-xs font-mono text-slate-700 dark:text-slate-300 truncate ms-4">{data.workspace.ID.split('-')[0]}***</span>
+                <span className="text-xs font-mono text-muted-foreground dark:text-muted-foreground">Workspace Hash</span>
+                <span className="text-xs font-mono text-foreground dark:text-slate-300 truncate ms-4">{data.workspace.ID.split('-')[0]}***</span>
               </div>
             </div>
           </div>

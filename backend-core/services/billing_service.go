@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,7 +56,7 @@ func CreateCheckoutSession(ws *models.Workspace, plan *models.SaaSPlan, gateway 
 
 	// In a real implementation, we would call the respective gateway's API here.
 	// (Stripe, Moamalat, OnePay). For now, we simulate the URL.
-	
+
 	// If live keys are missing or simulated mode is true, return simulated local URL
 	if getStripeSecret() == "" || simulated || gateway != "stripe" {
 		simURL := fmt.Sprintf("%s?session_id=%s&tier=%s&gateway=%s&simulated=true&workspace_id=%s", returnURL, sessionID, plan.TierID, gateway, ws.ID.String())
@@ -95,8 +96,11 @@ func CreatePortalSession(ws *models.Workspace, returnURL string) (*PortalSession
 // VerifyWebhookSignature verifies HMAC-SHA256 signature against STRIPE_WEBHOOK_SECRET
 func VerifyWebhookSignature(payload []byte, headerSig string, secret string) bool {
 	if secret == "" {
-		// If secret is unset during dev simulation, accept simulated requests
-		return true
+		// Local billing simulation must be explicitly enabled and can never run
+		// in production. Missing production secrets fail closed.
+		return !strings.EqualFold(os.Getenv("APP_ENV"), "production") &&
+			strings.EqualFold(os.Getenv("ENABLE_DEV_BILLING_SIMULATION"), "true") &&
+			headerSig == "simulated_signature"
 	}
 
 	// Stripe signature header format: t=timestamp,v1=signature
@@ -106,7 +110,7 @@ func VerifyWebhookSignature(payload []byte, headerSig string, secret string) boo
 
 	// In production, split headerSig by ',' and compare timestamp + signature
 	// For exact timing and standard signature match:
-	return hmac.Equal([]byte(headerSig), []byte(expectedSig)) || headerSig == "simulated_signature" || secret == "test_secret"
+	return hmac.Equal([]byte(headerSig), []byte(expectedSig))
 }
 
 // GetNextPeriodEnd calculates 30 days subscription period

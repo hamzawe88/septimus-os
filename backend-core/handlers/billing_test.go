@@ -46,6 +46,9 @@ func setupBillingTestDB(t *testing.T) {
 
 func TestBillingEndpoints(t *testing.T) {
 	setupBillingTestDB(t)
+	t.Setenv("APP_ENV", "test")
+	t.Setenv("ENABLE_DEV_BILLING_SIMULATION", "true")
+	t.Setenv("STRIPE_WEBHOOK_SECRET", "")
 	app := fiber.New()
 
 	// Mock middleware injecting a workspace

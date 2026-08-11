@@ -167,7 +167,7 @@ func (ar *AgentRunners) crmSummary(workspaceID uuid.UUID) string {
 	}
 
 	var entities []models.Entity
-	ar.db.Where("workspace_id = ? AND entity_type IN ?", workspaceID, []string{"crm_deal", "deal"}).Find(&entities)
+	ar.db.Where("workspace_id = ? AND entity_type = ? AND definition_id IS NOT NULL", workspaceID, "crm_opportunity").Find(&entities)
 	if len(entities) == 0 {
 		return "No CRM deals found for this workspace."
 	}
@@ -183,6 +183,17 @@ func (ar *AgentRunners) crmSummary(workspaceID uuid.UUID) string {
 			totalValue += v
 		}
 		stage, _ := d["stage"].(string)
+		if stage == "" {
+			stage, _ = d["status"].(string)
+		}
+		switch strings.ToLower(strings.TrimSpace(stage)) {
+		case "quote_sent":
+			stage = "proposal"
+		case "won":
+			stage = "closed_won"
+		case "lost":
+			stage = "closed_lost"
+		}
 		if stage == "" {
 			stage = "unknown"
 		}
@@ -232,32 +243,28 @@ func (ar *AgentRunners) runTaskAgent() {
 	}
 }
 
-// taskSummary aggregates task entities by status into a real board summary.
+// taskSummary aggregates the canonical relational PM board by status.
 func (ar *AgentRunners) taskSummary(workspaceID uuid.UUID) string {
 	if workspaceID == uuid.Nil {
 		return "No workspace scope provided; skipped task read."
 	}
 
-	var entities []models.Entity
-	ar.db.Where("workspace_id = ? AND entity_type = ?", workspaceID, "task").Find(&entities)
-	if len(entities) == 0 {
+	var tasks []models.Task
+	ar.db.Where("workspace_id = ?", workspaceID).Find(&tasks)
+	if len(tasks) == 0 {
 		return "No tasks found for this workspace."
 	}
 
 	statuses := map[string]int{}
-	for _, e := range entities {
-		var d map[string]interface{}
-		if err := json.Unmarshal(e.Data, &d); err != nil {
-			continue
-		}
-		status, _ := d["status"].(string)
+	for _, task := range tasks {
+		status := task.Status
 		if status == "" {
-			status = "Todo"
+			status = "todo"
 		}
 		statuses[status]++
 	}
 
-	return fmt.Sprintf("Tasks: %d | By status: %s", len(entities), formatCounts(statuses))
+	return fmt.Sprintf("Tasks: %d | By status: %s", len(tasks), formatCounts(statuses))
 }
 
 // -----------------------------------------------------------------------------

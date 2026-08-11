@@ -18,11 +18,14 @@ import {
   Globe 
 } from "lucide-react";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
 
 export interface WidgetDefinition {
   id: string;
-  name: string;
-  description: string;
+  nameKey: string;
+  descriptionKey: string;
   category: "all" | "ai" | "finance" | "hr" | "crm" | "ops" | "security";
   defaultSpan: "col-span-1" | "col-span-1 md:col-span-2" | "col-span-1 md:col-span-2 lg:col-span-3";
   iconName: string;
@@ -53,78 +56,84 @@ export default function WidgetMarketplaceModal({
   if (!isOpen) return null;
 
   const categories = [
-    { id: "all", label: t("dashboard.marketplace.all", "All"), icon: Sparkles },
-    { id: "ai", label: t("dashboard.marketplace.aiAutomation", "AI & Automation"), icon: Cpu },
-    { id: "finance", label: t("dashboard.marketplace.financeHr", "Finance & HR"), icon: DollarSign },
-    { id: "hr", label: t("dashboard.marketplace.financeHr", "HR & People"), icon: Users },
-    { id: "crm", label: t("dashboard.marketplace.salesCrm", "Sales & CRM"), icon: Briefcase },
-    { id: "ops", label: t("dashboard.marketplace.itSecurity", "Operations & PM"), icon: Workflow },
-    { id: "security", label: t("dashboard.marketplace.itSecurity", "Security & IT"), icon: ShieldCheck },
+    { id: "all", label: t("dashboard.marketplace.all"), icon: Sparkles },
+    { id: "ai", label: t("dashboard.marketplace.aiAutomation"), icon: Cpu },
+    { id: "finance", label: t("dashboard.marketplace.financeHr"), icon: DollarSign },
+    { id: "hr", label: t("dashboard.marketplace.hrPeople"), icon: Users },
+    { id: "crm", label: t("dashboard.marketplace.salesCrm"), icon: Briefcase },
+    { id: "ops", label: t("dashboard.marketplace.operationsPm"), icon: Workflow },
+    { id: "security", label: t("dashboard.marketplace.itSecurity"), icon: ShieldCheck },
   ];
 
   const getWidgetIcon = (iconName: string) => {
     switch (iconName) {
-      case "cpu": return <Cpu className="w-5 h-5 text-purple-500" />;
-      case "users": return <Users className="w-5 h-5 text-emerald-500" />;
-      case "dollar": return <DollarSign className="w-5 h-5 text-blue-500" />;
-      case "briefcase": return <Briefcase className="w-5 h-5 text-amber-500" />;
-      case "workflow": return <Workflow className="w-5 h-5 text-indigo-500" />;
-      case "shield": return <ShieldCheck className="w-5 h-5 text-red-500" />;
-      case "message": return <MessageSquare className="w-5 h-5 text-pink-500" />;
-      case "book": return <BookOpen className="w-5 h-5 text-cyan-500" />;
-      case "globe": return <Globe className="w-5 h-5 text-teal-500" />;
-      default: return <Sparkles className="w-5 h-5 text-blue-500" />;
+      case "cpu": return <Cpu className="w-5 h-5 text-brand" />;
+      case "users": return <Users className="w-5 h-5 text-success" />;
+      case "dollar": return <DollarSign className="w-5 h-5 text-info" />;
+      case "briefcase": return <Briefcase className="w-5 h-5 text-warning" />;
+      case "workflow": return <Workflow className="w-5 h-5 text-brand" />;
+      case "shield": return <ShieldCheck className="w-5 h-5 text-destructive" />;
+      case "message": return <MessageSquare className="w-5 h-5 text-brand" />;
+      case "book": return <BookOpen className="w-5 h-5 text-info" />;
+      case "globe": return <Globe className="w-5 h-5 text-success" />;
+      default: return <Sparkles className="w-5 h-5 text-brand" />;
     }
   };
 
   const filteredWidgets = availableWidgets.filter((w) => {
-    const localizedName = t(`dashboard.catalog.${w.id}.name`, w.name);
-    const localizedDesc = t(`dashboard.catalog.${w.id}.description`, w.description);
+    const localizedName = t(w.nameKey);
+    const localizedDesc = t(w.descriptionKey);
     const matchesCategory = activeTab === "all" || w.category === activeTab;
-    const matchesSearch = localizedName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          localizedDesc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          w.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      localizedName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      localizedDesc.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/55 p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
-        className="bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+        data-testid="widget-marketplace"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="widget-marketplace-title"
+        className="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-[var(--radius-surface)] border border-border bg-popover text-popover-foreground shadow-[var(--shadow-overlay)] animate-in zoom-in-95 duration-200"
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="flex items-center justify-between border-b border-border bg-muted/35 px-6 py-5">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+            <div className="flex size-11 items-center justify-center rounded-[var(--radius-control)] bg-brand text-brand-foreground shadow-[var(--shadow-raised)]">
               <Sparkles className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-800 dark:text-white">
-                {t("dashboard.marketplace.title", "Sovereign Widget Marketplace")}
+              <h2 id="widget-marketplace-title" className="text-lg font-bold">
+                {t("dashboard.marketplace.title")}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {t("dashboard.marketplace.subtitle", "Discover, pin, and customize high-impact command widgets across Septimus OS.")}
+              <p className="text-xs text-muted-foreground">
+                {t("dashboard.marketplace.subtitle")}
               </p>
             </div>
           </div>
-          <button 
+          <Button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
+            variant="ghost"
+            size="icon"
+            aria-label={t("common.close")}
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Search Bar & Categories */}
-        <div className="p-6 pb-3 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-4">
+        <div className="flex flex-col gap-4 border-b border-border p-6 pb-3">
           <div className="relative">
-            <Search className="w-4 h-4 absolute ltr:left-3 rtl:right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
+            <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
               type="text"
-              placeholder={t("dashboard.marketplace.searchPlaceholder", "Search widgets by name or feature...")}
+              placeholder={t("dashboard.marketplace.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full ltr:pl-10 ltr:pr-4 rtl:pr-10 rtl:pl-4 py-2.5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              className="w-full ps-10 pe-4"
             />
           </div>
 
@@ -133,18 +142,16 @@ export default function WidgetMarketplaceModal({
               const Icon = cat.icon;
               const isActive = activeTab === cat.id;
               return (
-                <button 
+                <Button
                   key={cat.id}
                   onClick={() => setActiveTab(cat.id)}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                    isActive 
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/20 scale-105" 
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-                  }`}
+                  variant={isActive ? "default" : "secondary"}
+                  size="sm"
+                  aria-pressed={isActive}
                 >
                   <Icon className="w-3.5 h-3.5" />
                   <span>{cat.label}</span>
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -153,17 +160,12 @@ export default function WidgetMarketplaceModal({
         {/* Widgets Grid */}
         <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredWidgets.length === 0 ? (
-            <div className="col-span-full py-12 flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
-                <Search className="w-8 h-8" />
-              </div>
-              <h4 className="text-base font-bold text-slate-700 dark:text-slate-300">
-                {t("dashboard.marketplace.noResultsTitle", "No widgets matched your search")}
-              </h4>
-              <p className="text-xs text-slate-400 max-w-sm mt-1">
-                {t("dashboard.marketplace.noResultsDesc", "Try searching for another keyword or switch category tabs above.")}
-              </p>
-            </div>
+            <EmptyState
+              className="col-span-full"
+              icon={<Search />}
+              title={t("dashboard.marketplace.noResultsTitle")}
+              description={t("dashboard.marketplace.noResultsDesc")}
+            />
           ) : (
             filteredWidgets.map((widget) => {
               const isAdded = activeWidgets.includes(widget.id);
@@ -172,50 +174,52 @@ export default function WidgetMarketplaceModal({
                   key={widget.id}
                   className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
                     isAdded 
-                      ? "bg-blue-50/40 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 shadow-sm" 
-                      : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md"
+                      ? "border-brand/30 bg-brand-light shadow-[var(--shadow-raised)]"
+                      : "border-border bg-card hover:border-brand/30 hover:shadow-[var(--shadow-raised)]"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center flex-shrink-0">
+                      <div className="flex size-10 flex-shrink-0 items-center justify-center rounded-[var(--radius-control)] border border-border bg-muted">
                         {getWidgetIcon(widget.iconName)}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                            {t(`dashboard.catalog.${widget.id}.name`, widget.name)}
+                          <h3 className="text-sm font-bold">
+                          {t(widget.nameKey)}
                           </h3>
-                          <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
-                            {widget.defaultSpan.includes("md:col-span-2") ? t("dashboard.gridWide", "Wide (2x)") : t("dashboard.gridCompact", "Compact (1x)")}
+                          <span className="rounded-[var(--radius-control)] bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                            {widget.defaultSpan.includes("md:col-span-2") ? t("dashboard.gridWide") : t("dashboard.gridCompact")}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                          {t(`dashboard.catalog.${widget.id}.description`, widget.description)}
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                          {t(widget.descriptionKey)}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60">
+                  <div className="mt-4 flex items-center justify-end border-t border-border pt-3">
                     {isAdded ? (
-                      <button 
+                      <Button
                         onClick={() => onRemoveWidget(widget.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 text-white hover:bg-red-500 transition-colors group"
+                        variant="secondary"
+                        size="sm"
+                        className="group text-success hover:text-destructive"
                       >
                         <Check className="w-3.5 h-3.5 group-hover:hidden" />
                         <X className="w-3.5 h-3.5 hidden group-hover:inline" />
-                        <span className="group-hover:hidden">{t("dashboard.marketplace.added", "Added")}</span>
-                        <span className="hidden group-hover:inline">{t("dashboard.marketplace.remove", "Remove")}</span>
-                      </button>
+                        <span className="group-hover:hidden">{t("dashboard.marketplace.added")}</span>
+                        <span className="hidden group-hover:inline">{t("dashboard.marketplace.remove")}</span>
+                      </Button>
                     ) : (
-                      <button 
+                      <Button
                         onClick={() => onAddWidget(widget.id)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm shadow-blue-600/20"
+                        size="sm"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>{t("dashboard.marketplace.add", "Add Widget")}</span>
-                      </button>
+                        <span>{t("dashboard.marketplace.add")}</span>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -225,16 +229,16 @@ export default function WidgetMarketplaceModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between">
-          <span className="text-xs text-slate-500 dark:text-slate-400">
-            {t("dashboard.marketplace.pinnedCount", "Active Widgets pinned:")} <strong className="text-slate-800 dark:text-white font-black">{activeWidgets.length}</strong>
+        <div className="flex items-center justify-between border-t border-border bg-muted/35 px-6 py-4">
+          <span className="text-xs text-muted-foreground">
+            {t("dashboard.marketplace.pinnedCount")} <strong className="font-bold text-foreground">{activeWidgets.length}</strong>
           </span>
-          <button 
+          <Button
             onClick={onClose}
-            className="px-5 py-2 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-xs font-bold rounded-xl transition"
+            variant="secondary"
           >
-            {t("common.done", "Done")}
-          </button>
+            {t("common.done")}
+          </Button>
         </div>
       </div>
     </div>

@@ -34,12 +34,14 @@ func CreateCheckoutSession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
 
-	if req.ReturnURL == "" {
-		req.ReturnURL = "http://localhost:3000/admin/billing"
+	var err error
+	req.ReturnURL, err = safeFrontendURL(req.ReturnURL, "/admin/billing")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "return_url must use the configured frontend origin"})
 	}
 
 	targetTier := strings.ToLower(req.Tier)
-	
+
 	// Fetch plan from database instead of hardcoded validation
 	var plan models.SaaSPlan
 	if err := database.GetDB(c).Where("tier_id = ? AND is_active = ?", targetTier, true).First(&plan).Error; err != nil {
@@ -68,9 +70,13 @@ func CreatePortalSession(c *fiber.Ctx) error {
 	ws := wsVal.(*models.Workspace)
 
 	var req PortalRequest
-	c.BodyParser(&req)
-	if req.ReturnURL == "" {
-		req.ReturnURL = "http://localhost:3000/admin/billing"
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+	var err error
+	req.ReturnURL, err = safeFrontendURL(req.ReturnURL, "/admin/billing")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "return_url must use the configured frontend origin"})
 	}
 
 	result, err := services.CreatePortalSession(ws, req.ReturnURL)
@@ -101,12 +107,12 @@ func GetBillingStatus(c *fiber.Ctx) error {
 		if err != nil {
 			cusID := "cus_default_" + ws.ID.String()[:8]
 			sub = models.Subscription{
-				WorkspaceID:          ws.ID,
-				StripeCustomerID:     &cusID,
-				Tier:                 ws.Tier,
-				Status:               ws.Status,
-				CurrentPeriodStart:   time.Now(),
-				CurrentPeriodEnd:     services.GetNextPeriodEnd(),
+				WorkspaceID:        ws.ID,
+				StripeCustomerID:   &cusID,
+				Tier:               ws.Tier,
+				Status:             ws.Status,
+				CurrentPeriodStart: time.Now(),
+				CurrentPeriodEnd:   services.GetNextPeriodEnd(),
 			}
 			database.GetDB(c).Create(&sub)
 		}
@@ -126,12 +132,12 @@ func GetBillingStatus(c *fiber.Ctx) error {
 	} else {
 		cusID := "cus_mock_" + ws.ID.String()[:8]
 		sub = models.Subscription{
-			WorkspaceID:          ws.ID,
-			StripeCustomerID:     &cusID,
-			Tier:                 ws.Tier,
-			Status:               ws.Status,
-			CurrentPeriodStart:   time.Now(),
-			CurrentPeriodEnd:     services.GetNextPeriodEnd(),
+			WorkspaceID:        ws.ID,
+			StripeCustomerID:   &cusID,
+			Tier:               ws.Tier,
+			Status:             ws.Status,
+			CurrentPeriodStart: time.Now(),
+			CurrentPeriodEnd:   services.GetNextPeriodEnd(),
 		}
 	}
 

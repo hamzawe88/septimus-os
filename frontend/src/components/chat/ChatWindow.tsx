@@ -34,18 +34,18 @@ const formatTextWithTags = (text: string) => {
   
   return parts.map((part, i) => {
     if (part.startsWith('#')) {
-      return <span key={i} className="text-brand bg-brand-light px-1 py-0.5 rounded cursor-pointer hover:bg-brand-light font-medium inline-block">{part}</span>;
+      return <span key={i} className="inline-block cursor-pointer rounded bg-brand-light px-1 py-0.5 font-medium text-brand hover:bg-brand-light/80">{part}</span>;
     }
     if (part.startsWith('@')) {
-      return <span key={i} className="text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded cursor-pointer hover:bg-emerald-100 font-medium inline-block">{part}</span>;
+      return <span key={i} className="inline-block cursor-pointer rounded bg-success/10 px-1 py-0.5 font-medium text-success hover:bg-success/15">{part}</span>;
     }
     return <span key={i}>{part}</span>;
   });
 };
 
 export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProps) {
-  const safeName = chatName || "Chat";
   const { t } = useLocalization();
+  const safeName = chatName || t("sidebar.directMessageDefault");
   const [messages, setMessages] = useState<Message[]>([
     { id: "1", text: t("chat.welcomeMsg"), sender: "other", time: "10:00 AM", type: "text" }
   ]);
@@ -72,16 +72,14 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
   useEffect(() => {
     let audio: HTMLAudioElement | null = null;
-    let timeoutId: NodeJS.Timeout;
-
     if (playingAudioId) {
       const msg = messages.find(m => m.id === playingAudioId);
-      const audioUrl = msg?.fileUrl || msg?.attachmentUrl || 'https://actions.google.com/sounds/v1/water/water_drop.ogg';
+      const audioUrl = msg?.fileUrl || msg?.attachmentUrl;
       
       if (audioUrl) {
         audio = new Audio(audioUrl);
@@ -95,12 +93,6 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
         });
       }
       
-      // Fallback timeout only if it's the very short beep
-      if (!msg?.attachmentUrl && !msg?.fileUrl) {
-        timeoutId = setTimeout(() => {
-          setPlayingAudioId(null);
-        }, 3000);
-      }
     }
 
     return () => {
@@ -109,7 +101,6 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
         audio.currentTime = 0;
         audio.onended = null;
       }
-      clearTimeout(timeoutId);
     };
   }, [playingAudioId, messages]);
 
@@ -120,26 +111,14 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
       type,
       attachmentUrl: attachmentUrl || (type === "voice" || type === "file" ? content : undefined),
       fileUrl: attachmentUrl || (type === "voice" || type === "file" ? content : undefined),
-      fileName: type === "file" ? (content || "Attachment") : undefined,
-      fileSize: type === "file" ? "120 KB" : undefined,
-      voiceDuration: type === "voice" ? "0:14" : undefined,
+      fileName: type === "file" ? (content || t("chat.attachment")) : undefined,
+      fileSize: undefined,
+      voiceDuration: undefined,
       sender: "me",
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setMessages(prev => [...prev, newMessage]);
     
-    // Simulate auto-reply
-    if (type === "text") {
-      setTimeout(() => {
-        setMessages(prev => [...prev, {
-          id: Date.now().toString() + "1",
-          text: t("chat.autoReply"),
-          sender: "other",
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          type: "text"
-        }]);
-      }, 1500);
-    }
   };
 
   const renderMessageContent = (msg: Message) => {
@@ -147,12 +126,13 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
       const isPlaying = playingAudioId === msg.id;
       return (
         <div className="flex items-center gap-2.5 py-1 min-w-[140px]">
-          <button 
+          <button
             type="button"
             onClick={() => toggleVoicePlay(msg.id)}
-            className="w-8 h-8 rounded-full bg-white/20 dark:bg-black/20 flex items-center justify-center text-current hover:scale-105 transition-transform"
+            className="flex size-8 items-center justify-center rounded-full bg-current/10 text-current transition-transform hover:scale-105"
+            aria-label={isPlaying ? t("chat.pauseVoice") : t("chat.playVoice")}
           >
-            {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+            {isPlaying ? <Pause className="size-4 fill-current" /> : <Play className="ms-0.5 size-4 fill-current" />}
           </button>
           <div className="flex-1 flex flex-col gap-1">
             <div className="h-1.5 w-full bg-current/20 rounded-full overflow-hidden">
@@ -169,7 +149,7 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
       if (isImage) {
         return (
           <div className="space-y-1">
-            <img src={msg.fileUrl} alt={msg.fileName} className="max-w-[200px] max-h-[150px] rounded-lg object-cover border border-white/10" />
+            <img src={msg.fileUrl} alt={msg.fileName} className="max-h-[150px] max-w-[200px] rounded-lg border border-border/50 object-cover" />
             {msg.text && <p className="text-sm mt-1">{msg.text}</p>}
           </div>
         );
@@ -178,7 +158,7 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
         <a 
           href={msg.fileUrl} 
           download={msg.fileName}
-          className="flex items-center gap-2 p-2 rounded-lg bg-white/10 dark:bg-black/10 hover:bg-white/20 transition-colors"
+          className="flex items-center gap-2 rounded-lg bg-current/10 p-2 transition-colors hover:bg-current/15"
         >
           <FileText className="w-5 h-5 shrink-0" />
           <div className="flex flex-col min-w-0">
@@ -193,30 +173,28 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
   };
 
   return (
-    <div className="w-[340px] h-[480px] bg-white dark:bg-[#1a1a1a] rounded-t-2xl shadow-[0_-5px_25px_-5px_rgba(0,0,0,0.1)] flex flex-col border border-slate-200 dark:border-slate-800 overflow-hidden animate-in slide-in-from-bottom-5 transition-colors">
-      {/* Header */}
-      <div 
-        className="h-[60px] px-4 flex items-center justify-between flex-shrink-0 cursor-pointer text-white shadow-sm relative z-20 bg-[var(--primary-hex)]"
-        onClick={onClose}
-      >
-        <div className="flex items-center gap-3 overflow-hidden relative z-10">
-          <Avatar className="w-8.5 h-8.5 rounded-lg border border-white/20 shadow-sm overflow-hidden">
-            <img src={getAvatarForUser(safeName, userAvatar)} alt={safeName} className="w-full h-full object-cover" />
+    <section
+      aria-label={`${t("sidebar.directMessageDefault")}: ${safeName}`}
+      className="flex h-[480px] w-[340px] animate-in flex-col overflow-hidden rounded-t-[var(--radius-surface)] border border-border bg-card text-card-foreground shadow-[var(--shadow-overlay)] transition-colors slide-in-from-bottom-5"
+    >
+      <div className="relative z-20 flex h-[60px] shrink-0 items-center justify-between bg-brand px-4 text-brand-foreground shadow-sm">
+        <div className="relative z-10 flex items-center gap-3 overflow-hidden">
+          <Avatar className="size-9 overflow-hidden rounded-lg border border-brand-foreground/20 shadow-sm">
+            <img src={getAvatarForUser(safeName, userAvatar)} alt={safeName} className="size-full object-cover" />
           </Avatar>
           <div className="flex flex-col">
             <span className="font-semibold text-sm truncate">{safeName}</span>
-              <span className="text-[10px] text-indigo-100 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span> {t("chat.activeNow")}
+              <span className="flex items-center gap-1 text-[10px] text-brand-foreground/80">
+                <span className="size-1.5 rounded-full bg-success" aria-hidden /> {t("chat.activeNow")}
             </span>
           </div>
         </div>
-        <button onClick={(e) => { e.stopPropagation(); onClose(); }} aria-label="Close Chat" title="Close Chat" className="p-2 hover:bg-white/20 rounded-full transition-colors text-white/90 hover:text-white">
-          <X className="w-5 h-5" />
+        <button type="button" onClick={onClose} aria-label={t("chat.closeChat")} title={t("chat.closeChat")} className="rounded-full p-2 text-brand-foreground/90 transition-colors hover:bg-brand-foreground/15 hover:text-brand-foreground">
+          <X className="size-5" />
         </button>
       </div>
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 bg-[#f8fafc] dark:bg-[#121212]">
+      <div className="flex-1 space-y-4 overflow-y-auto bg-surface-subtle p-3">
         {messages.map((msg) => {
           const m = msg as unknown as Record<string, unknown>;
           const userObj = m.User as Record<string, unknown> | undefined;
@@ -224,25 +202,25 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
           return (
             <div key={msg.id} className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
               {!isMe && (
-                <Avatar className="w-7 h-7 rounded-lg border border-slate-200/80 shadow-sm shrink-0 mb-5 overflow-hidden">
-                  <img src={getAvatarForUser(safeName)} alt={safeName} className="w-full h-full object-cover" />
+                <Avatar className="mb-5 size-7 shrink-0 overflow-hidden rounded-lg border border-border shadow-sm">
+                  <img src={getAvatarForUser(safeName)} alt={safeName} className="size-full object-cover" />
                 </Avatar>
               )}
               <div className={`flex flex-col max-w-[78%] ${isMe ? 'items-end' : 'items-start'}`}>
                 <div 
                   className={`px-4 py-2.5 max-w-[260px] text-[15px] ${
                     isMe 
-                      ? 'bg-[var(--primary-hex)] text-white rounded-3xl rounded-ee-md shadow-sm' 
-                      : 'bg-white dark:bg-[#1a1a1a] text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-800 rounded-3xl rounded-es-md shadow-sm'
+                      ? 'rounded-3xl rounded-ee-md bg-brand text-brand-foreground shadow-sm'
+                      : 'rounded-3xl rounded-es-md border border-border bg-card text-card-foreground shadow-sm'
                   }`}
                 >
                   {renderMessageContent(msg)}
                 </div>
-                <span className="text-[10px] text-slate-400 mt-1 px-1">{msg.time}</span>
+                <time className="mt-1 px-1 text-[10px] text-muted-foreground">{msg.time}</time>
               </div>
               {isMe && (
-                <Avatar className="w-7 h-7 rounded-lg border border-slate-200/80 shadow-sm shrink-0 mb-5 overflow-hidden">
-                  <img src={userAvatar || getAvatarForUser("Admin User")} alt="Me" className="w-full h-full rounded-lg object-cover" />
+                <Avatar className="mb-5 size-7 shrink-0 overflow-hidden rounded-lg border border-border shadow-sm">
+                  <img src={userAvatar || getAvatarForUser(t("chat.user"))} alt={t("chat.myAvatar")} className="size-full rounded-lg object-cover" />
                 </Avatar>
               )}
             </div>
@@ -258,10 +236,10 @@ export default function ChatWindow({ chatId, chatName, onClose }: ChatWindowProp
         variant="compact"
         isDm={true}
         onSend={(text, url, type) => { 
-          handleSendMessage(text || "Attachment", (type || "text") as "text" | "voice" | "file", url); 
+          handleSendMessage(text || t("chat.attachment"), (type || "text") as "text" | "voice" | "file", url);
           return true; 
         }} 
       />
-    </div>
+    </section>
   );
 }

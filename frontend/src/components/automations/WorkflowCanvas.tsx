@@ -20,7 +20,7 @@ const getIcon = (iconStr: string, className: string = "w-6 h-6") => {
     case 'drive': return <FolderOpen className={`${className} text-amber-500`} />;
     case 'sheets': return <Sheet className={`${className} text-emerald-500`} />;
     case 'slack': return <Webhook className={`${className} text-brand`} />;
-    case 'github': return <Webhook className={`${className} text-slate-700`} />;
+    case 'github': return <Webhook className={`${className} text-foreground`} />;
     default: return <Webhook className={`${className} text-brand`} />;
   }
 };
@@ -38,22 +38,22 @@ const getBgColor = (iconStr: string) => {
 export default function WorkflowCanvas({ template }: WorkflowCanvasProps) {
   const { isRtl } = useLocalization();
   return (
-    <div className="w-full h-96 bg-[#f8fafc] rounded-xl border border-slate-200 overflow-hidden relative flex items-center justify-center bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px]">
+    <div className="w-full h-96 bg-background rounded-xl border border-border overflow-hidden relative flex items-center justify-center bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px]">
       
       {/* Node 1: Webhook Trigger */}
       <div className="absolute start-10 md:start-20 flex flex-col items-center">
-        <div className="w-48 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden z-10 transition-transform hover:-translate-y-1 hover:shadow-md">
-          <div className="px-4 py-2 bg-[#f8fafc] border-b border-slate-100 flex items-center gap-2">
-            <Play className="w-4 h-4 text-slate-500" />
-            <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{isRtl ? "مُشغّل" : "Trigger"}</span>
+        <div className="w-48 bg-card border border-border rounded-xl shadow-sm overflow-hidden z-10 transition-transform hover:-translate-y-1 hover:shadow-md">
+          <div className="px-4 py-2 bg-background border-b border-border flex items-center gap-2">
+            <Play className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{isRtl ? "مُشغّل" : "Trigger"}</span>
           </div>
           <div className="p-4 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-brand-light flex items-center justify-center">
                <Webhook className="w-5 h-5 text-brand" />
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-800">{template.trigger}</p>
-              <p className="text-xs text-slate-500">n8n Webhook</p>
+              <p className="text-sm font-bold text-foreground">{template.trigger}</p>
+              <p className="text-xs text-muted-foreground">n8n Webhook</p>
             </div>
           </div>
         </div>
@@ -81,11 +81,11 @@ export default function WorkflowCanvas({ template }: WorkflowCanvasProps) {
 
       {/* Node 2: Action */}
       <div className="absolute end-10 md:end-20 flex flex-col items-center">
-        <div className="w-56 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden z-10 transition-transform hover:-translate-y-1 hover:shadow-md">
-          <div className="px-4 py-2 bg-[#f8fafc] border-b border-slate-100 flex justify-between items-center">
+        <div className="w-56 bg-card border border-border rounded-xl shadow-sm overflow-hidden z-10 transition-transform hover:-translate-y-1 hover:shadow-md">
+          <div className="px-4 py-2 bg-background border-b border-border flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <Settings className="w-4 h-4 text-slate-500" />
-              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{isRtl ? "إجراء" : "Action"}</span>
+              <Settings className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{isRtl ? "إجراء" : "Action"}</span>
             </div>
             <div className="flex gap-1">
               <div className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -96,8 +96,8 @@ export default function WorkflowCanvas({ template }: WorkflowCanvasProps) {
                {getIcon(template.icon, "w-5 h-5")}
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-800">{template.action}</p>
-              <p className="text-xs text-slate-500">{isRtl ? "عقدة تكامل" : "Integration Node"}</p>
+              <p className="text-sm font-bold text-foreground">{template.action}</p>
+              <p className="text-xs text-muted-foreground">{isRtl ? "عقدة تكامل" : "Integration Node"}</p>
             </div>
           </div>
         </div>

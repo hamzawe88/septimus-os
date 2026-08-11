@@ -1,97 +1,139 @@
 "use client";
 
-import React, { useState } from "react";
-import { ShieldCheck, Lock, Terminal, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Lock, RefreshCw, ShieldCheck, Terminal } from "lucide-react";
+
+import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Tag } from "@/components/ui/tag";
+
+interface AuditLog {
+  ID?: string;
+  id?: string;
+  Action?: string;
+  action?: string;
+  CreatedAt?: string;
+  created_at?: string;
+}
 
 export default function SecurityAuditWidget() {
-  const { t } = useLocalization();
+  const { t, language } = useLocalization();
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [logs, setLogs] = useState([
-    { id: "s1", event: t("dashboard.security.e1Event", "Admin User Authenticated"), time: t("dashboard.security.2minsAgo", "2 mins ago"), type: "info" },
-    { id: "s2", event: t("dashboard.security.e2Event", "API Schema Validated (#849)"), time: t("dashboard.security.14minsAgo", "14 mins ago"), type: "success" },
-    { id: "s3", event: t("dashboard.security.e3Event", "Failed Login Attempt (IP 197.25.1.8)"), time: t("dashboard.security.1hourAgo", "1 hour ago"), type: "warning" },
-    { id: "s4", event: t("dashboard.security.e4Event", "Redis Cache Synced (Libya Switch Node)"), time: t("dashboard.security.2hoursAgo", "2 hours ago"), type: "info" },
-  ]);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
 
-  const handleRefreshLogs = () => {
+  const fetchSecurityLogs = useCallback(async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      setLogs((prev) => [
-        { id: `s_${Date.now()}`, event: t("dashboard.security.scanCompleted", "Security Audit Scan Completed (Zero Threats)"), time: t("dashboard.security.justNow", "Just now"), type: "success" },
-        ...prev.slice(0, 3),
-      ]);
+    try {
+      const response = await fetchWithAuth(
+        `${API_BASE_URL}/admin/audit-logs?filter_type=security&limit=5`,
+      );
+      if (response.ok) {
+        const body = await response.json();
+        setLogs(
+          Array.isArray(body.data)
+            ? body.data
+            : Array.isArray(body)
+              ? body
+              : [],
+        );
+      }
+    } catch (error) {
+      console.error("Failed to fetch security logs", error);
+    } finally {
       setIsRefreshing(false);
-    }, 600);
-  };
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(fetchSecurityLogs, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchSecurityLogs]);
 
   return (
-    <div className="flex flex-col justify-between h-full space-y-3">
-      {/* Security Health Badge */}
-      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border border-emerald-500/20 dark:border-emerald-500/30 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
-            <ShieldCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <h4 className="text-xs font-black text-slate-800 dark:text-white">
-              {t("dashboard.security.title", "System Shield Active")}
-            </h4>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-              {t("dashboard.security.uptime", "99.99% Uptime • Sovereign SAIF Checked")}
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex items-center justify-between rounded-[var(--radius-surface)] border border-success/20 bg-success/10 p-3.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-success text-brand-foreground">
+            <ShieldCheck className="size-6" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h3 className="truncate text-xs font-bold">
+              {t("dashboard.security.title")}
+            </h3>
+            <p className="truncate text-xs text-muted-foreground">
+              {t("dashboard.security.uptime")}
             </p>
           </div>
         </div>
-        <button
-          onClick={handleRefreshLogs}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={fetchSecurityLogs}
           disabled={isRefreshing}
-          className="p-2 text-slate-400 hover:text-emerald-500 transition rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-          title={t("common.refresh", "Refresh")}
+          title={t("common.refresh")}
+          aria-label={t("common.refresh")}
         >
-          <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin text-emerald-500" : ""}`} />
-        </button>
+          <RefreshCw className={isRefreshing ? "animate-spin" : ""} />
+        </Button>
       </div>
 
-      {/* Audit Log Feed */}
-      <div className="flex-1 flex flex-col gap-2 overflow-hidden">
-        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-          <Terminal className="w-3.5 h-3.5 text-blue-500" />
-          {t("dashboard.security.recentEvents", "Live Security & Audit Feed")}
-        </span>
-
-        <div className="flex flex-col gap-2 overflow-y-auto pr-1 max-h-[160px]">
-          {logs.map((log) => (
-            <div
-              key={log.id}
-              className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between text-xs"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span
-                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    log.type === "success"
-                      ? "bg-emerald-500"
-                      : log.type === "warning"
-                      ? "bg-amber-500"
-                      : "bg-blue-500"
-                  }`}
-                />
-                <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">{log.event}</span>
-              </div>
-              <span className="text-[10px] text-slate-400 flex-shrink-0">{log.time}</span>
-            </div>
-          ))}
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <h4 className="flex items-center gap-1.5 text-xs font-bold">
+          <Terminal className="size-3.5 text-info" aria-hidden />
+          {t("dashboard.security.recentEvents")}
+        </h4>
+        <div className="flex max-h-[160px] flex-col gap-2 overflow-y-auto">
+          {logs.length ? (
+            logs.map((log, index) => {
+              const actionName = String(log.Action || log.action || "-");
+              const date = new Date(
+                log.CreatedAt || log.created_at || new Date(),
+              );
+              const isWarning = /failure|error/i.test(actionName);
+              return (
+                <article
+                  key={log.ID || log.id || `${actionName}-${index}`}
+                  className="flex items-center justify-between gap-2 rounded-[var(--radius-control)] border border-border bg-muted/35 p-2.5 text-xs"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span
+                      className={`size-2 shrink-0 rounded-full ${
+                        isWarning ? "bg-warning" : "bg-success"
+                      }`}
+                    />
+                    <span className="truncate font-semibold">
+                      {t(`admin.auditLogs.actions.${actionName}`, actionName)}
+                    </span>
+                  </span>
+                  <time className="shrink-0 text-muted-foreground">
+                    {date.toLocaleTimeString(language, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </time>
+                </article>
+              );
+            })
+          ) : (
+            <EmptyState
+              className="min-h-28 p-3"
+              icon={<ShieldCheck />}
+              title={t("dashboard.security.noEvents")}
+            />
+          )}
         </div>
       </div>
 
-      {/* Quick Action bar */}
-      <div className="pt-1 flex items-center gap-2">
-        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex-1 flex items-center gap-1">
-          <Lock className="w-3.5 h-3.5 text-emerald-500" />
-          <span>{t("dashboard.security.encryption", "AES-256 GCM Encrypted Vault")}</span>
+      <div className="flex items-center gap-2 border-t border-border pt-2 text-xs text-muted-foreground">
+        <Lock className="size-3.5 shrink-0 text-success" aria-hidden />
+        <span className="flex-1 truncate">
+          {t("dashboard.security.encryption")}
         </span>
-        <span className="text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-lg">
-          NODE: LBY-1
-        </span>
+        <Tag tone="neutral" className="font-mono">
+          {t("dashboard.security.node")}
+        </Tag>
       </div>
     </div>
   );

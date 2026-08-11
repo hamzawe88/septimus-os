@@ -10,20 +10,33 @@ Pure-python (no langchain import) so it can be unit-tested offline.
 """
 from __future__ import annotations
 
-# Tools every agent may use: knowledge search + long-term institutional memory.
+# Read-only tools every agent may use. Reading knowledge and listing facts is
+# harmless in any agent context.
 COMMON_TOOLS = {
     "search_knowledge",
     "list_institutional_facts",
+}
+
+# Writing to long-term institutional memory steers every future agent run in the
+# workspace, so it is a capability, not a baseline. Keeping it in COMMON_TOOLS
+# meant this matrix — the "outer boundary" — granted memory writes to every agent
+# type, leaving the per-user role check inside each tool as the only gate.
+MEMORY_WRITE_TOOLS = {
     "save_institutional_fact",
     "delete_institutional_fact",
 }
+
+# Agent families whose job legitimately includes recording institutional policy.
+# A specialist answering HR questions has no business rewriting the workspace's
+# standing facts; the supervisor and the monolithic agent do.
+_MEMORY_WRITERS = {"supervisor", "monolithic"}
 
 # Domain tools per agent family. Role gating (member vs admin/manager) still
 # happens inside each tool and in _build_tools; this matrix is the OUTER
 # boundary that decides which tools even belong to an agent type.
 _DOMAIN: dict[str, set[str]] = {
-    "hr": {"get_hr_policy", "get_attendance_summary"},
-    "crm": {"get_crm_deals", "create_crm_deal"},
+    "hr": {"get_hr_policy", "get_attendance_summary", "get_my_leave_balance", "decide_leave_request", "draft_offer_letter"},
+    "crm": {"get_crm_deals", "create_crm_deal", "get_crm_pipeline", "advance_opportunity", "draft_quote_email"},
     "tasks": {"get_tasks", "create_task"},
     "correspondence": {"rewrite_correspondence", "audit_correspondence"},
     "supervisor": {
@@ -32,6 +45,11 @@ _DOMAIN: dict[str, set[str]] = {
         "delegate_to_hr_specialist",
         "delegate_to_tasks_specialist",
     },
+    # Finance reads and reasons; it creates nothing. Its answers come from the
+    # common tools (knowledge search, institutional facts).
+    "finance": set(),
+    # Unrecognised agent types get no domain tools at all — see _family.
+    "_unknown": set(),
 }
 
 # Agent-type aliases → canonical family.
@@ -41,11 +59,33 @@ _ALIASES = {
     "tasks": "tasks", "sprint": "tasks", "pm": "tasks",
     "correspondence": "correspondence", "diwan": "correspondence",
     "supervisor": "supervisor", "general": "supervisor", "": "supervisor",
+    # Finance shipped in the frontend's AgentType union and in i18n (it has a
+    # "Finance Assistant" system prompt) but was never in this table, so it took
+    # the old permissive default and ran with the supervisor's delegation tools.
+    # It is analysis-only by design: common tools, no domain mutations.
+    "finance": "finance",
 }
 
 
+# The narrowest family: common tools only, no domain tools, no memory writes.
+# Anything unrecognised lands here.
+UNKNOWN_FAMILY = "_unknown"
+
+
 def _family(agent_type: str) -> str:
-    return _ALIASES.get((agent_type or "").lower(), "supervisor")
+    """Map an agent type to its capability family, failing CLOSED.
+
+    This used to default to "supervisor" — the widest family, holding every
+    delegation tool. agent_type arrives in the request body, so any value the
+    alias table did not recognise handed the caller the largest tool set in the
+    system: a typo, a stale frontend constant, or a deliberately crafted
+    agent_type. Three names shipped in the UI ("finance", "task", "comm") were
+    silently taking that path.
+
+    An unknown type is now the *least* privileged thing in the matrix. A default
+    on the permissive side is not a default, it is a bypass.
+    """
+    return _ALIASES.get((agent_type or "").lower(), UNKNOWN_FAMILY)
 
 
 def allowed_tools_for(agent_type: str) -> set[str]:
@@ -55,8 +95,12 @@ def allowed_tools_for(agent_type: str) -> set[str]:
         domain: set[str] = set()
         for k in ("hr", "crm", "tasks", "correspondence"):
             domain |= _DOMAIN[k]
-        return COMMON_TOOLS | domain
-    return COMMON_TOOLS | _DOMAIN.get(_family(at), set())
+        return COMMON_TOOLS | MEMORY_WRITE_TOOLS | domain
+    family = _family(at)
+    allowed = COMMON_TOOLS | _DOMAIN.get(family, set())
+    if family in _MEMORY_WRITERS:
+        allowed |= MEMORY_WRITE_TOOLS
+    return allowed
 
 
 def enforce(agent_type: str, tools, log=None):

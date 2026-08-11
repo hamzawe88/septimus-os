@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@hocuspocus/server": "^3.4.4",
+    "@hocuspocus/server": "4.4.0",
     "ws": "^8.21.0",
     "y-websocket": "^3.0.0",
     "yjs": "^13.6.31"

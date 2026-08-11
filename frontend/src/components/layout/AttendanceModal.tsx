@@ -7,6 +7,7 @@ import { MapPin, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { useAppStore } from "@/store/useAppStore";
 
 // Dynamically import MapComponent to disable SSR, because Leaflet needs window object
 const MapComponent = dynamic(() => import("./MapComponent"), { ssr: false });
@@ -36,7 +37,7 @@ function deg2rad(deg: number) {
 
 export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProps) {
   const { isRtl } = useLocalization();
-  const token = typeof window !== "undefined" ? localStorage.getItem("septimus_token") : null;
+  const isLoggedIn = useAppStore((state) => state.isLoggedIn);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -86,7 +87,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
 
   useEffect(() => {
     if (isOpen) {
-            if (token) {
+            if (isLoggedIn) {
         // Fetch offices from backend
         fetchWithAuth(`${API_BASE_URL}/attendance/offices`)
         .then(res => res.json())
@@ -136,7 +137,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
     }
     // Runs on open/close only; getLocation is intentionally not a dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, token]);
+  }, [isOpen, isLoggedIn]);
 
   const distance = (userLat !== null && userLng !== null) ? getDistanceFromLatLonInM(userLat, userLng, officeLat, officeLng) : null;
 
@@ -146,7 +147,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
   const handleCheckIn = async () => {
     if (!canCheckIn) return;
     try {
-            if (token && officeId) {
+            if (isLoggedIn && officeId) {
         const res = await fetchWithAuth(`${API_BASE_URL}/attendance/check-in`, {
           method: "POST",
           headers: {
@@ -178,7 +179,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
 
   const handleCheckOut = async () => {
     try {
-            if (token && officeId) {
+            if (isLoggedIn && officeId) {
         const res = await fetchWithAuth(`${API_BASE_URL}/attendance/check-out`, {
           method: "POST",
           headers: {
@@ -210,13 +211,13 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-2xl">
+      <DialogContent className="sm:max-w-[500px] bg-card dark:bg-slate-900 border-border dark:border-slate-800 rounded-2xl p-6 shadow-2xl">
         <DialogHeader className="text-center sm:text-center items-center justify-center flex flex-col gap-1.5">
-          <DialogTitle className="flex items-center justify-center gap-2 text-center w-full text-lg font-extrabold text-slate-900 dark:text-white">
+          <DialogTitle className="flex items-center justify-center gap-2 text-center w-full text-lg font-extrabold text-foreground dark:text-white">
             <MapPin className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0" />
             <span>{isRtl ? "تسجيل الحضور / الانصراف" : "Attendance Check-In / Check-Out"}</span>
           </DialogTitle>
-          <DialogDescription className="text-center max-w-sm mx-auto leading-relaxed text-xs font-medium text-slate-500 dark:text-slate-400">
+          <DialogDescription className="text-center max-w-sm mx-auto leading-relaxed text-xs font-medium text-muted-foreground dark:text-muted-foreground">
             {isRtl ? `يرجى التأكد من وجودك ضمن نطاق الشركة (أقل من ${radiusMeters} متر) لتسجيل الحضور.` : `Please ensure you are within the company radius (less than ${radiusMeters} meters) to register attendance.`}
           </DialogDescription>
         </DialogHeader>
@@ -225,7 +226,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
           {loadingLocation ? (
             <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center">
               <Loader2 className="w-8 h-8 text-purple-600 dark:text-purple-400 animate-spin" />
-              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{isRtl ? "جارِ تحديد الموقع الجغرافي..." : "Fetching location..."}</p>
+              <p className="text-sm font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "جارِ تحديد الموقع الجغرافي..." : "Fetching location..."}</p>
             </div>
           ) : locationError ? (
             <div className="p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 text-red-600 dark:text-red-300 rounded-xl text-sm text-center font-medium">
@@ -237,7 +238,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
           ) : userLat && userLng ? (
             <>
               {/* Map View */}
-              <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800 shadow-inner">
+              <div className="border border-border dark:border-slate-700 rounded-xl overflow-hidden bg-card dark:bg-slate-800 shadow-inner">
                 <MapComponent
                   userLat={userLat}
                   userLng={userLng}
@@ -248,10 +249,10 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
               </div>
 
               {/* Status & Action */}
-              <div className="flex flex-col gap-2 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
+              <div className="flex flex-col gap-2 p-4 bg-muted dark:bg-slate-800/60 rounded-xl border border-border dark:border-slate-700 text-center">
                 <div className="flex justify-between items-center px-1">
-                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">{isRtl ? "المسافة من المقر:" : "Distance from HQ:"}</span>
-                  <span className="text-sm font-bold text-slate-900 dark:text-white" dir="ltr">{distance?.toFixed(2)} {isRtl ? "متر" : "meters"}</span>
+                  <span className="text-sm font-semibold text-muted-foreground dark:text-slate-300">{isRtl ? "المسافة من المقر:" : "Distance from HQ:"}</span>
+                  <span className="text-sm font-bold text-foreground dark:text-white" dir="ltr">{distance?.toFixed(2)} {isRtl ? "متر" : "meters"}</span>
                 </div>
                 
                 {isWithinRadius ? (
@@ -298,7 +299,7 @@ export default function AttendanceModal({ isOpen, onClose }: AttendanceModalProp
                   <Button 
                     onClick={handleCheckIn}
                     disabled={!canCheckIn}
-                    className={`flex-1 py-5 text-sm font-bold rounded-xl transition-all shadow-md ${canCheckIn ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20" : "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 shadow-none"}`}
+                    className={`flex-1 py-5 text-sm font-bold rounded-xl transition-all shadow-md ${canCheckIn ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20" : "bg-slate-200 dark:bg-slate-800 text-muted-foreground dark:text-muted-foreground shadow-none"}`}
                   >
                     {isRtl ? "تسجيل حضور" : "Check In"}
                   </Button>

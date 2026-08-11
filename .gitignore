@@ -10,6 +10,8 @@ venv/
 **/venv/
 __pycache__/
 **/__pycache__/
+.pytest_cache/
+**/.pytest_cache/
 *.pyc
 
 # Environment & secrets
@@ -29,6 +31,12 @@ backend-core/server
 backend-core/backend-core
 *.tsbuildinfo
 eslint-report.json
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
+coverage/
+**/coverage/
 
 # OS / editor
 .DS_Store
@@ -37,6 +45,7 @@ eslint-report.json
 
 # Databases & dumps
 *.sqlite
+*.db
 *.dump
 
 # Compiled Go binary — never commit (bloats history; repo was already slimmed once)

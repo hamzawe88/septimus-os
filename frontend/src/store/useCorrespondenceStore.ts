@@ -434,24 +434,62 @@ export const useCorrespondenceStore = create<CorrespondenceState>()(
     }
   },
 
+  // Endpoint paths passed to apiPost are relative to API_BASE_URL (/api/v1) — do
+  // NOT prefix them with /api/v1. These two carried the prefix, so the request
+  // went to /api/v1/api/v1/ai/correspondence/* and 404'd: letter audit and
+  // rewrite were dead from the UI while the sidecar handlers worked fine.
+  // workspace_id in the body is ignored by the sidecar (it trusts the JWT-stamped
+  // X-Workspace-Id header); it is left here only to match the request schema.
   aiRewrite: async (title, content, tone = 'formal_institutional') => {
     const workspaceId = getCurrentWorkspaceId();
-    const res = await apiPost<{ data?: { rewritten_title: string; rewritten_content: string; suggestions?: string[] }; rewritten_title?: string; rewritten_content?: string; suggestions?: string[] }>(`/api/v1/ai/correspondence/rewrite`, {
+    const res = await apiPost<{ data?: { rewritten_title: string; rewritten_content: string; suggestions?: string[] }; rewritten_title?: string; rewritten_content?: string; suggestions?: string[] }>(`/ai/correspondence/rewrite`, {
       workspace_id: workspaceId,
       title,
       content,
       tone,
     });
-    return ('data' in res && res.data) ? res.data : { rewritten_title: res.rewritten_title || title, rewritten_content: res.rewritten_content || content, suggestions: res.suggestions };
+    const result = ('data' in res && res.data)
+      ? res.data
+      : {
+          rewritten_title: res.rewritten_title,
+          rewritten_content: res.rewritten_content,
+          suggestions: res.suggestions,
+        };
+    if (!result.rewritten_title || !result.rewritten_content) {
+      throw new Error('Incomplete AI correspondence rewrite response');
+    }
+    return {
+      rewritten_title: result.rewritten_title,
+      rewritten_content: result.rewritten_content,
+      suggestions: result.suggestions,
+    };
   },
 
   aiAudit: async (title, content) => {
     const workspaceId = getCurrentWorkspaceId();
-    const res = await apiPost<{ data?: { compliance_score: number; legal_risks: string[]; formatting_suggestions: string[] }; compliance_score?: number; legal_risks?: string[]; formatting_suggestions?: string[] }>(`/api/v1/ai/correspondence/audit`, {
+    const res = await apiPost<{ data?: { compliance_score: number; legal_risks: string[]; formatting_suggestions: string[] }; compliance_score?: number; legal_risks?: string[]; formatting_suggestions?: string[] }>(`/ai/correspondence/audit`, {
       workspace_id: workspaceId,
       title,
       content,
     });
-    return ('data' in res && res.data) ? res.data : { compliance_score: res.compliance_score || 100, legal_risks: res.legal_risks || [], formatting_suggestions: res.formatting_suggestions || [] };
+    const result = ('data' in res && res.data)
+      ? res.data
+      : {
+          compliance_score: res.compliance_score,
+          legal_risks: res.legal_risks,
+          formatting_suggestions: res.formatting_suggestions,
+        };
+    if (
+      typeof result.compliance_score !== 'number'
+      || !Array.isArray(result.legal_risks)
+      || !Array.isArray(result.formatting_suggestions)
+    ) {
+      throw new Error('Incomplete AI correspondence audit response');
+    }
+    return {
+      compliance_score: result.compliance_score,
+      legal_risks: result.legal_risks,
+      formatting_suggestions: result.formatting_suggestions,
+    };
   },
 }), { name: 'septimus_correspondence_state' }) );

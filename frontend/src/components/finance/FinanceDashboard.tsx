@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { apiGet } from "@/lib/apiClient";
 import { useLocalization } from "@/contexts/LocalizationContext";
 import { useAppStore } from "@/store/useAppStore";
+import { LoadingState } from "@/components/ui/loading-state";
 import DashboardKPIs from "./DashboardKPIs";
 import CashFlowChart from "./charts/CashFlowChart";
 import ExpensesDonutChart from "./charts/ExpensesDonutChart";
@@ -85,7 +86,7 @@ export default function FinanceDashboard() {
         { name: "other", label: t("finance.categories.other"), value: 1890 }
       ];
     }
-    
+
     const breakdown: Record<string, number> = {};
     expenses.forEach(exp => {
       const cat = (exp.data?.category as string) || "other";
@@ -104,23 +105,22 @@ export default function FinanceDashboard() {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-slate-50 dark:bg-[#121212]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
-      </div>
+      <LoadingState />
     );
   }
 
+
   return (
-    <div className="h-full overflow-y-auto p-8 bg-slate-50 dark:bg-[#121212] transition-colors duration-300">
+    <div className="h-full overflow-y-auto p-8 bg-muted dark:bg-background transition-colors duration-300">
       <div className={`mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 transition-all ${isSidebarOpen ? 'max-w-7xl' : 'max-w-full'}`}>
-        
+
         {/* Header */}
         <div className="flex justify-between items-end mb-2">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("finance.dashboardTitle")}</h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1">{t("finance.dashboardSubtitle")}</p>
+            <h1 className="text-2xl font-bold text-foreground dark:text-muted-foreground">{t("finance.dashboardTitle")}</h1>
+            <p className="text-muted-foreground dark:text-muted-foreground mt-1">{t("finance.dashboardSubtitle")}</p>
           </div>
-          <button 
+          <button
             onClick={async () => {
               try {
                 setGeneratingForecast(true);
@@ -141,7 +141,7 @@ export default function FinanceDashboard() {
               }
             }}
             disabled={generatingForecast}
-            className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white px-4 py-2 rounded-lg shadow-md transition-all duration-300 disabled:opacity-50"
+            className="flex items-center gap-2 bg-gradient-to-r from-brand to-brand hover:from-brand hover:to-brand text-white px-4 py-2 rounded-lg shadow-md transition-all duration-300 disabled:opacity-50"
           >
             {generatingForecast ? (
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white"></div>
@@ -153,7 +153,7 @@ export default function FinanceDashboard() {
         </div>
 
         {/* KPIs */}
-        <DashboardKPIs 
+        <DashboardKPIs
           totalRevenue={totalRevenue}
           totalExpenses={totalExpenses}
           netIncome={netIncome}
@@ -183,7 +183,7 @@ export default function FinanceDashboard() {
             <RecentTransactions invoices={invoices} expenses={expenses} />
           </div>
         </div>
-        
+
       </div>
     </div>
   );

@@ -248,7 +248,7 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody>
                   {users.map(u => (
-                    <tr key={u.ID} className="border-b hover:bg-[#f8fafc] :bg-slate-800/50">
+                    <tr key={u.ID} className="border-b hover:bg-background :bg-slate-800/50">
                       <td className="p-3 font-medium">{u.Email}</td>
                       <td className="p-3">{u.RoleRef?.Name || u.Role || "N/A"}</td>
                       <td className="p-3">{u.Department?.Name || "N/A"}</td>
@@ -375,7 +375,7 @@ export default function AdminDashboard() {
       {/* Dept Modal */}
       {isDeptModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="p-4 border-b flex justify-between items-center">
               <h2 className="font-bold">{editDept ? "Edit Department" : "Add Department"}</h2>
               <button title="Close Modal" onClick={() => setIsDeptModalOpen(false)}><X className="w-5 h-5 text-gray-500" /></button>
@@ -404,7 +404,7 @@ export default function AdminDashboard() {
       {/* Role Modal */}
       {isRoleModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="p-4 border-b flex justify-between items-center">
               <h2 className="font-bold">{editRole ? "Edit Role" : "Add Role"}</h2>
               <button title="Close Modal" onClick={() => setIsRoleModalOpen(false)}><X className="w-5 h-5 text-gray-500" /></button>

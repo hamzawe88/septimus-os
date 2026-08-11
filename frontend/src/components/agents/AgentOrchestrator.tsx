@@ -281,18 +281,18 @@ export function AgentOrchestrator() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#f8fafc] p-6 pb-20 min-h-0">
+    <div className="flex-1 overflow-y-auto bg-background p-6 pb-20 min-h-0">
       <div className="max-w-6xl mx-auto space-y-8">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">{isRtl ? "مركز الذكاء الاصطناعي" : "AI Center"}</h1>
-            <p className="text-slate-500 mt-2">{isRtl ? "راقب الوكلاء وأدر مزوّدي نماذج اللغة من مكان واحد." : "Monitor agents and manage your LLM providers in one place."}</p>
+            <h1 className="text-3xl font-extrabold text-foreground tracking-tight">{isRtl ? "مركز الذكاء الاصطناعي" : "AI Center"}</h1>
+            <p className="text-muted-foreground mt-2">{isRtl ? "راقب الوكلاء وأدر مزوّدي نماذج اللغة من مكان واحد." : "Monitor agents and manage your LLM providers in one place."}</p>
           </div>
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <div className="flex bg-muted p-1 rounded-xl border border-border">
             <button
               onClick={() => setActiveTab('monitoring')}
               className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all ${
-                activeTab === 'monitoring' ? 'bg-white text-brand shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+                activeTab === 'monitoring' ? 'bg-card text-brand shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-white/50'
               }`}
             >
               {isRtl ? "المراقبة والتحكم" : "Monitoring & Control"}
@@ -300,7 +300,7 @@ export function AgentOrchestrator() {
             <button
               onClick={() => setActiveTab('providers')}
               className={`px-6 py-2 rounded-lg font-semibold text-sm transition-all ${
-                activeTab === 'providers' ? 'bg-white text-brand shadow-md' : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+                activeTab === 'providers' ? 'bg-card text-brand shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-white/50'
               }`}
             >
               {isRtl ? "المزوّدون والنماذج" : "Providers & Models"}
@@ -309,15 +309,15 @@ export function AgentOrchestrator() {
         </header>
 
         {/* ── Live Telemetry Bar ── */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-slate-200 pb-4 md:pb-0 md:pe-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-card p-6 rounded-2xl shadow-sm border border-border">
+          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-border pb-4 md:pb-0 md:pe-4">
             <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
               <Activity className="w-6 h-6 animate-pulse" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{isRtl ? "الوكلاء النشطون" : "Active Agents"}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{isRtl ? "الوكلاء النشطون" : "Active Agents"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-black text-slate-900">{states.filter(s => s.status !== 'killed').length}</span>
+                <span className="text-2xl font-black text-foreground">{states.filter(s => s.status !== 'killed').length}</span>
                 <span className="text-xs text-green-600 font-bold flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" /> {isRtl ? "متصل" : "Online"}
                 </span>
@@ -325,27 +325,27 @@ export function AgentOrchestrator() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-slate-200 pb-4 md:pb-0 md:pe-4">
+          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-border pb-4 md:pb-0 md:pe-4">
             <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shrink-0">
               <Zap className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{isRtl ? "إجمالي الدورات" : "Total Loops"}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{isRtl ? "إجمالي الدورات" : "Total Loops"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-2xl font-black text-slate-900">{states.reduce((acc, s) => acc + (s.loop_count || 0), 0)}</span>
+                <span className="text-2xl font-black text-foreground">{states.reduce((acc, s) => acc + (s.loop_count || 0), 0)}</span>
                 <span className="text-xs text-purple-500">{isRtl ? "الدورات المنفّذة" : "Cycles Executed"}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-slate-200 pb-4 md:pb-0 md:pe-4">
+          <div className="flex items-center gap-4 border-b md:border-b-0 md:border-e border-border pb-4 md:pb-0 md:pe-4">
             <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
               <Cpu className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{isRtl ? "المزوّد النشط" : "Active Provider"}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{isRtl ? "المزوّد النشط" : "Active Provider"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-lg font-bold text-slate-900 truncate max-w-[140px]" title={activeModelName}>
+                <span className="text-lg font-bold text-foreground truncate max-w-[140px]" title={activeModelName}>
                   {activeModelName}
                 </span>
               </div>
@@ -357,17 +357,17 @@ export function AgentOrchestrator() {
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{isRtl ? "حالة النظام" : "System Status"}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{isRtl ? "حالة النظام" : "System Status"}</p>
               <div className="flex items-baseline gap-2 mt-0.5">
                 <span className="text-lg font-bold text-emerald-600">{isRtl ? "مستقل" : "Autonomous"}</span>
-                <span className="text-xs text-slate-500">{isRtl ? "الفرز نشط" : "Triage Active"}</span>
+                <span className="text-xs text-muted-foreground">{isRtl ? "الفرز نشط" : "Triage Active"}</span>
               </div>
             </div>
           </div>
         </div>
 
         {activeTab === 'providers' && (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full min-h-0 transition-all">
+          <div className="bg-card rounded-2xl border border-border shadow-xl w-full min-h-0 transition-all">
             <AISettings />
           </div>
         )}
@@ -377,7 +377,7 @@ export function AgentOrchestrator() {
 
         {/* Live Grid */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-slate-800">{isRtl ? "الوكلاء المنشورون" : "Deployed Agents"}</h2>
+          <h2 className="text-2xl font-bold text-foreground">{isRtl ? "الوكلاء المنشورون" : "Deployed Agents"}</h2>
           <button onClick={() => setShowDeployModal(true)} className="px-6 py-2 bg-brand text-white rounded-xl font-bold hover:bg-brand/90 transition-colors shadow-md">
             + Deploy New Agent
           </button>
@@ -385,8 +385,8 @@ export function AgentOrchestrator() {
 
         {/* Quick-run: dispatch a real task to a specialized agent. The Go runner
             reads live workspace data, so counters and the stream populate. */}
-        <div className="flex flex-wrap items-center gap-3 mb-6 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <span className="text-sm font-semibold text-slate-600">{isRtl ? "تشغيل سريع لوكيل:" : "Quick-run an agent:"}</span>
+        <div className="flex flex-wrap items-center gap-3 mb-6 p-4 rounded-2xl bg-card border border-border shadow-sm">
+          <span className="text-sm font-semibold text-muted-foreground">{isRtl ? "تشغيل سريع لوكيل:" : "Quick-run an agent:"}</span>
           {(['crm', 'task', 'comm'] as const).map((type) => (
             <button
               key={type}
@@ -406,15 +406,15 @@ export function AgentOrchestrator() {
             const isKilled = state.status === 'killed';
             
             return (
-              <div key={state.id} className={`p-6 rounded-2xl border-2 transition-all bg-white shadow-sm hover:shadow-md ${isKilled ? 'border-red-200 bg-red-50/50' : 'border-slate-200 hover:border-slate-300'}`}>
+              <div key={state.id} className={`p-6 rounded-2xl border-2 transition-all bg-card shadow-sm hover:shadow-md ${isKilled ? 'border-red-200 bg-red-50/50' : 'border-border hover:border-border'}`}>
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-bold text-slate-800 capitalize">{state.name}</h3>
+                  <h3 className="text-xl font-bold text-foreground capitalize">{state.name}</h3>
                   <div className={`w-3 h-3 rounded-full ${isKilled ? 'bg-red-500' : 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)] animate-pulse'}`} />
                 </div>
-                <div className="text-sm text-slate-500 space-y-1 mb-6">
-                  <p className="font-medium">Role: <span className="text-slate-800 font-bold">{state.role || 'General'}</span></p>
+                <div className="text-sm text-muted-foreground space-y-1 mb-6">
+                  <p className="font-medium">Role: <span className="text-foreground font-bold">{state.role || 'General'}</span></p>
                   <p className="font-medium">Status: <span className={isKilled ? 'text-red-500 font-bold' : 'text-green-600 font-bold'}>{state.status || 'idle'}</span></p>
-                  <p className="font-medium">{isRtl ? "الدورات المنفّذة:" : "Loops Executed:"} <span className="text-slate-800 font-bold">{state.loop_count || 0}</span></p>
+                  <p className="font-medium">{isRtl ? "الدورات المنفّذة:" : "Loops Executed:"} <span className="text-foreground font-bold">{state.loop_count || 0}</span></p>
                 </div>
                 <button
                   onClick={() => toggleKillSwitch(state.id, state.status)}
@@ -429,7 +429,7 @@ export function AgentOrchestrator() {
               </div>
             );
           })}
-          {states.length === 0 && <p className="text-slate-500 col-span-3 text-center italic py-8">{isRtl ? "لا وكلاء منشورون بعد." : "No agents deployed yet."}</p>}
+          {states.length === 0 && <p className="text-muted-foreground col-span-3 text-center italic py-8">{isRtl ? "لا وكلاء منشورون بعد." : "No agents deployed yet."}</p>}
         </div>
 
         {/* Pending Approvals */}
@@ -441,11 +441,11 @@ export function AgentOrchestrator() {
             </h3>
             <div className="space-y-4">
               {pending.map(p => (
-                <div key={p.id} className="bg-white rounded-xl p-4 border border-yellow-200 shadow-sm flex justify-between items-center">
+                <div key={p.id} className="bg-card rounded-xl p-4 border border-yellow-200 shadow-sm flex justify-between items-center">
                   <div>
-                    <p className="text-slate-800 font-bold capitalize">{p.agent_name} Agent - {p.action_type}</p>
-                    <p className="text-sm text-slate-500 mt-1 font-medium">{p.reason}</p>
-                    <pre className="text-xs text-slate-600 mt-2 bg-slate-50 border border-slate-100 p-3 rounded-lg overflow-x-auto">{p.payload}</pre>
+                    <p className="text-foreground font-bold capitalize">{p.agent_name} Agent - {p.action_type}</p>
+                    <p className="text-sm text-muted-foreground mt-1 font-medium">{p.reason}</p>
+                    <pre className="text-xs text-muted-foreground mt-2 bg-muted border border-border p-3 rounded-lg overflow-x-auto">{p.payload}</pre>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleApproval(p.id, 'reject')} className="px-4 py-2 rounded-lg font-semibold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors">Reject</button>
@@ -458,12 +458,12 @@ export function AgentOrchestrator() {
         )}
 
         {/* Live Logs */}
-        <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-sm">
-          <h3 className="text-xl font-bold text-slate-800 mb-4">{isRtl ? "تدفّق التعاون" : "Collaboration Stream"}</h3>
+        <div className="bg-card border-2 border-border rounded-2xl p-6 shadow-sm">
+          <h3 className="text-xl font-bold text-foreground mb-4">{isRtl ? "تدفّق التعاون" : "Collaboration Stream"}</h3>
           <div className="space-y-3 max-h-[400px] overflow-y-auto pe-2 scrollbar-thin">
             {logs.map(log => (
-              <div key={log.id} className="text-sm font-mono border-s-4 border-slate-200 ps-4 py-2 bg-slate-50/50 rounded-e-lg">
-                <div className="flex items-center gap-3 text-slate-500 text-xs mb-1.5">
+              <div key={log.id} className="text-sm font-mono border-s-4 border-border ps-4 py-2 bg-muted/50 rounded-e-lg">
+                <div className="flex items-center gap-3 text-muted-foreground text-xs mb-1.5">
                   <span className="font-semibold">{new Date(log.created_at).toLocaleTimeString()}</span>
                   <span className="text-indigo-600 font-bold uppercase tracking-wider">[{log.agent_name}]</span>
                   <span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase tracking-wider ${
@@ -473,12 +473,12 @@ export function AgentOrchestrator() {
                     'bg-yellow-100 text-yellow-700'
                   }`}>{log.status}</span>
                 </div>
-                <div className="text-slate-800 font-semibold mb-1">{log.action}</div>
-                <div className="text-slate-500 text-xs mb-0.5 break-all">IN: {log.input_data}</div>
-                <div className="text-slate-600 text-xs break-all">OUT: {log.output_data}</div>
+                <div className="text-foreground font-semibold mb-1">{log.action}</div>
+                <div className="text-muted-foreground text-xs mb-0.5 break-all">IN: {log.input_data}</div>
+                <div className="text-muted-foreground text-xs break-all">OUT: {log.output_data}</div>
               </div>
             ))}
-            {logs.length === 0 && <p className="text-slate-400 italic text-center py-8">{isRtl ? "لا نشاط للوكلاء بعد." : "No agent activity yet."}</p>}
+            {logs.length === 0 && <p className="text-muted-foreground italic text-center py-8">{isRtl ? "لا نشاط للوكلاء بعد." : "No agent activity yet."}</p>}
           </div>
         </div>
         </>
@@ -488,29 +488,29 @@ export function AgentOrchestrator() {
 
       {showDeployModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-slate-200">
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">{isRtl ? "نشر وكيل جديد" : "Deploy New Agent"}</h2>
+          <div className="bg-card w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-border">
+            <h2 className="text-2xl font-bold text-foreground mb-6">{isRtl ? "نشر وكيل جديد" : "Deploy New Agent"}</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">{isRtl ? "اسم الوكيل" : "Agent Name"}</label>
+                <label className="block text-sm font-semibold text-foreground mb-1">{isRtl ? "اسم الوكيل" : "Agent Name"}</label>
                 <input
                   type="text"
                   value={newAgent.name}
                   onChange={e => setNewAgent({...newAgent, name: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand focus:bg-white"
+                  className="w-full bg-muted border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-brand focus:bg-card"
                   placeholder={isRtl ? "مثال: محلل مالي" : "e.g. Finance Analyst"}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">{isRtl ? "الدور / التخصص" : "Role / Specialization"}</label>
+                <label className="block text-sm font-semibold text-foreground mb-1">{isRtl ? "الدور / التخصص" : "Role / Specialization"}</label>
                 <select
                   title={isRtl ? "دور الوكيل" : "Agent Role"}
                   aria-label="Role / Specialization"
                   value={newAgent.role}
                   onChange={e => setNewAgent({...newAgent, role: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand focus:bg-white"
+                  className="w-full bg-muted border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-brand focus:bg-card"
                 >
                   <option value="">{isRtl ? "اختر الدور" : "Select Role"}</option>
                   <option value="data_analyst">{isRtl ? "محلل بيانات (قراءة فقط)" : "Data Analyst (Read-only)"}</option>
@@ -521,11 +521,11 @@ export function AgentOrchestrator() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">{isRtl ? "الإعداد (JSON)" : "Configuration (JSON)"}</label>
+                <label className="block text-sm font-semibold text-foreground mb-1">{isRtl ? "الإعداد (JSON)" : "Configuration (JSON)"}</label>
                 <textarea
                   value={newAgent.config}
                   onChange={e => setNewAgent({...newAgent, config: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:bg-white h-32"
+                  className="w-full bg-muted border border-border rounded-xl px-4 py-3 text-foreground font-mono text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:bg-card h-32"
                   placeholder='{"tools": ["db_query", "rag_search"], "prompt": "..."}'
                 />
               </div>
@@ -534,7 +534,7 @@ export function AgentOrchestrator() {
             <div className="flex justify-end gap-3 mt-8">
               <button 
                 onClick={() => setShowDeployModal(false)}
-                className="px-6 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                className="px-6 py-2.5 rounded-xl font-bold text-muted-foreground bg-muted hover:bg-slate-200 transition-colors"
               >
                 {isRtl ? "إلغاء" : "Cancel"}
               </button>

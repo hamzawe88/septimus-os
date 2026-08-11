@@ -23,12 +23,12 @@ type CreateCorrespondenceRequest struct {
 	Content           string `json:"content"`
 	SenderType        string `json:"sender_type"`
 	Type              string `json:"type"`
-	SenderDetails     string `json:"sender_details"`     // JSON string
-	RecipientDetails  string `json:"recipient_details"`  // JSON string
+	SenderDetails     string `json:"sender_details"`    // JSON string
+	RecipientDetails  string `json:"recipient_details"` // JSON string
 	SecurityLevel     string `json:"security_level"`
 	Confidentiality   string `json:"confidentiality"`
 	Status            string `json:"status"`
-	Attachments       string `json:"attachments"`        // JSON array string
+	Attachments       string `json:"attachments"` // JSON array string
 	ExternalReference string `json:"external_reference"`
 	CurrentHolderID   string `json:"current_holder_id"`
 	DeptCode          string `json:"dept_code"`
@@ -37,7 +37,7 @@ type CreateCorrespondenceRequest struct {
 
 type ForwardCorrespondenceRequest struct {
 	ToUserID     string `json:"to_user_id"`
-	ForwardTo    string `json:"forward_to"`    // e.g. "top.ministry.diwan.legal.audit"
+	ForwardTo    string `json:"forward_to"` // e.g. "top.ministry.diwan.legal.audit"
 	OfficialNote string `json:"official_note"`
 	Notes        string `json:"notes"`
 	DeptCode     string `json:"dept_code"` // e.g. "hr", "ops", "legal"
@@ -399,7 +399,7 @@ func ForwardCorrespondence(c *fiber.Ctx) error {
 		"to_user_id":        toUserID,
 		"note":              note,
 	}
-	PublishToCentrifugo("workspace:"+workspaceID.String(), wsPayload)
+	PublishToCentrifugo(WorkspaceChannel(workspaceID), wsPayload)
 
 	return c.JSON(fiber.Map{
 		"success":        true,

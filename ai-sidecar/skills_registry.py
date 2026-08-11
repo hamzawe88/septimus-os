@@ -41,14 +41,23 @@ class DynamicSkillRegistry:
                 logger.error(f"Could not create skills directory: {e}")
             return
 
-        for filename in os.listdir(self.skills_directory):
-            if filename.endswith(".md"):
-                file_path = os.path.join(self.skills_directory, filename)
-                self._parse_skill_file(file_path, filename)
+        # Walk subdirectories too: personas are organised by domain
+        # (finance/, sales/, marketing/, pm/) alongside the top-level sovereign
+        # skills. The subfolder name is the fallback domain when a file omits it.
+        for root, _dirs, files in os.walk(self.skills_directory):
+            folder = os.path.basename(root)
+            for filename in files:
+                if filename.endswith(".md"):
+                    file_path = os.path.join(root, filename)
+                    default_domain = folder if root != self.skills_directory else "sovereign"
+                    self._parse_skill_file(file_path, filename, default_domain)
+        by_domain = {}
+        for v in self.registry.values():
+            by_domain[v["domain"]] = by_domain.get(v["domain"], 0) + 1
         logger.info(f"✅ Loaded {len(self.registry)} skills from {self.skills_directory}")
-        print(f"✅ [DynamicSkillRegistry] Loaded {len(self.registry)} skills from {self.skills_directory}: {[k for k in self.registry.keys()]}")
+        print(f"✅ [DynamicSkillRegistry] Loaded {len(self.registry)} skills across domains: {by_domain}")
 
-    def _parse_skill_file(self, file_path: str, filename: str):
+    def _parse_skill_file(self, file_path: str, filename: str, default_domain: str = "sovereign"):
         """تفصيص وتفكيك ملف الـ Markdown واستخراج الـ Metadata والمحتوى"""
         try:
             with open(file_path, "r", encoding="utf-8") as file:
@@ -83,34 +92,21 @@ class DynamicSkillRegistry:
             "description": metadata.get("description", "Internal operational skill and sovereign persona."),
             "vibe": metadata.get("vibe", "Professional sovereign executor."),
             "emoji": metadata.get("emoji", "🤖"),
+            # domain groups personas by business area; specialist maps the domain
+            # to a Septimus chat agent (finance/crm/tasks) or "system" when no
+            # dedicated specialist exists (marketing) → handled by the orchestrator.
+            "domain": metadata.get("domain", default_domain),
+            "specialist": metadata.get("specialist", "system"),
             "required_parameters": req_params,
             "full_instructions": body
         }
 
-    def sync_with_pgvector(self, workspace_id: str = "default") -> bool:
-        """
-        نظام الحفظ الهجين مع pgvector: مزامنة المهارات المحملة مع جدول document_embeddings
-        لتمكين البحث الدلالي الفوري للوكلاء المتخصصين.
-        """
-        try:
-            from knowledge import save_fact
-            for skill_id, data in self.registry.items():
-                fact_content = (
-                    f"Skill Persona: {data['name']} {data['emoji']}\n"
-                    f"Description: {data['description']}\n"
-                    f"Required Parameters: {', '.join(data['required_parameters']) if data['required_parameters'] else 'None'}\n"
-                    f"Vibe: {data['vibe']}\n"
-                    f"Instructions Summary: {data['full_instructions'][:500]}..."
-                )
-                save_fact(
-                    workspace_id=workspace_id,
-                    content=fact_content
-                )
-            logger.info(f"✅ Synced {len(self.registry)} skill personas to pgvector store for workspace '{workspace_id}'.")
-            return True
-        except Exception as e:
-            logger.warning(f"⚠️ pgvector hybrid sync skipped or unavailable: {e}")
-            return False
+    # NOTE: skill personas are deliberately NOT synced into pgvector as
+    # institutional facts. Doing so polluted RAG retrieval — persona text (e.g.
+    # "Sovereign Analytics Tracker") came back as workspace knowledge and bled
+    # into the specialist chat agents. `clean_leaked_facts.py` exists to purge
+    # rows from that era. The former `sync_with_pgvector()` was a no-op kept
+    # only to preserve its startup call site; both are now removed.
 
     def get_skill(self, skill_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve a specific skill by id (case-insensitive)"""
@@ -125,20 +121,38 @@ class DynamicSkillRegistry:
                 return val
         return None
 
-    def search_skills(self, query: str, target_persona: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Identify matching skills based on target persona or keyword scoring"""
+    def personas_for_domain(self, domain: str) -> List[Dict[str, Any]]:
+        """All personas in a business domain (finance/sales/marketing/pm/sovereign)."""
+        d = (domain or "").lower()
+        return [v for v in self.registry.values() if v.get("domain") == d]
+
+    def domains(self) -> Dict[str, int]:
+        """Persona count per domain — for the /agents/capabilities audit view."""
+        out: Dict[str, int] = {}
+        for v in self.registry.values():
+            out[v.get("domain", "sovereign")] = out.get(v.get("domain", "sovereign"), 0) + 1
+        return out
+
+    def search_skills(self, query: str, target_persona: Optional[str] = None,
+                      domain: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Identify matching skills by persona, keyword scoring, and optional domain.
+
+        `domain` scopes the search to one specialist's catalogue (e.g. a CRM agent
+        only sees `sales` personas). With no domain the whole catalogue is
+        searched — this is the system-wide orchestrator view.
+        """
         if target_persona:
             matched = self.get_skill(target_persona)
             if matched:
                 return [matched]
 
+        pool = self.personas_for_domain(domain) if domain else list(self.registry.values())
         q_lower = query.lower()
         scored = []
-        for sid, val in self.registry.items():
+        for val in pool:
             score = 0
-            if sid in q_lower or val["name"].lower() in q_lower:
+            if val["id"] in q_lower or val["name"].lower() in q_lower:
                 score += 10
-            # Check description keywords
             for word in val["description"].lower().split():
                 if len(word) > 3 and word in q_lower:
                     score += 3
@@ -147,46 +161,68 @@ class DynamicSkillRegistry:
 
         scored.sort(key=lambda x: x[0], reverse=True)
         results = [item[1] for item in scored]
-        # Return at least all skills if none specifically matched, so the LLM has full catalog awareness
+        # Fall back to the (domain-scoped) full list so the LLM keeps catalogue awareness.
         if not results:
-            results = list(self.registry.values())
+            results = pool
         return results
 
-    def generate_system_prompt(self, target_persona: Optional[str] = None) -> str:
-        """توليد برومت النظام الخارق الذي يدمج المهارات ككتلة معرفية للوكيل"""
-        base_prompt = (
-            "You are an elite Internal Enterprise AI Orchestrator for Septimus OS. "
-            "Your intelligence is supercharged with a dynamic catalog of specialized core operational skills "
-            "and expert agent personas loaded from our Markdown curriculum registry.\n\n"
-            "CORE WORKFLOW PROTOCOL (ReAct Framework):\n"
-            "1. **Analyze (Thought)**: Identify which operational skill(s) from the registry match the user's request.\n"
-            "2. **Adopt**: Embody the specific vibe, logic, guidelines, and restrictions of that skill/persona.\n"
-            "3. **Deliver (Execute)**: Generate deliverables matching the exact schemas, templates (JSON, Markdown, SQL), "
-            "and response metrics defined inside the matched skill.\n\n"
-            "CRITICAL SECURITY & COMPLIANCE RULES:\n"
-            "- Never hallucinate external tools or technical schemas; rely strictly on the loaded skills provided below.\n"
-            "- **Parameter Validation Stop-Gate**: If the matched skill requires specific parameters (`required_parameters`) "
-            "and the user input or context lacks them, DO NOT guess or hallucinate values. Halt and ask for them explicitly.\n"
-            "- **Language Protocol**: Preserve all internal database schemas, API payloads, JSON fields, and technical formulas exactly in English. "
-            "When explaining concepts, summarizing advice, or conversing with the executive user, write in commanding, professional Arabic.\n"
-            "- **Epistemic Rigor**: Classify assertions clearly (`[VERIFIED]`, `[VERIFIED STATS]`, `[CONFIDENT RECALL]`, `[ASSUMPTION]`).\n\n"
-            "=== REGISTERED INTERNAL SKILLS CATALOG ===\n"
+    # Shared compliance rules, appended to both the single-persona and the router
+    # system prompts.
+    _COMMON_RULES = (
+        "\nCRITICAL RULES:\n"
+        "- Rely strictly on the skill(s) defined above; never invent external tools or schemas.\n"
+        "- Parameter Stop-Gate: if a required parameter is missing, halt and ask for it — never guess.\n"
+        "- Language: keep DB schemas, JSON fields, and formulas in English; converse in professional Arabic.\n"
+        "- Epistemic rigor: label load-bearing assertions ([VERIFIED], [VERIFIED STATS], [ASSUMPTION]).\n"
+    )
+
+    def generate_system_prompt(self, target_persona: Optional[str] = None,
+                               domain: Optional[str] = None) -> str:
+        """Build the orchestrator system prompt.
+
+        Two distinct modes, because conflating them produced the "I am all skills"
+        bug: when no specific persona was selected, the prompt used to load EVERY
+        skill module and instruct the model to embody all of them, so a user who
+        opened e.g. a CRM agent got a generic "I am the sovereign system, I do
+        analytics AND legal AND PM AND accounts" identity instead of one focused
+        specialist.
+
+        - A resolved persona → the agent IS that single specialist, and is told
+          not to present itself as anything else.
+        - No resolved persona → a router that picks ONE specialist for the request.
+          `domain` scopes the routing menu to one business area (e.g. a CRM agent
+          only routes among `sales` personas); without it the router sees the
+          whole catalogue (the system-wide orchestrator).
+        """
+        resolved = self.get_skill(target_persona) if target_persona else None
+
+        if resolved:
+            prompt = (
+                f"You are **{resolved['name']}** {resolved['emoji']}, a specialized Septimus OS agent. "
+                f"You operate ONLY within this role. Do not introduce yourself as a general or sovereign "
+                f"assistant, and do not claim to perform other specialties.\n\n"
+                f"Strategic Focus: {resolved['description']}\n"
+                f"Execution Vibe: {resolved['vibe']}\n"
+            )
+            if resolved["required_parameters"]:
+                prompt += f"Mandatory Required Parameters: {', '.join(resolved['required_parameters'])}\n"
+            prompt += "--- Operational Manual ---\n" + resolved["full_instructions"] + "\n"
+            return prompt + self._COMMON_RULES
+
+        # Router mode — do NOT impersonate every skill at once.
+        pool = self.personas_for_domain(domain) if domain else list(self.registry.values())
+        scope = f" for the {domain} domain" if domain else ""
+        router = (
+            f"You are the Septimus OS orchestrator (a ROUTER){scope}. You are not a single specialist and "
+            "you must NOT claim to personally perform every skill or introduce yourself as a bundle of all "
+            "capabilities. For each request: pick the ONE specialist below that best fits and answer AS "
+            "that specialist. If the request is a greeting or too vague to route, reply briefly and ask "
+            "which area the user needs — do not enumerate everything you can do.\n\n"
+            "AVAILABLE SPECIALISTS (route to exactly one):\n"
         )
-
-        active_skills = self.search_skills("", target_persona)
-        for data in active_skills:
-            sid = data["id"].upper()
-            base_prompt += f"\n[START_SKILL_MODULE: {sid}]\n"
-            base_prompt += f"Skill Identity: {data['name']} {data['emoji']}\n"
-            base_prompt += f"Strategic Focus: {data['description']}\n"
-            base_prompt += f"Execution Vibe: {data['vibe']}\n"
-            if data["required_parameters"]:
-                base_prompt += f"Mandatory Required Parameters: {', '.join(data['required_parameters'])}\n"
-            base_prompt += "--- Detailed Operational Manual ---\n"
-            base_prompt += f"{data['full_instructions']}\n"
-            base_prompt += f"[END_SKILL_MODULE: {sid}]\n"
-
-        return base_prompt
+        for data in pool:
+            router += f"- {data['name']} {data['emoji']}: {data['description']}\n"
+        return router + self._COMMON_RULES
 
 # Singleton registry loaded on startup
 skills_registry = DynamicSkillRegistry()

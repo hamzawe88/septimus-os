@@ -43,10 +43,10 @@ export default function AiCostReport() {
   }, []);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">{t("reports.aiCost.loading")}</div>;
+    return <div className="flex items-center justify-center h-64 text-muted-foreground dark:text-muted-foreground">{t("reports.aiCost.loading")}</div>;
   }
   if (!data) {
-    return <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">{t("reports.aiCost.error")}</div>;
+    return <div className="flex items-center justify-center h-64 text-muted-foreground dark:text-muted-foreground">{t("reports.aiCost.error")}</div>;
   }
 
   const fmtCost = (n: number) => `$${(n ?? 0).toFixed(4)}`;
@@ -82,10 +82,10 @@ export default function AiCostReport() {
       </div>
 
       {/* Daily cost trend */}
-      <div className="bg-white dark:bg-[#121212] rounded-xl border border-slate-200 dark:border-slate-700 p-5">
-        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">{t("reports.aiCost.dailyCost")}</h3>
+      <div className="bg-card dark:bg-[#121212] rounded-xl border border-border dark:border-slate-700 p-5">
+        <h3 className="text-sm font-semibold text-foreground dark:text-slate-200 mb-4">{t("reports.aiCost.dailyCost")}</h3>
         {trend.length === 0 ? (
-          <div className="h-56 flex items-center justify-center text-slate-400 text-sm">{t("reports.aiCost.noData")}</div>
+          <div className="h-56 flex items-center justify-center text-muted-foreground text-sm">{t("reports.aiCost.noData")}</div>
         ) : (
           <ResponsiveContainer width="100%" height={224}>
             <AreaChart data={trend} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
@@ -100,15 +100,15 @@ export default function AiCostReport() {
       </div>
 
       {/* By-model breakdown */}
-      <div className="bg-white dark:bg-[#121212] rounded-xl border border-slate-200 dark:border-slate-700 p-5">
-        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">{t("reports.aiCost.byModel")}</h3>
+      <div className="bg-card dark:bg-[#121212] rounded-xl border border-border dark:border-slate-700 p-5">
+        <h3 className="text-sm font-semibold text-foreground dark:text-slate-200 mb-4">{t("reports.aiCost.byModel")}</h3>
         {models.length === 0 ? (
-          <div className="text-slate-400 text-sm py-6 text-center">{t("reports.aiCost.noData")}</div>
+          <div className="text-muted-foreground text-sm py-6 text-center">{t("reports.aiCost.noData")}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                <tr className="text-muted-foreground dark:text-muted-foreground border-b border-border dark:border-slate-700">
                   <th className="text-start font-medium py-2">{t("reports.aiCost.model")}</th>
                   <th className="text-end font-medium py-2">{t("reports.aiCost.tokens")}</th>
                   <th className="text-end font-medium py-2">{t("reports.aiCost.callsShort")}</th>
@@ -117,11 +117,11 @@ export default function AiCostReport() {
               </thead>
               <tbody>
                 {models.map((m) => (
-                  <tr key={m.model} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
-                    <td className="py-2 text-slate-800 dark:text-slate-200 font-medium">{m.model || "—"}</td>
-                    <td className="py-2 text-end text-slate-600 dark:text-slate-300">{fmtNum(m.tokens)}</td>
-                    <td className="py-2 text-end text-slate-600 dark:text-slate-300">{fmtNum(m.calls)}</td>
-                    <td className="py-2 text-end text-slate-800 dark:text-slate-200 font-semibold">{fmtCost(m.cost_usd)}</td>
+                  <tr key={m.model} className="border-b border-border dark:border-slate-800 last:border-0">
+                    <td className="py-2 text-foreground dark:text-slate-200 font-medium">{m.model || "—"}</td>
+                    <td className="py-2 text-end text-muted-foreground dark:text-slate-300">{fmtNum(m.tokens)}</td>
+                    <td className="py-2 text-end text-muted-foreground dark:text-slate-300">{fmtNum(m.calls)}</td>
+                    <td className="py-2 text-end text-foreground dark:text-slate-200 font-semibold">{fmtCost(m.cost_usd)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -135,13 +135,13 @@ export default function AiCostReport() {
 
 function StatCard({ icon, label, value, hint }: { icon: React.ReactNode; label: string; value: string; hint?: string }) {
   return (
-    <div className="bg-white dark:bg-[#121212] rounded-xl border border-slate-200 dark:border-slate-700 p-5">
-      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
+    <div className="bg-card dark:bg-[#121212] rounded-xl border border-border dark:border-slate-700 p-5">
+      <div className="flex items-center gap-2 text-muted-foreground dark:text-muted-foreground text-sm">
         <span className="text-[var(--primary-hex)]">{icon}</span>
         {label}
       </div>
-      <div className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{value}</div>
-      {hint && <div className="mt-1 text-xs text-slate-400">{hint}</div>}
+      <div className="mt-2 text-2xl font-bold text-foreground dark:text-white">{value}</div>
+      {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
     </div>
   );
 }

@@ -100,10 +100,10 @@ export default function GamificationColumn({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-2xl overflow-hidden shadow-sm">
+    <div className="flex flex-col h-full bg-card dark:bg-slate-800/90 border border-border dark:border-slate-700/80 rounded-2xl overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-700/80 bg-slate-50/80 dark:bg-slate-800/50 flex items-center justify-between">
-        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+      <div className="p-4 border-b border-border dark:border-slate-700/80 bg-muted/80 dark:bg-slate-800/50 flex items-center justify-between">
+        <h3 className="text-sm font-bold text-foreground dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
           <Award className="w-4 h-4 text-amber-500" />
           {t("my_orbit.gamification_title", "Productivity Pulse")}
         </h3>
@@ -111,7 +111,7 @@ export default function GamificationColumn({
 
       <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
         {/* Level Ring & XP Meter */}
-        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xs text-center relative overflow-hidden">
+        <div className="bg-muted dark:bg-slate-900 border border-border dark:border-slate-700 rounded-2xl p-4 shadow-xs text-center relative overflow-hidden">
           <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
           <div className="flex items-center justify-between mb-3">
@@ -123,7 +123,7 @@ export default function GamificationColumn({
             </span>
           </div>
 
-          <h4 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">
+          <h4 className="text-lg font-bold text-foreground dark:text-slate-100 mb-2">
             {formatLevelTitle(profile.level_title, profile.level, t)}
           </h4>
 
@@ -134,16 +134,16 @@ export default function GamificationColumn({
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1 font-mono">
+          <p className="text-xs text-muted-foreground dark:text-muted-foreground flex items-center justify-center gap-1 font-mono">
             <span>{xpInCurrentLevel} / 200 XP</span>
-            <span className="text-slate-400 dark:text-slate-600">•</span>
+            <span className="text-muted-foreground dark:text-muted-foreground">•</span>
             <span>{200 - xpInCurrentLevel} {t("my_orbit.xp_to_next", "XP to next level")}</span>
           </p>
         </div>
 
         {/* Daily Energy Mode Selector */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xs space-y-3">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+        <div className="bg-card dark:bg-slate-900 border border-border dark:border-slate-700 rounded-2xl p-4 shadow-xs space-y-3">
+          <label className="text-xs font-bold text-foreground dark:text-slate-300 uppercase tracking-wider block">
             {t("my_orbit.energy_mode_title", "Daily Energy Selector")}
           </label>
 
@@ -153,7 +153,7 @@ export default function GamificationColumn({
               className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between transition-all ${
                 profile.daily_energy_mode === "HIGH_ENERGY"
                   ? "bg-amber-50 border-amber-300 text-amber-900 dark:bg-amber-500/15 dark:border-amber-500/50 dark:text-amber-300 shadow-2xs font-semibold"
-                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:bg-slate-800/60 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  : "bg-muted border-border text-muted-foreground hover:bg-muted hover:text-foreground dark:bg-slate-800/60 dark:border-slate-700 dark:text-muted-foreground dark:hover:bg-slate-800 dark:hover:text-slate-200"
               }`}
             >
               <span className="text-xs font-medium">
@@ -168,7 +168,7 @@ export default function GamificationColumn({
               className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between transition-all ${
                 profile.daily_energy_mode === "DEEP_FOCUS"
                   ? "bg-purple-50 border-purple-300 text-purple-900 dark:bg-purple-500/15 dark:border-purple-500/50 dark:text-purple-300 shadow-2xs font-semibold"
-                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:bg-slate-800/60 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  : "bg-muted border-border text-muted-foreground hover:bg-muted hover:text-foreground dark:bg-slate-800/60 dark:border-slate-700 dark:text-muted-foreground dark:hover:bg-slate-800 dark:hover:text-slate-200"
               }`}
             >
               <span className="text-xs font-medium">
@@ -183,7 +183,7 @@ export default function GamificationColumn({
               className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between transition-all ${
                 profile.daily_energy_mode === "LIGHT"
                   ? "bg-blue-50 border-blue-300 text-blue-900 dark:bg-blue-500/15 dark:border-blue-500/50 dark:text-blue-300 shadow-2xs font-semibold"
-                  : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:bg-slate-800/60 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  : "bg-muted border-border text-muted-foreground hover:bg-muted hover:text-foreground dark:bg-slate-800/60 dark:border-slate-700 dark:text-muted-foreground dark:hover:bg-slate-800 dark:hover:text-slate-200"
               }`}
             >
               <span className="text-xs font-medium">
@@ -197,13 +197,13 @@ export default function GamificationColumn({
         </div>
 
         {/* Earned Badges Grid */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xs space-y-3">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+        <div className="bg-card dark:bg-slate-900 border border-border dark:border-slate-700 rounded-2xl p-4 shadow-xs space-y-3">
+          <label className="text-xs font-bold text-foreground dark:text-slate-300 uppercase tracking-wider block">
             {t("my_orbit.earned_badges", "Earned Badges Showcase")}
           </label>
 
           {(!profile.earned_badges || profile.earned_badges.length === 0) ? (
-            <p className="text-xs text-slate-500 text-center py-4 italic">
+            <p className="text-xs text-muted-foreground text-center py-4 italic">
               {t("my_orbit.no_badges", "Complete tasks and level up to unlock badges!")}
             </p>
           ) : (
@@ -211,7 +211,7 @@ export default function GamificationColumn({
               {profile.earned_badges.map((badge, idx) => (
                 <div
                   key={idx}
-                  className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200 font-semibold flex items-center gap-1.5 shadow-2xs"
+                  className="px-2.5 py-1.5 rounded-xl bg-muted dark:bg-slate-800 border border-border dark:border-slate-700 text-xs text-foreground dark:text-slate-200 font-semibold flex items-center gap-1.5 shadow-2xs"
                 >
                   <Flame className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                   <span>{formatBadge(badge, t)}</span>
@@ -222,14 +222,14 @@ export default function GamificationColumn({
         </div>
 
         {/* AI Weekly Harvest Generator Card */}
-        <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50/40 dark:from-slate-900 dark:via-slate-800 dark:to-blue-950/40 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xs text-center space-y-3">
+        <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50/40 dark:from-slate-900 dark:via-slate-800 dark:to-blue-950/40 border border-border dark:border-slate-700 rounded-2xl p-4 shadow-xs text-center space-y-3">
           <div className="w-10 h-10 rounded-full bg-brand/10 border border-brand/20 dark:bg-blue-500/10 dark:border-blue-500/30 flex items-center justify-center mx-auto text-brand dark:text-blue-400">
             <Sparkles className="w-5 h-5" />
           </div>
-          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+          <h4 className="text-sm font-bold text-foreground dark:text-slate-100">
             {t("my_orbit.weekly_harvest_title", "AI Weekly Harvest")}
           </h4>
-          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+          <p className="text-xs text-muted-foreground dark:text-muted-foreground leading-relaxed">
             {t("my_orbit.weekly_harvest_desc", "One-click executive report summarizing all completed tasks and achievements this week.")}
           </p>
           <Button
@@ -246,29 +246,29 @@ export default function GamificationColumn({
       {/* Harvest Modal */}
       {isHarvestModalOpen && harvestData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+          <div className="bg-card dark:bg-slate-800 border border-border dark:border-slate-700 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-border dark:border-slate-700 bg-muted dark:bg-slate-900 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-foreground dark:text-slate-100 flex items-center gap-2">
                 <Award className="w-4 h-4 text-amber-500" />
                 {t("my_orbit.harvest_modal_title", "🎯 My Weekly Orbit Harvest")}
               </h3>
               <button
                 onClick={() => setIsHarvestModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                className="text-muted-foreground hover:text-muted-foreground dark:hover:text-slate-200 p-1"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 overflow-y-auto space-y-4 text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-sans whitespace-pre-wrap">
+            <div className="p-5 overflow-y-auto space-y-4 text-sm text-foreground dark:text-slate-300 leading-relaxed font-sans whitespace-pre-wrap">
               {harvestData.summary}
             </div>
 
-            <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-end gap-2">
+            <div className="p-4 border-t border-border dark:border-slate-700 bg-muted dark:bg-slate-900 flex items-center justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => setIsHarvestModalOpen(false)}
-                className="rounded-xl border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs"
+                className="rounded-xl border-border dark:border-slate-600 hover:bg-muted dark:hover:bg-slate-800 text-foreground dark:text-slate-300 text-xs"
               >
                 {t("my_orbit.close_btn", "Close")}
               </Button>

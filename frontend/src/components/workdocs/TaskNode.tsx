@@ -40,8 +40,11 @@ const TaskComponent = (props: any) => {
         // Hacky way to get the text, for a real app we'd parse the node content
     const title = node.attrs.title || "New Task from Doc";
     
-    // We'll just hardcode projectId for now since it's a demo
-    const projectId = props.extension.options.projectId || "5bf90680-cf33-44ae-851c-eef563e82920"; 
+    const projectId = props.extension.options.projectId;
+    if (!projectId) {
+      setLoading(false);
+      return;
+    }
     
     try {
       const res = await fetchWithAuth(`${API_BASE_URL}/tasks`, {
@@ -68,14 +71,14 @@ const TaskComponent = (props: any) => {
   };
 
   return (
-    <NodeViewWrapper className="task-node group flex items-center gap-3 p-3 my-2 bg-white border border-slate-200 rounded-lg shadow-sm hover:border-brand-light transition-colors">
-      <button contentEditable={false} onClick={toggleDone} disabled={loading} className="text-slate-400 hover:text-brand">
+    <NodeViewWrapper className="task-node group flex items-center gap-3 p-3 my-2 bg-card border border-border rounded-lg shadow-sm hover:border-brand-light transition-colors">
+      <button contentEditable={false} onClick={toggleDone} disabled={loading} className="text-muted-foreground hover:text-brand">
         {isDone ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <Circle className="w-5 h-5" />}
       </button>
       <div className="flex-1">
         <input 
           contentEditable={false}
-          className={`w-full bg-transparent outline-none font-medium text-sm ${isDone ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+          className={`w-full bg-transparent outline-none font-medium text-sm ${isDone ? 'text-muted-foreground line-through' : 'text-foreground'}`}
           value={node.attrs.title}
           onChange={(e) => updateAttributes({ title: e.target.value })}
           placeholder={isRtl ? "عنوان المهمة..." : "Task title..."}
@@ -83,7 +86,7 @@ const TaskComponent = (props: any) => {
       </div>
       <div contentEditable={false} className="flex items-center gap-2">
         {taskId ? (
-          <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded">T-{taskId.substring(0,4)}</span>
+          <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-1 rounded">T-{taskId.substring(0,4)}</span>
         ) : (
           <button onClick={createTask} disabled={loading} className="text-xs font-medium bg-brand-light text-brand px-2 py-1 rounded hover:bg-brand-light">
             {loading ? "Creating..." : "Create Task"}

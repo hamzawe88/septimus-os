@@ -1,86 +1,87 @@
 "use client";
 
-import React, { useState } from "react";
-import { Headphones, Video, Plus, CheckCircle2, Users } from "lucide-react";
+import { useState } from "react";
+import {
+  CheckCircle2,
+  Headphones,
+  Plus,
+  Users,
+  Video,
+} from "lucide-react";
+
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { Button } from "@/components/ui/button";
+import { Tag } from "@/components/ui/tag";
+
+const ROOMS = [
+  { id: "r1", nameKey: "r1Name", activeCount: 4, type: "voice" },
+  { id: "r2", nameKey: "r2Name", activeCount: 2, type: "video" },
+] as const;
 
 export default function QuickConnectWidget() {
   const { t } = useLocalization();
   const [joinedRoom, setJoinedRoom] = useState<string | null>(null);
 
-  const rooms = [
-    { id: "r1", name: t("dashboard.huddles.r1Name", "#engineering-huddle"), activeCount: 4, type: "voice" },
-    { id: "r2", name: t("dashboard.huddles.r2Name", "#executive-briefing"), activeCount: 2, type: "video" },
-  ];
-
   return (
-    <div className="flex flex-col justify-between h-full space-y-3">
-      {/* Header */}
+    <div className="flex h-full flex-col gap-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-          <Headphones className="w-4 h-4 text-pink-500" />
-          {t("dashboard.huddles.title", "Live Team Huddles")}
-        </span>
-        <span className="text-[10px] font-extrabold bg-pink-100 dark:bg-pink-950 text-pink-600 dark:text-pink-300 px-2 py-0.5 rounded-full">
-          {rooms.reduce((s, r) => s + r.activeCount, 0)} {t("dashboard.huddles.online", "Online")}
-        </span>
+        <h3 className="flex items-center gap-1.5 text-xs font-bold">
+          <Headphones className="size-4 text-brand" aria-hidden />
+          {t("dashboard.huddles.title")}
+        </h3>
+        <Tag tone="brand">
+          {ROOMS.reduce((sum, room) => sum + room.activeCount, 0)}{" "}
+          {t("dashboard.huddles.online")}
+        </Tag>
       </div>
 
-      {/* Huddle Rooms */}
-      <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto pr-1">
-        {rooms.map((room) => {
+      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto">
+        {ROOMS.map((room) => {
           const isJoined = joinedRoom === room.id;
+          const RoomIcon = room.type === "video" ? Video : Headphones;
           return (
-            <div
+            <article
               key={room.id}
-              className={`p-3.5 rounded-2xl border transition flex flex-col gap-3 ${
+              className={`flex flex-col gap-3 rounded-[var(--radius-surface)] border p-3.5 transition-colors ${
                 isJoined
-                  ? "bg-pink-50 dark:bg-pink-950/30 border-pink-300 dark:border-pink-800"
-                  : "bg-slate-50 dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-700"
+                  ? "border-brand/30 bg-brand-light"
+                  : "border-border bg-muted/35"
               }`}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-sm ${
-                      room.type === "video" ? "bg-purple-600" : "bg-pink-600"
-                    }`}
-                  >
-                    {room.type === "video" ? <Video className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800 dark:text-white">{room.name}</h4>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <Users className="w-3 h-3" />
-                      <span>
-                        {room.activeCount} {t("dashboard.huddles.participants", "participants inside")}
-                      </span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-brand text-brand-foreground">
+                    <RoomIcon className="size-4" aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <h4 className="truncate text-xs font-bold">
+                      {t(`dashboard.huddles.${room.nameKey}`)}
+                    </h4>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Users className="size-3" aria-hidden />
+                      {room.activeCount} {t("dashboard.huddles.participants")}
                     </span>
                   </div>
                 </div>
-
-                <button
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={isJoined ? "secondary" : "default"}
                   onClick={() => setJoinedRoom(isJoined ? null : room.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                    isJoined
-                      ? "bg-emerald-500 text-white"
-                      : "bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 text-white shadow-sm"
-                  }`}
                 >
-                  {isJoined ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                  <span>{isJoined ? t("dashboard.huddles.joined", "Connected") : t("dashboard.huddles.join", "Join")}</span>
-                </button>
+                  {isJoined ? <CheckCircle2 /> : <Plus />}
+                  {isJoined
+                    ? t("dashboard.huddles.joined")
+                    : t("dashboard.huddles.join")}
+                </Button>
               </div>
-
-              {isJoined && (
-                <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-pink-200 dark:border-pink-900/50 flex items-center justify-between text-xs animate-in fade-in duration-200">
-                  <span className="flex items-center gap-1.5 font-bold text-pink-600 dark:text-pink-400">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                    <span>{t("dashboard.huddles.micActive", "Microphone Live • Sovereign Audio Mesh")}</span>
-                  </span>
+              {isJoined ? (
+                <div className="flex items-center gap-1.5 rounded-[var(--radius-control)] border border-success/20 bg-success/10 p-2 text-xs font-bold text-success">
+                  <span className="size-2 animate-pulse rounded-full bg-success" />
+                  {t("dashboard.huddles.micActive")}
                 </div>
-              )}
-            </div>
+              ) : null}
+            </article>
           );
         })}
       </div>

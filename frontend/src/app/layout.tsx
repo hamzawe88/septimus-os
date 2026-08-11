@@ -1,41 +1,42 @@
 import type { Metadata } from "next";
-import { Inter, Cairo } from "next/font/google";
+import { headers } from "next/headers";
+import "@fontsource-variable/inter";
+import "@fontsource-variable/cairo";
 import "./globals.css";
 import { AppThemeProvider } from "@/components/shared/ThemeProvider";
 import GlobalModals from "@/components/GlobalModals";
 import { LocalizationProvider } from "@/contexts/LocalizationContext";
 import { EntitlementsProvider } from "@/contexts/EntitlementsContext";
+import AuthNavigationBridge from "@/components/shared/AuthNavigationBridge";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
-
-const cairo = Cairo({
-  variable: "--font-cairo",
-  subsets: ["latin", "arabic"],
-});
+// A per-request CSP nonce cannot be embedded in statically generated HTML.
+// Force request-time rendering so Next.js can apply the nonce supplied by the
+// proxy to every framework script and style tag.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Septimus Company OS",
   description: "Advanced Enterprise OS",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") || undefined;
   return (
     <html
-      lang="en"
+      lang="ar"
+      dir="rtl"
       suppressHydrationWarning
-      className={`${inter.variable} ${cairo.variable} antialiased`}
+      className="antialiased"
     >
       <body className="h-screen w-screen overflow-hidden">
         <LocalizationProvider>
-          <AppThemeProvider>
+          <AppThemeProvider nonce={nonce}>
             <EntitlementsProvider>
+              <AuthNavigationBridge />
               {children}
               <GlobalModals />
             </EntitlementsProvider>

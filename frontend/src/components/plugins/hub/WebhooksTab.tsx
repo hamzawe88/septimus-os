@@ -86,9 +86,9 @@ export default function WebhooksTab() {
   return (
     <div className="w-full p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white dark:bg-[#1a1d21] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden mb-8">
-          <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-white">
+        <div className="bg-card dark:bg-[#1a1d21] rounded-2xl border border-border dark:border-slate-800 shadow-sm overflow-hidden mb-8">
+          <div className="p-6 border-b border-border dark:border-slate-800 flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-foreground dark:text-white">
               {t("webhooks.endpoints")}
             </h2>
             <Button className="bg-brand hover:bg-brand-hover text-white" onClick={() => setIsAdding(true)}>
@@ -97,9 +97,9 @@ export default function WebhooksTab() {
           </div>
 
           {isAdding && (
-            <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#222529]">
+            <div className="p-6 border-b border-border dark:border-slate-800 bg-muted dark:bg-[#222529]">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-slate-700 dark:text-slate-200">
+                <h3 className="font-semibold text-foreground dark:text-slate-200">
                   {t("webhooks.addNew")}
                 </h3>
                 <Button variant="ghost" size="sm" onClick={() => setIsAdding(false)}>
@@ -108,36 +108,36 @@ export default function WebhooksTab() {
               </div>
               <div className="grid gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-sm font-medium text-foreground dark:text-slate-300 mb-1">
                     {t("webhooks.targetUrl")}
                   </label>
                   <input 
                     type="text" 
-                    className="w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a1d21] text-slate-900 dark:text-white rounded-md" 
+                    className="w-full p-2 border border-border dark:border-slate-700 bg-card dark:bg-[#1a1d21] text-foreground dark:text-white rounded-md" 
                     placeholder="https://webhook.site/..." 
                     value={newHookUrl} 
                     onChange={e => setNewHookUrl(e.target.value)} 
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-sm font-medium text-foreground dark:text-slate-300 mb-1">
                     {t("webhooks.events")}
                   </label>
                   <input 
                     type="text" 
-                    className="w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a1d21] text-slate-900 dark:text-white rounded-md" 
+                    className="w-full p-2 border border-border dark:border-slate-700 bg-card dark:bg-[#1a1d21] text-foreground dark:text-white rounded-md" 
                     placeholder="events.tasks.created" 
                     value={newHookEvents} 
                     onChange={e => setNewHookEvents(e.target.value)} 
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-sm font-medium text-foreground dark:text-slate-300 mb-1">
                     {t("webhooks.secret")}
                   </label>
                   <input 
                     type="password" 
-                    className="w-full p-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1a1d21] text-slate-900 dark:text-white rounded-md" 
+                    className="w-full p-2 border border-border dark:border-slate-700 bg-card dark:bg-[#1a1d21] text-foreground dark:text-white rounded-md" 
                     placeholder="Your secret key" 
                     value={newHookSecret} 
                     onChange={e => setNewHookSecret(e.target.value)} 
@@ -152,33 +152,33 @@ export default function WebhooksTab() {
             </div>
           )}
           
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="divide-y divide-border dark:divide-slate-800">
             {loading ? (
-              <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+              <div className="p-8 text-center text-muted-foreground dark:text-muted-foreground">
                 {t("webhooks.loading")}
               </div>
             ) : hooks.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+              <div className="p-8 text-center text-muted-foreground dark:text-muted-foreground">
                 {t("webhooks.noHooks")}
               </div>
             ) : (
               hooks.map(hook => (
-                <div key={hook.ID} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#f8fafc] dark:hover:bg-[#222529] transition-colors">
+                <div key={hook.ID} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-background dark:hover:bg-[#222529] transition-colors">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-1">
                       <span className={`w-2 h-2 rounded-full ${hook.IsActive ? 'bg-green-500' : 'bg-slate-300'}`}></span>
-                      <h3 className="font-semibold text-slate-800 dark:text-white font-mono text-sm">{hook.TargetURL}</h3>
+                      <h3 className="font-semibold text-foreground dark:text-white font-mono text-sm">{hook.TargetURL}</h3>
                     </div>
                     <div className="flex items-center gap-2 mt-2 ms-5">
                       {hook.Events && hook.Events.map((ev: string) => (
-                        <span key={ev} className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded font-medium border border-slate-200 dark:border-slate-700">
+                        <span key={ev} className="text-xs bg-muted dark:bg-slate-800 text-muted-foreground dark:text-slate-300 px-2 py-1 rounded font-medium border border-border dark:border-slate-700">
                           {ev}
                         </span>
                       ))}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700">
+                    <Button variant="outline" size="sm" className="text-muted-foreground dark:text-slate-300 border-border dark:border-slate-700">
                       <Power className="w-4 h-4 me-1" /> {hook.IsActive ? t("webhooks.disable") : t("webhooks.enable")}
                     </Button>
                     <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:border-slate-700 dark:hover:bg-red-950/30" onClick={() => handleDeleteWebhook(hook.ID)}>

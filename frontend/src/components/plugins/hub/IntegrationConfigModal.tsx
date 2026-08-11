@@ -138,8 +138,23 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
     }
   };
 
-  const handleGoogleOAuth = () => {
-    window.location.href = `${API_BASE_URL}/auth/google/login`;
+  // The consent URL is fetched with the session token rather than navigated to
+  // directly: it embeds a signed state naming this workspace, and a top-level
+  // navigation would carry no credentials for the server to derive it from.
+  const handleGoogleOAuth = async () => {
+    setSaveError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE_URL}/integrations/google/auth-url`);
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        setSaveError(data.error || t("plugins.saveConnError"));
+        return;
+      }
+      window.location.href = data.url;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSaveError(t("plugins.saveConnError") + msg);
+    }
   };
 
   const renderFormFields = () => {
@@ -147,43 +162,43 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.waPhoneId")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.waPhoneId")}</label>
             <input
               type="text"
               value={config.phone_number_id || ""}
               onChange={(e) => handleConfigChange("phone_number_id", e.target.value)}
               placeholder={isRtl ? "مثال: 10839281928392" : "e.g. 10839281928392"}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.waAccountId")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.waAccountId")}</label>
             <input
               type="text"
               value={config.business_account_id || ""}
               onChange={(e) => handleConfigChange("business_account_id", e.target.value)}
               placeholder={isRtl ? "مثال: 10928392839201" : "e.g. 10928392839201"}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.waToken")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.waToken")}</label>
             <input
               type="password"
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
               placeholder="EAA..."
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.waVerifyToken")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.waVerifyToken")}</label>
             <input
               type="text"
               value={config.verify_token || ""}
               onChange={(e) => handleConfigChange("verify_token", e.target.value)}
               placeholder="septimus_secret_verify_2026"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             />
           </div>
         </div>
@@ -194,36 +209,36 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.zendeskSubdomain")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.zendeskSubdomain")}</label>
             <div className="flex items-center">
               <input
                 type="text"
                 value={config.subdomain || ""}
                 onChange={(e) => handleConfigChange("subdomain", e.target.value)}
                 placeholder="mycompany"
-                className="flex-1 px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-e-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
+                className="flex-1 px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-e-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
               />
-              <span className="px-3 py-2.5 bg-slate-100 dark:bg-slate-800 border border-s-0 border-slate-300 dark:border-slate-700 rounded-s-xl text-xs font-mono text-slate-600 dark:text-slate-300">.zendesk.com</span>
+              <span className="px-3 py-2.5 bg-muted dark:bg-slate-800 border border-s-0 border-border dark:border-slate-700 rounded-s-xl text-xs font-mono text-muted-foreground dark:text-slate-300">.zendesk.com</span>
             </div>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.adminEmail")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.adminEmail")}</label>
             <input
               type="email"
               value={config.admin_email || ""}
               onChange={(e) => handleConfigChange("admin_email", e.target.value)}
               placeholder="admin@mycompany.com"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.apiToken")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.apiToken")}</label>
             <input
               type="password"
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
               placeholder={t("plugins.enterZendeskToken")}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
             />
           </div>
         </div>
@@ -234,43 +249,43 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.odooUrl")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.odooUrl")}</label>
             <input
               type="url"
               value={config.server_url || ""}
               onChange={(e) => handleConfigChange("server_url", e.target.value)}
               placeholder="https://mycompany.odoo.com"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.dbName")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.dbName")}</label>
             <input
               type="text"
               value={config.database || ""}
               onChange={(e) => handleConfigChange("database", e.target.value)}
               placeholder="odoo_prod_db"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.usernameOrEmail")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.usernameOrEmail")}</label>
             <input
               type="text"
               value={config.username || ""}
               onChange={(e) => handleConfigChange("username", e.target.value)}
               placeholder="admin@mycompany.com"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand text-start dir-ltr"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.apiKeyOrPass")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.apiKeyOrPass")}</label>
             <input
               type="password"
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
               placeholder={t("plugins.enterOdooKey")}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
             />
           </div>
         </div>
@@ -281,13 +296,13 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
       return (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.aiProvider")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.aiProvider")}</label>
             <select
               value={config.provider || "gemini"}
               onChange={(e) => handleConfigChange("provider", e.target.value)}
               aria-label={t("plugins.aiProvider")}
               title={t("plugins.aiProvider")}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
             >
               <option value="gemini">{t("plugins.geminiRec")}</option>
               <option value="openai">OpenAI (ChatGPT-4o)</option>
@@ -295,23 +310,23 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.apiKeyLabel")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.apiKeyLabel")}</label>
             <input
               type="password"
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
               placeholder={isRtl ? "أدخل المفتاح هنا..." : "AIzaSy... or sk-..."}
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.defaultModel")}</label>
+            <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.defaultModel")}</label>
             <input
               type="text"
               value={config.model || "gemini-2.5-pro"}
               onChange={(e) => handleConfigChange("model", e.target.value)}
               placeholder="gemini-2.5-pro"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono text-start dir-ltr"
+              className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono text-start dir-ltr"
             />
           </div>
         </div>
@@ -324,8 +339,8 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
           <div className="w-16 h-16 mx-auto bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400">
             <Zap className="w-8 h-8" />
           </div>
-          <h4 className="font-bold text-slate-900 dark:text-white text-base">{t("plugins.googleConnectTitle")}</h4>
-          <p className="text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
+          <h4 className="font-bold text-foreground dark:text-white text-base">{t("plugins.googleConnectTitle")}</h4>
+          <p className="text-sm text-muted-foreground dark:text-slate-300 max-w-sm mx-auto">
             {t("plugins.googleConnectDesc")}
           </p>
           <div className="pt-2">
@@ -345,13 +360,13 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
     return (
       <div className="space-y-4">
         <div>
-          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{t("plugins.genericKeyLabel")}</label>
+          <label className="block text-xs font-bold text-foreground dark:text-slate-300 mb-1.5">{t("plugins.genericKeyLabel")}</label>
           <input
             type="password"
             value={accessToken}
             onChange={(e) => setAccessToken(e.target.value)}
             placeholder={t("plugins.genericKeyPlaceholder")}
-            className="w-full px-3.5 py-2.5 bg-white dark:bg-[#222529] border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
+            className="w-full px-3.5 py-2.5 bg-card dark:bg-[#222529] border border-border dark:border-slate-700 rounded-xl text-sm text-foreground dark:text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono"
           />
         </div>
       </div>
@@ -363,24 +378,24 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
-      <div className="bg-white dark:bg-[#1a1d21] rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-card dark:bg-[#1a1d21] rounded-3xl shadow-2xl border border-border dark:border-slate-800 w-full max-w-xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Modal Header */}
-        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-[#222529]/50">
+        <div className="px-6 py-5 border-b border-border dark:border-slate-800 flex items-center justify-between bg-muted/50 dark:bg-[#222529]/50">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-brand/10 dark:bg-brand/20 border border-brand/20 rounded-2xl text-brand">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{t("plugins.configTitle")} {app.name}</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{app.category} Integration</p>
+              <h3 className="text-lg font-bold text-foreground dark:text-white">{t("plugins.configTitle")} {app.name}</h3>
+              <p className="text-xs text-muted-foreground dark:text-muted-foreground">{app.category} Integration</p>
             </div>
           </div>
           <button 
             onClick={onClose}
             aria-label={t("common.close")}
             title={t("common.close")}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+            className="p-2 text-muted-foreground hover:text-muted-foreground dark:hover:text-slate-200 hover:bg-muted dark:hover:bg-slate-800 rounded-xl transition-all"
           >
             <X className="w-5 h-5" />
           </button>
@@ -389,14 +404,14 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {loading ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-400">
+            <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
               <RefreshCw className="w-8 h-8 animate-spin mb-3 text-brand" />
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("plugins.loadingConfig")}</span>
+              <span className="text-sm font-medium text-muted-foreground dark:text-slate-300">{t("plugins.loadingConfig")}</span>
             </div>
           ) : (
             <>
               {/* Description & Guide */}
-              <div className="p-4 bg-brand/10 dark:bg-brand/20 border border-brand/20 rounded-2xl text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
+              <div className="p-4 bg-brand/10 dark:bg-brand/20 border border-brand/20 rounded-2xl text-sm text-foreground dark:text-slate-200 leading-relaxed">
                 <span className="font-bold block mb-1">{t("plugins.guideTitle")}</span>
                 {app.description} {t("plugins.guideText")}
               </div>
@@ -406,9 +421,9 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
 
               {/* Inbound Webhook Section (for Zendesk & WhatsApp) */}
               {(app.id === "zendesk" || app.id === "whatsapp") && (
-                <div className="p-4 bg-slate-50 dark:bg-[#222529] border border-slate-200 dark:border-slate-700 rounded-2xl space-y-2">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">{t("plugins.inboundWebhookLabel")}</span>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <div className="p-4 bg-muted dark:bg-[#222529] border border-border dark:border-slate-700 rounded-2xl space-y-2">
+                  <span className="text-xs font-bold text-foreground dark:text-slate-300 block">{t("plugins.inboundWebhookLabel")}</span>
+                  <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">
                     {t("plugins.inboundWebhookDesc", `انسخ هذا الرابط وضعه في لوحة تحكم ${app.name} لإرسال الأحداث والتذاكر فوراً إلى Septimus OS:`)}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
@@ -419,16 +434,16 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
                       aria-label={t("plugins.inboundWebhookLabel")}
                       title={t("plugins.inboundWebhookLabel")}
                       placeholder="https://..."
-                      className="flex-1 px-3 py-2 bg-white dark:bg-[#1a1d21] border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-700 dark:text-slate-200 focus:outline-none text-start dir-ltr"
+                      className="flex-1 px-3 py-2 bg-card dark:bg-[#1a1d21] border border-border dark:border-slate-700 rounded-xl text-xs font-mono text-foreground dark:text-slate-200 focus:outline-none text-start dir-ltr"
                     />
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={handleCopyWebhook}
-                      className="flex items-center gap-1 text-xs px-3 h-9 bg-white dark:bg-[#1a1d21] hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl border-slate-200 dark:border-slate-700"
+                      className="flex items-center gap-1 text-xs px-3 h-9 bg-card dark:bg-[#1a1d21] hover:bg-muted dark:hover:bg-slate-800 rounded-xl border-border dark:border-slate-700"
                     >
-                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />}
+                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground dark:text-slate-300" />}
                       {copied ? t("common.done") : t("common.copy")}
                     </Button>
                   </div>
@@ -468,12 +483,12 @@ export default function IntegrationConfigModal({ app, isOpen, onClose, onSuccess
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#222529]/50 flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-border dark:border-slate-800 bg-muted/50 dark:bg-[#222529]/50 flex items-center justify-between">
           <Button 
             type="button" 
             variant="outline" 
             onClick={onClose}
-            className="rounded-xl px-5 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+            className="rounded-xl px-5 text-muted-foreground dark:text-slate-300 border-border dark:border-slate-700"
           >
             {t("common.close")}
           </Button>

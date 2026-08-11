@@ -4,19 +4,17 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Database, FileText, Activity, ArrowLeft } from "lucide-react";
 import CreateEntityModal from "@/components/plugins/CreateEntityModal";
-import CRMLeadsView, { LeadEntity } from "@/components/plugins/CRMLeadsView";
 import FinanceInvoicesView, { InvoiceEntity } from "@/components/plugins/FinanceInvoicesView";
 import HRLeaveRequestsView, { LeaveRequestEntity } from "@/components/plugins/HRLeaveRequestsView";
 import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
 
 export default function PluginsPage() {
-  const [activePlugin, setActivePlugin] = useState<"lead" | "invoice" | "leave_request">("lead");
+  const [activePlugin, setActivePlugin] = useState<"invoice" | "leave_request">("invoice");
   const [entities, setEntities] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const pluginTypes = [
-    { id: "lead", label: "CRM: Leads", icon: Database },
     { id: "invoice", label: "Finance: Invoices", icon: FileText },
     { id: "leave_request", label: "HR: Leave Requests", icon: Activity },
   ];
@@ -54,18 +52,22 @@ export default function PluginsPage() {
   }, [activePlugin, fetchEntities]);
 
   return (
-    <div className="flex h-full overflow-hidden bg-white text-slate-900">
+    <div className="flex h-full overflow-hidden bg-card text-foreground">
       {/* Sidebar for Plugins */}
       <div className="w-64 border-e border-black/10 p-4 shrink-0 bg-[var(--sb-bg)] text-[var(--sb-text)] flex flex-col">
         <h2 className="text-xl font-bold mb-6">Enterprise Plugins</h2>
         <nav className="space-y-2 flex-1">
+          <Link href="/crm" className="w-full flex items-center p-3 rounded-lg transition-colors opacity-80 hover:bg-[var(--sb-hover)]">
+            <Database className="w-5 h-5 me-3" />
+            CRM
+          </Link>
           {pluginTypes.map((plugin) => {
             const Icon = plugin.icon;
             const isActive = activePlugin === plugin.id;
             return (
               <button
                 key={plugin.id}
-                onClick={() => setActivePlugin(plugin.id as "lead" | "invoice" | "leave_request")}
+                onClick={() => setActivePlugin(plugin.id as "invoice" | "leave_request")}
                 className={`w-full flex items-center p-3 rounded-lg transition-colors ${
                   isActive ? "text-[var(--sb-text)] font-semibold bg-[var(--primary-hex)]" : "opacity-80 hover:bg-[var(--sb-hover)]"
                 }`}
@@ -90,15 +92,6 @@ export default function PluginsPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 p-8 overflow-y-auto min-w-0">
-        {activePlugin === "lead" && (
-          <CRMLeadsView
-            entities={entities as LeadEntity[]}
-            loading={loading} 
-            onNewLead={() => setIsModalOpen(true)} 
-            onRefresh={() => fetchEntities(activePlugin)}
-          />
-        )}
-        
         {activePlugin === "invoice" && (
           <FinanceInvoicesView
             entities={entities as InvoiceEntity[]}

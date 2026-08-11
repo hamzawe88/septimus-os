@@ -61,10 +61,10 @@ export default function SmartInputsColumn({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-2xl overflow-hidden shadow-sm">
+    <div className="flex flex-col h-full bg-card dark:bg-slate-800/90 border border-border dark:border-slate-700/80 rounded-2xl overflow-hidden shadow-sm">
       {/* Column Header & Quick Capture */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-700/80 bg-slate-50/80 dark:bg-slate-800/50">
-        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
+      <div className="p-4 border-b border-border dark:border-slate-700/80 bg-muted/80 dark:bg-slate-800/50">
+        <h3 className="text-sm font-bold text-foreground dark:text-slate-200 uppercase tracking-wider mb-3 flex items-center gap-2">
           <Zap className="w-4 h-4 text-brand" />
           {t("my_orbit.tab_chat", "Stream & Inputs")}
         </h3>
@@ -74,7 +74,7 @@ export default function SmartInputsColumn({
             value={quickInput}
             onChange={(e) => setQuickInput(e.target.value)}
             placeholder={t("my_orbit.quick_capture_placeholder", "+ Quick capture (Press Enter)")}
-            className="flex-1 px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all shadow-2xs"
+            className="flex-1 px-3 py-2 text-sm bg-card dark:bg-slate-900 border border-border dark:border-slate-700 rounded-xl text-foreground dark:text-slate-100 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all shadow-2xs"
           />
           <Button
             type="submit"
@@ -87,13 +87,13 @@ export default function SmartInputsColumn({
       </div>
 
       {/* Tabs Selector */}
-      <div className="flex border-b border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-900/60 p-1.5 gap-1 text-xs font-semibold overflow-x-auto">
+      <div className="flex border-b border-border dark:border-slate-700/80 bg-muted dark:bg-slate-900/60 p-1.5 gap-1 text-xs font-semibold overflow-x-auto">
         <button
           onClick={() => setActiveTab("all")}
           className={`py-2 px-2.5 rounded-lg flex items-center justify-center gap-1 transition-all whitespace-nowrap ${
             activeTab === "all"
               ? "bg-brand text-white shadow-2xs font-bold"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/60 dark:text-muted-foreground dark:hover:text-slate-200 dark:hover:bg-slate-800"
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
@@ -104,7 +104,7 @@ export default function SmartInputsColumn({
           className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-1 transition-all whitespace-nowrap ${
             activeTab === "chat"
               ? "bg-brand/10 text-brand border border-brand/20 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30 shadow-2xs font-bold"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/60 dark:text-muted-foreground dark:hover:text-slate-200 dark:hover:bg-slate-800"
           }`}
         >
           <MessageSquare className="w-3.5 h-3.5" />
@@ -115,7 +115,7 @@ export default function SmartInputsColumn({
           className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-1 transition-all whitespace-nowrap ${
             activeTab === "workflow"
               ? "bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30 shadow-2xs font-bold"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/60 dark:text-muted-foreground dark:hover:text-slate-200 dark:hover:bg-slate-800"
           }`}
         >
           <Zap className="w-3.5 h-3.5" />
@@ -126,7 +126,7 @@ export default function SmartInputsColumn({
           className={`flex-1 py-2 px-2 rounded-lg flex items-center justify-center gap-1 transition-all whitespace-nowrap ${
             activeTab === "private"
               ? "bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/30 shadow-2xs font-bold"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/60 dark:text-muted-foreground dark:hover:text-slate-200 dark:hover:bg-slate-800"
           }`}
         >
           <Lock className="w-3.5 h-3.5" />
@@ -137,20 +137,20 @@ export default function SmartInputsColumn({
       {/* Tasks List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
         {filteredTasks.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 space-y-2 border-2 border-dashed border-slate-200 dark:border-slate-700/80 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 m-1">
-            <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 mb-1">
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground space-y-2 border-2 border-dashed border-border dark:border-slate-700/80 rounded-xl bg-muted/50 dark:bg-slate-900/30 m-1">
+            <div className="w-12 h-12 rounded-full bg-muted dark:bg-slate-800 flex items-center justify-center text-muted-foreground mb-1">
               {activeTab === "all" && <Layers className="w-6 h-6" />}
               {activeTab === "chat" && <MessageSquare className="w-6 h-6" />}
               {activeTab === "workflow" && <Zap className="w-6 h-6" />}
               {activeTab === "private" && <Lock className="w-6 h-6" />}
             </div>
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            <p className="text-sm font-semibold text-foreground dark:text-slate-300">
               {activeTab === "all" && t("my_orbit.empty_all", "No tasks waiting in backlog. Use quick capture above to start organizing!")}
               {activeTab === "chat" && t("my_orbit.empty_chat", "No tasks captured from chat.")}
               {activeTab === "workflow" && t("my_orbit.empty_workflow", "No pending workflow assignments.")}
               {activeTab === "private" && t("my_orbit.empty_private", "No private backlog tasks.")}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
               {t("my_orbit.capture_hint", "Use quick capture above or hover over any chat message to add items.")}
             </p>
           </div>
@@ -158,17 +158,17 @@ export default function SmartInputsColumn({
           filteredTasks.map((task) => (
             <div
               key={task.id}
-              className="group relative bg-white dark:bg-slate-800/80 hover:bg-slate-50/80 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand/40 rounded-xl p-3.5 transition-all shadow-xs hover:shadow-md"
+              className="group relative bg-card dark:bg-slate-800/80 hover:bg-muted/80 dark:hover:bg-slate-800 border border-border dark:border-slate-700 hover:border-brand/40 rounded-xl p-3.5 transition-all shadow-xs hover:shadow-md"
             >
               <div className="flex items-start justify-between gap-2 mb-2">
-                <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-2 leading-snug">
+                <h4 className="text-sm font-semibold text-foreground dark:text-slate-100 line-clamp-2 leading-snug">
                   {task.title}
                 </h4>
                 {task.source_link && (
                   <a
                     href={task.source_link}
                     title="Jump to source"
-                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-brand shrink-0 transition-colors"
+                    className="p-1.5 rounded-lg bg-muted hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-brand shrink-0 transition-colors"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
@@ -176,13 +176,13 @@ export default function SmartInputsColumn({
               </div>
 
               {task.description && (
-                <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mb-2.5 bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-700/60">
+                <p className="text-xs text-muted-foreground dark:text-slate-300 line-clamp-2 mb-2.5 bg-muted dark:bg-slate-900/60 p-2.5 rounded-lg border border-border/80 dark:border-slate-700/60">
                   {task.description}
                 </p>
               )}
 
               {/* Badges and Actions footer */}
-              <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 dark:border-slate-700/80">
+              <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-border dark:border-slate-700/80">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {getEnergyBadge(task.energy_tag)}
                   <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/50 font-mono font-semibold">

@@ -1,9 +1,13 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import React, { useEffect, useState } from "react";
-import { X, Mail, Phone, Building, Receipt, MessageSquare, Ticket, Sparkles, Send, LifeBuoy } from "lucide-react";
-import { apiPost, AI_BASE_URL, fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
+import { X, Mail, Phone, Building, Receipt, Clock, Ticket, Sparkles, Send, LifeBuoy } from "lucide-react";
+import { apiGet, apiPost, AI_BASE_URL, fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ProvenanceBadge, ProvenanceSurface } from "@/components/ui/provenance";
 
 interface Lead {
   id: string;
@@ -23,11 +27,16 @@ interface Customer360ModalProps {
 }
 
 export default function Customer360Modal({ lead, onClose }: Customer360ModalProps) {
-  const { t, isRtl } = useLocalization();
+  const { t, language } = useLocalization();
   const [activeTab, setActiveTab] = useState<"overview" | "timeline" | "invoices">("overview");
-  
+	const [customer360, setCustomer360] = useState<any>(null);
+	const [note, setNote] = useState("");
+	const [savingNote, setSavingNote] = useState(false);
+
   const [drafting, setDrafting] = useState(false);
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
+  const [emailDraftError, setEmailDraftError] = useState<string | null>(null);
+  const [draftCopied, setDraftCopied] = useState(false);
 
   const [showWhatsAppComposer, setShowWhatsAppComposer] = useState(false);
   const [whatsAppMessage, setWhatsAppMessage] = useState("");
@@ -35,10 +44,34 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
   const [whatsAppResult, setWhatsAppResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const [showTicketComposer, setShowTicketComposer] = useState(false);
-  const [ticketSubject, setTicketSubject] = useState(`Support request — ${lead.name} (${lead.company})`);
+  const [ticketSubject, setTicketSubject] = useState(
+    `${t("crm.customer360.supportRequest")} — ${lead.name} (${lead.company})`,
+  );
   const [ticketDescription, setTicketDescription] = useState("");
   const [creatingTicket, setCreatingTicket] = useState(false);
   const [ticketResult, setTicketResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+	const loadCustomer360 = async () => {
+	  try {
+		setCustomer360(await apiGet(`/crm/opportunities/${lead.id}/customer-360`));
+	  } catch (error) {
+		console.error("Failed to load Customer 360", error);
+	  }
+	};
+
+	const saveNote = async () => {
+	  if (!note.trim()) return;
+	  setSavingNote(true);
+	  try {
+		await apiPost(`/crm/opportunities/${lead.id}/activities`, {
+		  subject: note.trim().slice(0, 120), activity_type: "note", status: "completed", notes: note.trim(),
+		});
+		setNote("");
+		await loadCustomer360();
+	  } finally {
+		setSavingNote(false);
+	  }
+	};
 
   const createZendeskTicket = async () => {
     if (!ticketSubject.trim() || !ticketDescription.trim()) return;
@@ -58,13 +91,13 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setTicketResult({ ok: true, text: `${t("integrations.zendeskSuccess", "Ticket created in Zendesk")} (#${data.ticket_id})` });
+        setTicketResult({ ok: true, text: `${t("integrations.zendeskSuccess")} (#${data.ticket_id})` });
         setTicketDescription("");
       } else {
-        setTicketResult({ ok: false, text: data.error || t("integrations.zendeskFailed", "Failed to create ticket.") });
+        setTicketResult({ ok: false, text: data.error || t("integrations.zendeskFailed") });
       }
     } catch (err) {
-      setTicketResult({ ok: false, text: err instanceof Error ? err.message : t("common.unexpectedError", "An unexpected error occurred.") });
+      setTicketResult({ ok: false, text: err instanceof Error ? err.message : t("common.unexpectedError") });
     } finally {
       setCreatingTicket(false);
     }
@@ -82,13 +115,13 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setWhatsAppResult({ ok: true, text: t("integrations.waSuccess", "Message sent successfully via WhatsApp!") });
+        setWhatsAppResult({ ok: true, text: t("integrations.waSuccess") });
         setWhatsAppMessage("");
       } else {
-        setWhatsAppResult({ ok: false, text: data.error || t("integrations.waFailed", "Failed to send message.") });
+        setWhatsAppResult({ ok: false, text: data.error || t("integrations.waFailed") });
       }
     } catch (err) {
-      setWhatsAppResult({ ok: false, text: err instanceof Error ? err.message : t("common.unexpectedError", "An unexpected error occurred.") });
+      setWhatsAppResult({ ok: false, text: err instanceof Error ? err.message : t("common.unexpectedError") });
     } finally {
       setSendingWhatsApp(false);
     }
@@ -97,17 +130,22 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
   const generateEmailDraft = async () => {
     setDrafting(true);
     setEmailDraft(null);
+    setEmailDraftError(null);
+    setDraftCopied(false);
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const response = await apiPost<{reply: string}>('/ai/chat', {
         agent_type: 'crm',
-        message: `Please generate a professional sales email draft for the lead "${lead.name}" from company "${lead.company}". Current deal stage: ${lead.status}. Write the email so it's ready to copy and send.`,
-        context: { workspace_id: workspaceId, lead, lang: isRtl ? 'ar' : 'en' }
+        message: t("crm.customer360.emailPrompt"),
+        context: {
+          purpose: "crm_email_draft",
+          entity_ref: { definition_key: "crm_opportunity", record_id: lead.id },
+          lang: language,
+        },
       }, AI_BASE_URL);
       setEmailDraft(response.reply);
     } catch (err) {
       console.error(err);
-      setEmailDraft(isRtl ? "عذراً، حدث خطأ أثناء إنشاء المسودة." : "Sorry, an error occurred while generating the draft.");
+      setEmailDraftError(t("crm.customer360.emailDraftFailed"));
     } finally {
       setDrafting(false);
     }
@@ -115,158 +153,184 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
 
   // Prevent background scrolling
   useEffect(() => {
+	const loadTimer = window.setTimeout(() => void loadCustomer360(), 0);
     document.body.style.overflow = "hidden";
     return () => {
+	  window.clearTimeout(loadTimer);
       document.body.style.overflow = "auto";
     };
-  }, []);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [lead.id]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-ink)]/40 p-4 backdrop-blur-sm">
+      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <div className="flex items-center gap-4">
+		<div className="flex items-start justify-between gap-3 border-b border-border bg-muted px-4 py-4 sm:px-6">
+		  <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <div className="w-12 h-12 rounded-full bg-brand/10 text-brand flex items-center justify-center text-xl font-bold">
               {lead.name.charAt(0)}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                 {lead.name}
                 {lead.score && lead.score > 80 && (
-                  <span className="flex items-center gap-1 text-xs font-bold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full" title="Hot Lead">
+                  <span className="flex items-center gap-1 text-xs font-bold bg-warning/10 text-warning px-2 py-0.5 rounded-full" title={t("crm.customer360.hotLead")}>
                     <Sparkles className="w-3 h-3" />
-                    Hot {lead.score}%
+                    {t("crm.customer360.hotLead")} {lead.score}%
                   </span>
                 )}
               </h2>
-              <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+			  <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground sm:gap-3">
                 <span className="flex items-center gap-1"><Building className="w-3 h-3"/> {lead.company}</span>
                 <span className="flex items-center gap-1"><Mail className="w-3 h-3"/> {lead.email}</span>
                 <span className="flex items-center gap-1"><Phone className="w-3 h-3"/> {lead.phone}</span>
               </div>
             </div>
           </div>
-          <button 
-            title="Close"
+          <button
+            title={t("common.close")}
+            aria-label={t("common.close")}
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors"
+            className="p-2 text-muted-foreground hover:text-muted-foreground hover:bg-muted rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex px-6 border-b border-slate-200 bg-white">
-          <button 
+        <div className="flex px-6 border-b border-border bg-card">
+          <button
             onClick={() => setActiveTab("overview")}
-            className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === "overview" ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+            className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === "overview" ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"}`}
           >
-            {t("crm.c360Overview", "Overview")}
+            {t("crm.c360Overview")}
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab("timeline")}
-            className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === "timeline" ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+            className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === "timeline" ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"}`}
           >
-            {t("crm.c360Timeline", "Timeline")}
+            {t("crm.c360Timeline")}
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab("invoices")}
-            className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === "invoices" ? "border-brand text-brand" : "border-transparent text-slate-500 hover:text-slate-800"}`}
+            className={`py-3 px-4 text-sm font-medium border-b-2 transition-colors ${activeTab === "invoices" ? "border-brand text-brand" : "border-transparent text-muted-foreground hover:text-foreground"}`}
           >
-            {t("crm.c360Invoices", "Invoices & Quotes")}
+            {t("crm.c360Invoices")}
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-6 bg-muted/50">
           {activeTab === "overview" && (
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-2 space-y-6">
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                  <h3 className="font-semibold text-slate-800 mb-4">Lead Deal Details</h3>
+			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+			  <div className="space-y-6 lg:col-span-2">
+                <div className="bg-card p-5 rounded-xl border border-border shadow-sm">
+                  <h3 className="font-semibold text-foreground mb-4">{t("crm.customer360.dealDetails")}</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Deal Value</p>
-                      <p className="font-bold text-emerald-600 text-lg">${lead.value.toLocaleString()}</p>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">{t("crm.customer360.dealValue")}</p>
+                      <p className="font-bold text-success text-lg">${lead.value.toLocaleString()}</p>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <p className="text-xs text-slate-500 mb-1">Current Stage</p>
-                      <p className="font-bold text-slate-700">{lead.status}</p>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground mb-1">{t("crm.customer360.currentStage")}</p>
+                      <p className="font-bold text-foreground">{lead.status}</p>
                     </div>
                     {lead.score !== undefined && (
-                      <div className="p-3 bg-slate-50 rounded-lg col-span-2">
-                        <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
+                      <div className="p-3 bg-muted rounded-lg col-span-2">
+                        <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
                           <Sparkles className="w-3 h-3 text-brand" />
-                          {t("crm.aiLeadScore", "AI Lead Score")}
+                          {t("crm.aiLeadScore")}
+                          <ProvenanceBadge level="assumption" />
                         </p>
-                        <progress 
-                          value={lead.score} 
-                          max="100" 
-                          className={`w-full h-2.5 rounded-full [&::-webkit-progress-bar]:bg-slate-200 [&::-moz-progress-bar]:rounded-full [&::-webkit-progress-value]:rounded-full ${lead.score > 70 ? '[&::-webkit-progress-value]:bg-green-500 [&::-moz-progress-bar]:bg-green-500 text-green-500' : lead.score > 40 ? '[&::-webkit-progress-value]:bg-yellow-400 [&::-moz-progress-bar]:bg-yellow-400 text-yellow-400' : '[&::-webkit-progress-value]:bg-red-500 [&::-moz-progress-bar]:bg-red-500 text-red-500'}`}
+                        <progress
+                          value={lead.score}
+                          max="100"
+                          className={`w-full h-2.5 rounded-full [&::-webkit-progress-bar]:bg-muted [&::-moz-progress-bar]:rounded-full [&::-webkit-progress-value]:rounded-full ${lead.score > 70 ? '[&::-webkit-progress-value]:bg-success [&::-moz-progress-bar]:bg-success text-success' : lead.score > 40 ? '[&::-webkit-progress-value]:bg-warning [&::-moz-progress-bar]:bg-warning text-warning' : '[&::-webkit-progress-value]:bg-destructive [&::-moz-progress-bar]:bg-destructive text-destructive'}`}
                         />
-                        <p className="text-xs text-slate-500 mt-1">{lead.score}% Closing Probability</p>
+                        <p className="text-xs text-muted-foreground mt-1">{lead.score}% {t("crm.customer360.closingProbability")}</p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                  <h3 className="font-semibold text-slate-800 mb-4">Notes</h3>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    Prospective client interested in our digital transformation services. Prefers email communication. Budget expected in Q3.
-                  </p>
+                <div className="bg-card p-5 rounded-xl border border-border shadow-sm">
+                  <h3 className="font-semibold text-foreground mb-4">{t("crm.customer360.notes")}</h3>
+				  <div className="space-y-3">
+					{(customer360?.activities || []).filter((activity: any) => activity.data?.activity_type === "note").map((activity: any) => (
+					  <div key={activity.id} className="rounded-lg border border-border bg-muted p-3">
+						<p className="text-sm text-foreground whitespace-pre-wrap">{activity.data?.notes || activity.data?.subject}</p>
+						<p className="mt-1 text-xs text-muted-foreground">{new Date(activity.created_at).toLocaleString(language === "ar" ? "ar-SA" : "en-US")}</p>
+					  </div>
+					))}
+					{!(customer360?.activities || []).some((activity: any) => activity.data?.activity_type === "note") && (
+					  <EmptyState title={t("crm.customer360.noNotes")} description={t("crm.customer360.noNotesDescription")} />
+					)}
+					<textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} maxLength={10000}
+					  aria-label={t("crm.customer360.notes")} className="w-full resize-none rounded-lg border border-border bg-card p-3 text-sm" />
+					<button type="button" onClick={saveNote} disabled={savingNote || !note.trim()}
+					  className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-brand-foreground disabled:opacity-50">
+					  {savingNote ? t("common.saving") : t("common.save")}
+					</button>
+				  </div>
                 </div>
               </div>
 
-              <div className="col-span-1 space-y-6">
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm text-center">
-                  <h3 className="font-semibold text-slate-800 mb-3 text-end">Quick Actions (AI)</h3>
-                  <button 
+			  <div className="space-y-6 lg:col-span-1">
+                <div className="bg-card p-5 rounded-xl border border-border shadow-sm text-center">
+                  <h3 className="font-semibold text-foreground mb-3 text-end">{t("crm.customer360.aiActions")}</h3>
+                  <button
                     onClick={generateEmailDraft}
                     disabled={drafting}
-                    className="w-full bg-brand text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-brand/90 transition-colors disabled:opacity-50"
+                    className="w-full bg-brand text-brand-foreground py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-brand-hover transition-colors disabled:opacity-50"
                   >
                     <Sparkles className="w-4 h-4" />
-                    {drafting ? "Generating..." : "Generate Email Draft"}
+                    {drafting ? t("crm.customer360.generating") : t("crm.customer360.generateEmail")}
                   </button>
-                  
+
                   {emailDraft && (
-                    <div className="mt-4 text-end">
+                    <ProvenanceSurface level="assumption" className="mt-4 text-start">
                       <textarea
-                        aria-label="Email Draft"
-                        title="Email Draft"
-                        className="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg text-sm text-slate-700 whitespace-pre-wrap max-h-48 overflow-y-auto mb-2 focus:outline-none focus:ring-1 focus:ring-brand resize-none"
+                        aria-label={t("crm.customer360.emailDraft")}
+                        title={t("crm.customer360.emailDraft")}
+                        className="w-full bg-muted border border-border p-3 rounded-lg text-sm text-foreground whitespace-pre-wrap max-h-48 overflow-y-auto mb-2 focus:outline-none focus:ring-1 focus:ring-brand resize-none"
                         value={emailDraft}
                         onChange={(e) => setEmailDraft(e.target.value)}
                         rows={6}
                       />
                       <button
-                        onClick={() => { navigator.clipboard.writeText(emailDraft); alert("Copied to clipboard!"); }}
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(emailDraft);
+                          setDraftCopied(true);
+                        }}
                         className="text-xs text-brand font-medium hover:underline flex items-center gap-1 w-full justify-center bg-brand/5 py-2 rounded-lg"
                       >
-                        <Mail className="w-3 h-3" /> Copy Draft
+                        <Mail className="w-3 h-3" /> {draftCopied ? t("common.copied") : t("crm.customer360.copyDraft")}
                       </button>
-                    </div>
+                      <p className="text-xs text-muted-foreground">{t("crm.customer360.emailProvenance")}</p>
+                    </ProvenanceSurface>
                   )}
+                  {emailDraftError ? (
+                    <p className="mt-3 text-xs text-destructive">{emailDraftError}</p>
+                  ) : null}
 
                   <button
                     onClick={() => { setShowWhatsAppComposer((prev) => !prev); setWhatsAppResult(null); }}
                     disabled={!lead.phone}
-                    title={!lead.phone ? t("integrations.waNoPhone", "This customer has no phone number") : undefined}
-                    className="w-full mt-2 bg-emerald-600 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={!lead.phone ? t("integrations.waNoPhone") : undefined}
+                    className="w-full mt-2 bg-success text-background py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-success/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send className="w-4 h-4" />
-                    {t("integrations.waSend", "Send WhatsApp Message")}
+                    {t("integrations.waSend")}
                   </button>
 
                   {showWhatsAppComposer && (
                     <div className="mt-3 text-end">
                       <textarea
                         aria-label="WhatsApp Message"
-                        placeholder={t("integrations.waPlaceholder", "Type your message here...")}
-                        className="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg text-sm text-slate-700 mb-2 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
+                        placeholder={t("integrations.waPlaceholder")}
+                        className="w-full bg-muted border border-border p-3 rounded-lg text-sm text-foreground mb-2 focus:outline-none focus:ring-1 focus:ring-success/30 resize-none"
                         value={whatsAppMessage}
                         onChange={(e) => setWhatsAppMessage(e.target.value)}
                         rows={4}
@@ -274,12 +338,12 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                       <button
                         onClick={sendWhatsAppMessage}
                         disabled={sendingWhatsApp || !whatsAppMessage.trim()}
-                        className="text-xs font-medium flex items-center gap-1 w-full justify-center bg-emerald-50 text-emerald-700 py-2 rounded-lg hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-xs font-medium flex items-center gap-1 w-full justify-center bg-success/10 text-success py-2 rounded-lg hover:bg-success/10 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Send className="w-3 h-3" /> {sendingWhatsApp ? t("integrations.waSending", "Sending...") : t("integrations.waSendNow", "Send Now")}
+                        <Send className="w-3 h-3" /> {sendingWhatsApp ? t("integrations.waSending") : t("integrations.waSendNow")}
                       </button>
                       {whatsAppResult && (
-                        <p className={`text-xs mt-2 ${whatsAppResult.ok ? "text-emerald-600" : "text-red-600"}`}>
+                        <p className={`text-xs mt-2 ${whatsAppResult.ok ? "text-success" : "text-destructive"}`}>
                           {whatsAppResult.text}
                         </p>
                       )}
@@ -288,10 +352,10 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
 
                   <button
                     onClick={() => { setShowTicketComposer((prev) => !prev); setTicketResult(null); }}
-                    className="w-full mt-2 bg-amber-500 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-amber-600 transition-colors"
+                    className="w-full mt-2 bg-warning text-background py-2 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-warning/90 transition-colors"
                   >
                     <LifeBuoy className="w-4 h-4" />
-                    {t("integrations.zendeskCreate", "Create Zendesk Ticket")}
+                    {t("integrations.zendeskCreate")}
                   </button>
 
                   {showTicketComposer && (
@@ -299,15 +363,15 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                       <input
                         aria-label="Ticket Subject"
                         type="text"
-                        placeholder={t("integrations.zendeskSubjectPlaceholder", "Ticket subject")}
-                        className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-sm text-slate-700 mb-2 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        placeholder={t("integrations.zendeskSubjectPlaceholder")}
+                        className="w-full bg-muted border border-border p-2.5 rounded-lg text-sm text-foreground mb-2 focus:outline-none focus:ring-1 focus:ring-warning/30"
                         value={ticketSubject}
                         onChange={(e) => setTicketSubject(e.target.value)}
                       />
                       <textarea
                         aria-label="Ticket Description"
-                        placeholder={t("integrations.zendeskDescPlaceholder", "Describe the issue or request...")}
-                        className="w-full bg-slate-50 border border-slate-200 p-3 rounded-lg text-sm text-slate-700 mb-2 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+                        placeholder={t("integrations.zendeskDescPlaceholder")}
+                        className="w-full bg-muted border border-border p-3 rounded-lg text-sm text-foreground mb-2 focus:outline-none focus:ring-1 focus:ring-warning/30 resize-none"
                         value={ticketDescription}
                         onChange={(e) => setTicketDescription(e.target.value)}
                         rows={3}
@@ -315,12 +379,12 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                       <button
                         onClick={createZendeskTicket}
                         disabled={creatingTicket || !ticketSubject.trim() || !ticketDescription.trim()}
-                        className="text-xs font-medium flex items-center gap-1 w-full justify-center bg-amber-50 text-amber-700 py-2 rounded-lg hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-xs font-medium flex items-center gap-1 w-full justify-center bg-warning/10 text-warning py-2 rounded-lg hover:bg-warning/10 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Ticket className="w-3 h-3" /> {creatingTicket ? t("integrations.zendeskCreating", "Creating...") : t("integrations.zendeskCreateBtn", "Create Ticket")}
+                        <Ticket className="w-3 h-3" /> {creatingTicket ? t("integrations.zendeskCreating") : t("integrations.zendeskCreateBtn")}
                       </button>
                       {ticketResult && (
-                        <p className={`text-xs mt-2 ${ticketResult.ok ? "text-emerald-600" : "text-red-600"}`}>
+                        <p className={`text-xs mt-2 ${ticketResult.ok ? "text-success" : "text-destructive"}`}>
                           {ticketResult.text}
                         </p>
                       )}
@@ -328,74 +392,45 @@ export default function Customer360Modal({ lead, onClose }: Customer360ModalProp
                   )}
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                  <h3 className="font-semibold text-slate-800 mb-4">Quick Stats</h3>
-                  <ul className="space-y-4">
-                    <li className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><MessageSquare className="w-4 h-4"/></div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-700">12 conversations</p>
-                        <p className="text-xs text-slate-500">Total Messages</p>
-                      </div>
-                    </li>
-                    <li className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center"><Ticket className="w-4 h-4"/></div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-700">2 Support Tickets</p>
-                        <p className="text-xs text-slate-500">1 currently open</p>
-                      </div>
-                    </li>
-                  </ul>
+                <div className="bg-card p-5 rounded-xl border border-border shadow-sm">
+                  <h3 className="font-semibold text-foreground mb-4">{t("crm.customer360.quickStats")}</h3>
+				  <dl className="space-y-3 text-sm">
+					<div className="flex justify-between"><dt>{t("crm.c360Timeline")}</dt><dd className="font-bold">{customer360?.activities?.length || 0}</dd></div>
+					<div className="flex justify-between"><dt>{t("crm.ticketsTitle")}</dt><dd className="font-bold">{customer360?.tickets?.length || 0}</dd></div>
+					<div className="flex justify-between"><dt>{t("crm.quote")}</dt><dd className="font-bold">{customer360?.quotes?.length || 0}</dd></div>
+				  </dl>
                 </div>
               </div>
             </div>
           )}
 
           {activeTab === "timeline" && (
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <div className="space-y-6 relative before:absolute before:inset-0 before:ms-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
-                
-                {/* Timeline Item */}
-                <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-brand text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 shadow-sm bg-white">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-bold text-slate-800 text-sm">Sales Automation</h4>
-                      <span className="text-xs text-slate-400">Today 10:00 AM</span>
-                    </div>
-                    <p className="text-sm text-slate-600">Welcome message sent automatically and lead moved to the &quot;Contacted&quot; stage.</p>
-                  </div>
-                </div>
-
-                {/* Timeline Item */}
-                <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-100 text-slate-500 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
-                    <Mail className="w-4 h-4" />
-                  </div>
-                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 shadow-sm bg-white">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-bold text-slate-800 text-sm">Initial Inquiry</h4>
-                      <span className="text-xs text-slate-400">Yesterday 2:30 PM</span>
-                    </div>
-                    <p className="text-sm text-slate-600">Client sent an email requesting a quote for managed hosting services.</p>
-                  </div>
-                </div>
-
-              </div>
+            <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
+			  {(customer360?.activities || []).length === 0 ? <EmptyState
+				icon={<Clock />} title={t("crm.customer360.noTimeline")} description={t("crm.customer360.noTimelineDescription")}
+			  /> : <div className="space-y-4">{customer360.activities.map((activity: any) => (
+				<div key={activity.id} className="border-s-2 border-brand ps-4">
+				  <p className="font-semibold text-foreground">{activity.data?.subject}</p>
+				  <p className="text-sm text-muted-foreground">{activity.data?.notes}</p>
+				  <p className="text-xs text-muted-foreground">{new Date(activity.created_at).toLocaleString(language === "ar" ? "ar-SA" : "en-US")}</p>
+				</div>
+			  ))}</div>}
             </div>
           )}
 
           {activeTab === "invoices" && (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                <h3 className="font-semibold text-slate-800">Associated Invoices</h3>
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+              <div className="p-4 bg-muted border-b border-border flex justify-between items-center">
+                <h3 className="font-semibold text-foreground">{t("crm.customer360.associatedInvoices")}</h3>
               </div>
-              <div className="p-6 flex flex-col items-center justify-center text-slate-500">
-                <Receipt className="w-12 h-12 text-slate-300 mb-3" />
-                <p>No linked invoices for this client yet.</p>
-              </div>
+			  {(customer360?.quotes || []).length === 0 ? <div className="p-6 flex flex-col items-center justify-center text-muted-foreground">
+				<Receipt className="w-12 h-12 text-muted-foreground mb-3" /><p>{t("crm.customer360.noInvoices")}</p>
+			  </div> : <div className="divide-y divide-border">{customer360.quotes.map((quote: any) => (
+				<div key={quote.id} className="flex items-center justify-between p-4">
+				  <span className="font-medium">{quote.data?.quote_number}</span>
+				  <span>{quote.data?.total} {quote.data?.currency}</span>
+				</div>
+			  ))}</div>}
             </div>
           )}
         </div>

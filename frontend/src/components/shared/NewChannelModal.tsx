@@ -43,8 +43,10 @@ export default function NewChannelModal({ onClose }: NewChannelModalProps) {
       }
 
       const newChannel = await res.json();
+      // API now returns snake_case: id, name, type
+      const channelId = newChannel.id || newChannel.ID;
       setChannels([...channels, newChannel]);
-      setActiveChannelId(newChannel.id);
+      setActiveChannelId(channelId);
       setCurrentView("chat");
       
       onClose();
@@ -72,7 +74,7 @@ export default function NewChannelModal({ onClose }: NewChannelModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="modal-body">
-          <p className="text-sm text-slate-500 mb-4">
+          <p className="text-sm text-muted-foreground mb-4">
             {isRtl ? "القنوات هي حيث يتواصل فريقك. تكون الأفضل عند تنظيمها حول موضوع — مثل ‏#التسويق." : "Channels are where your team communicates. They’re best when organized around a topic — #marketing, for example."}
           </p>
           
@@ -100,13 +102,13 @@ export default function NewChannelModal({ onClose }: NewChannelModalProps) {
             />
           </div>
 
-          <div className="form-group flex items-center justify-between mt-2 p-3 bg-[#f8fafc] rounded-md border border-slate-200 ">
+          <div className="form-group flex items-center justify-between mt-2 p-3 bg-background rounded-md border border-border ">
             <div>
               <label className="form-label mb-0 flex items-center gap-1.5">
-                <Lock className="w-4 h-4 text-slate-600 " />
+                <Lock className="w-4 h-4 text-muted-foreground " />
                 {isRtl ? "اجعلها خاصة" : "Make private"}
               </label>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {isRtl ? "عند تعيين القناة كخاصة، لا يمكن عرضها أو الانضمام إليها إلا بدعوة." : "When a channel is set to private, it can only be viewed or joined by invitation."}
               </p>
             </div>

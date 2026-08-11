@@ -84,14 +84,12 @@ func TestCentrifugoSubscribe_DeniesUnknownChannelScheme(t *testing.T) {
 	}
 }
 
-func TestCentrifugoSubscribe_DevModeSkipsAuth(t *testing.T) {
-	// With no INTERNAL_API_TOKEN (local dev) the auth gate is open, but a bad
-	// channel is still denied on its own merits — the request is processed.
+func TestCentrifugoSubscribe_FailsClosedWithoutToken(t *testing.T) {
 	t.Setenv("INTERNAL_API_TOKEN", "")
 	app := newProxyApp()
 
 	rec := post(t, app, "", `{"user":"2f67ffe1-d96d-4cff-93b3-a8dd743b6907","channel":"totally_unknown"}`)
-	if rec.Code != fiber.StatusOK || !bytes.Contains(rec.Body.Bytes(), []byte("permission denied")) {
-		t.Errorf("dev mode should still process + deny, got %d %s", rec.Code, rec.Body.String())
+	if rec.Code != fiber.StatusServiceUnavailable {
+		t.Errorf("missing internal token should fail closed with 503, got %d %s", rec.Code, rec.Body.String())
 	}
 }

@@ -64,8 +64,8 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
         setError(isRtl ? "يرجى إدخال جميع بيانات الحساب الإداري" : "Please fill in all owner account details");
         return;
       }
-      if (password.length < 6) {
-        setError(isRtl ? "كلمة المرور يجب أن لا تقل عن 6 أحرف" : "Password must be at least 6 characters");
+      if (password.length < 12 || password.length > 72) {
+        setError(isRtl ? "كلمة المرور يجب أن تكون بين 12 و72 حرفاً" : "Password must be between 12 and 72 characters");
         return;
       }
       setStep(3);
@@ -80,6 +80,9 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
       const res = await fetch(`${API_BASE_URL}/auth/signup-workspace`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // The API uses an HttpOnly session cookie. This must be explicit because
+        // the development UI (3000) and API (4000) use different origins.
+        credentials: "include",
         body: JSON.stringify({
           workspace_name: workspaceName,
           slug,
@@ -106,9 +109,9 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
         "septimus_company_profile",
       ].forEach((k) => localStorage.removeItem(k));
 
-      // Save token and user details
-      localStorage.setItem("septimus_token", data.token);
+      // The backend sets the HttpOnly session cookie; persist only display data.
       localStorage.setItem("septimus_user", JSON.stringify(data.user));
+      localStorage.setItem("currentWorkspaceId", data.user.workspace_id);
 
       onLogin();
     } catch (err: unknown) {
@@ -118,7 +121,7 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-8 text-slate-800 dark:text-slate-100">
+    <div className="w-full max-w-xl mx-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-border dark:border-slate-800 p-8 text-foreground dark:text-slate-100">
       {/* Header & Steps Indicator */}
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand/10 text-brand mb-3">
@@ -127,7 +130,7 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
         <h2 className="text-2xl font-bold tracking-tight">
           {isRtl ? "تأسيس مساحة عمل جديدة" : "Create Your Enterprise Workspace"}
         </h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+        <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
           {isRtl ? "ابدأ رحلتك مع منصة Septimus OS في أقل من دقيقة" : "Bootstrapping your B2B SaaS tenant in less than 60 seconds"}
         </p>
 
@@ -141,7 +144,7 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
                     ? "bg-brand text-white shadow-lg shadow-brand/30 scale-110" 
                     : step > s 
                     ? "bg-emerald-500 text-white" 
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                    : "bg-muted dark:bg-slate-800 text-muted-foreground"
                 }`}
               >
                 {step > s ? <CheckCircle2 className="w-4 h-4" /> : s}
@@ -168,12 +171,12 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
               {isRtl ? "اسم المؤسسة / الشركة" : "Company / Workspace Name"}
             </label>
             <div className="relative">
-              <Building2 className="absolute top-3.5 start-3.5 w-4 h-4 text-slate-400" />
+              <Building2 className="absolute top-3.5 start-3.5 w-4 h-4 text-muted-foreground" />
               <Input
                 value={workspaceName}
                 onChange={(e) => handleWorkspaceNameChange(e.target.value)}
                 placeholder={isRtl ? "مثال: شركة الآفاق الذكية" : "e.g., Acme Corporation"}
-                className="ps-10 py-5 bg-slate-50 dark:bg-slate-800/60"
+                className="ps-10 py-5 bg-muted dark:bg-slate-800/60"
                 required
               />
             </div>
@@ -183,8 +186,8 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
             <label className="block text-sm font-semibold mb-1">
               {isRtl ? "معرّف النطاق (Workspace Subdomain Slug)" : "Workspace Subdomain Slug"}
             </label>
-            <div className="flex items-center rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800/60 focus-within:ring-2 focus-within:ring-brand">
-              <div className="ps-3 pe-2 py-2.5 text-slate-400 flex items-center gap-1.5 border-e border-slate-200 dark:border-slate-700 text-sm font-mono">
+            <div className="flex items-center rounded-lg border border-border dark:border-slate-700 overflow-hidden bg-muted dark:bg-slate-800/60 focus-within:ring-2 focus-within:ring-brand">
+              <div className="ps-3 pe-2 py-2.5 text-muted-foreground flex items-center gap-1.5 border-e border-border dark:border-slate-700 text-sm font-mono">
                 <Globe className="w-4 h-4" />
                 <span>slug :</span>
               </div>
@@ -196,9 +199,9 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
                 className="w-full px-3 py-2.5 bg-transparent outline-none text-sm font-mono font-medium"
                 required
               />
-              <span className="pe-3 text-slate-400 text-xs font-mono">.septimus.app</span>
+              <span className="pe-3 text-muted-foreground text-xs font-mono">.septimus.app</span>
             </div>
-            <p className="text-xs text-slate-400 mt-1.5">
+            <p className="text-xs text-muted-foreground mt-1.5">
               {isRtl 
                 ? "سيكون هذا المعرف الفريد لمساحة العمل وعنوان العزل الخاص ببياناتك." 
                 : "This unique slug identifies your tenant and enforces row-level data isolation."}
@@ -223,12 +226,12 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
               {isRtl ? "الاسم الكامل لمدير النظام" : "Full Name (Workspace Owner)"}
             </label>
             <div className="relative">
-              <User className="absolute top-3.5 start-3.5 w-4 h-4 text-slate-400" />
+              <User className="absolute top-3.5 start-3.5 w-4 h-4 text-muted-foreground" />
               <Input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder={isRtl ? "المهندس أحمد زايد" : "Ahmed Zayed"}
-                className="ps-10 py-5 bg-slate-50 dark:bg-slate-800/60"
+                className="ps-10 py-5 bg-muted dark:bg-slate-800/60"
                 required
               />
             </div>
@@ -243,7 +246,7 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ahmed@acme-corp.com"
-              className="py-5 bg-slate-50 dark:bg-slate-800/60"
+              className="py-5 bg-muted dark:bg-slate-800/60"
               required
             />
           </div>
@@ -257,7 +260,7 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••••••"
-              className="py-5 bg-slate-50 dark:bg-slate-800/60"
+              className="py-5 bg-muted dark:bg-slate-800/60"
               required
             />
           </div>
@@ -266,7 +269,7 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="w-1/3 py-3.5 border border-slate-300 dark:border-slate-700 rounded-xl font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="w-1/3 py-3.5 border border-border dark:border-slate-700 rounded-xl font-semibold text-muted-foreground dark:text-slate-300 hover:bg-muted dark:hover:bg-slate-800 transition-colors"
             >
               {isRtl ? "السابق" : "Back"}
             </button>
@@ -291,7 +294,7 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
               className={`cursor-pointer rounded-xl p-4 border-2 transition-all relative flex flex-col justify-between ${
                 planId === "plan_starter"
                   ? "border-brand bg-brand/5 dark:bg-brand/10 shadow-md"
-                  : "border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                  : "border-border dark:border-slate-800 hover:border-border"
               }`}
             >
               <div>
@@ -299,8 +302,8 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
                   {isRtl ? "تجربة مجانية" : "14-Day Trial"}
                 </div>
                 <h4 className="font-bold text-lg">Starter</h4>
-                <div className="text-2xl font-extrabold mt-2">$0 <span className="text-xs font-normal text-slate-500">/14 days</span></div>
-                <ul className="text-xs text-slate-600 dark:text-slate-400 mt-3 space-y-1.5">
+                <div className="text-2xl font-extrabold mt-2">$0 <span className="text-xs font-normal text-muted-foreground">/14 days</span></div>
+                <ul className="text-xs text-muted-foreground dark:text-muted-foreground mt-3 space-y-1.5">
                   <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> {isRtl ? "حتى 10 مستخدمين" : "Up to 10 users"}</li>
                   <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> {isRtl ? "إدارة المشاريع والموارد" : "Core CRM & HR modules"}</li>
                 </ul>
@@ -313,7 +316,7 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
               className={`cursor-pointer rounded-xl p-4 border-2 transition-all relative flex flex-col justify-between ${
                 planId === "plan_business"
                   ? "border-brand bg-brand/5 dark:bg-brand/10 shadow-md"
-                  : "border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                  : "border-border dark:border-slate-800 hover:border-border"
               }`}
             >
               <div className="absolute -top-2.5 end-3 bg-brand text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase shadow">
@@ -324,8 +327,8 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
                   {isRtl ? "الأعمال والشركات" : "Business"}
                 </div>
                 <h4 className="font-bold text-lg">Pro AI</h4>
-                <div className="text-2xl font-extrabold mt-2">$199 <span className="text-xs font-normal text-slate-500">/mo</span></div>
-                <ul className="text-xs text-slate-600 dark:text-slate-400 mt-3 space-y-1.5">
+                <div className="text-2xl font-extrabold mt-2">$199 <span className="text-xs font-normal text-muted-foreground">/mo</span></div>
+                <ul className="text-xs text-muted-foreground dark:text-muted-foreground mt-3 space-y-1.5">
                   <li className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-brand shrink-0" /> {isRtl ? "حتى 50 مستخدم" : "Up to 50 users"}</li>
                   <li className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-brand shrink-0" /> {isRtl ? "مساعد AI Sidecar" : "AI Sidecar Proxy & Reports"}</li>
                 </ul>
@@ -338,7 +341,7 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
               className={`cursor-pointer rounded-xl p-4 border-2 transition-all relative flex flex-col justify-between ${
                 planId === "plan_enterprise"
                   ? "border-brand bg-brand/5 dark:bg-brand/10 shadow-md"
-                  : "border-slate-200 dark:border-slate-800 hover:border-slate-300"
+                  : "border-border dark:border-slate-800 hover:border-border"
               }`}
             >
               <div>
@@ -346,8 +349,8 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
                   {isRtl ? "المؤسسات الكبرى" : "Enterprise"}
                 </div>
                 <h4 className="font-bold text-lg">Orchestrator</h4>
-                <div className="text-2xl font-extrabold mt-2">$899 <span className="text-xs font-normal text-slate-500">/mo</span></div>
-                <ul className="text-xs text-slate-600 dark:text-slate-400 mt-3 space-y-1.5">
+                <div className="text-2xl font-extrabold mt-2">$899 <span className="text-xs font-normal text-muted-foreground">/mo</span></div>
+                <ul className="text-xs text-muted-foreground dark:text-muted-foreground mt-3 space-y-1.5">
                   <li className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-purple-500 shrink-0" /> {isRtl ? "مستخدمين غير محدودين" : "Unlimited Users & SLA"}</li>
                   <li className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-purple-500 shrink-0" /> {isRtl ? "الوكلاء المتعددون AI" : "Full Multi-Agent Orchestrator"}</li>
                 </ul>
@@ -360,7 +363,7 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
               type="button"
               disabled={isLoading}
               onClick={() => setStep(2)}
-              className="w-1/3 py-3.5 border border-slate-300 dark:border-slate-700 rounded-xl font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+              className="w-1/3 py-3.5 border border-border dark:border-slate-700 rounded-xl font-semibold text-muted-foreground dark:text-slate-300 hover:bg-muted dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
             >
               {isRtl ? "السابق" : "Back"}
             </button>
@@ -384,7 +387,7 @@ export default function WorkspaceOnboardingWizard({ onLogin, onSwitchToLogin }: 
       )}
 
       {/* Switch to Login Link */}
-      <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800 text-center text-sm text-slate-500">
+      <div className="mt-8 pt-6 border-t border-border dark:border-slate-800 text-center text-sm text-muted-foreground">
         <span>{isRtl ? "لديك مساحة عمل مسجلة بالفعل؟" : "Already have an active workspace?"} </span>
         <button
           type="button"

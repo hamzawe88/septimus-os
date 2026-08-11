@@ -18,21 +18,21 @@ export default function AppStoreHub() {
     { id: "installed", label: isRtl ? "التطبيقات المثبتة" : "Installed Apps", icon: <CheckCircle2 className="w-5 h-5" /> },
     { id: "webhooks", label: isRtl ? "خطاطيف الويب" : "Webhooks", icon: <Webhook className="w-5 h-5" /> },
     { id: "apikeys", label: isRtl ? "مفاتيح الربط البرمجي" : "API Keys", icon: <Key className="w-5 h-5" /> },
-    { id: "mcp", label: isRtl ? "خادم MCP (بروتوكول النموذج)" : "MCP Server (AI Tools)", icon: <Puzzle className="w-5 h-5 text-indigo-500" /> },
+    { id: "mcp", label: isRtl ? "خادم MCP (بروتوكول النموذج)" : "MCP Server (AI Tools)", icon: <Puzzle className="w-5 h-5 text-brand" /> },
   ];
 
   return (
-    <div className="flex flex-col w-full h-full bg-[#f8fafc] dark:bg-[#121418] overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+    <div className="flex flex-col w-full h-full bg-background dark:bg-[#121418] overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
       {/* Header & Tabs */}
-      <div className="bg-white dark:bg-[#1a1d21] border-b border-slate-200 dark:border-slate-800 p-8 pb-0 shrink-0 z-20">
+      <div className="bg-card dark:bg-[#1a1d21] border-b border-border dark:border-slate-800 p-8 pb-0 shrink-0 z-20">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-3 mb-2 text-brand">
             <Puzzle className="w-8 h-8" />
-            <h1 className="text-3xl font-black text-slate-800 dark:text-white">
+            <h1 className="text-3xl font-black text-foreground dark:text-white">
               {isRtl ? "مركز الإضافات والمطورين" : "App Store & Developer Hub"}
             </h1>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 max-w-2xl mb-8">
+          <p className="text-muted-foreground dark:text-muted-foreground max-w-2xl mb-8">
             {isRtl 
               ? "قم بتوسيع قدرات نظامك من خلال دمج التطبيقات والأدوات الخارجية، وإدارة خطاطيف الويب، ومفاتيح الواجهة البرمجية من مكان واحد."
               : "Extend your system's capabilities by integrating external apps, managing webhooks, and API keys from a single place."}
@@ -46,7 +46,7 @@ export default function AppStoreHub() {
                 className={`flex items-center gap-2 pb-4 px-2 text-sm font-bold border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id
                     ? "border-brand text-brand"
-                    : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                    : "border-transparent text-muted-foreground hover:text-foreground dark:hover:text-slate-300"
                 }`}
               >
                 {tab.icon}

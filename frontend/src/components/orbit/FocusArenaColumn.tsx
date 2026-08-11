@@ -98,16 +98,16 @@ export default function FocusArenaColumn({
   const activeTaskObj = tasks.find((t) => t.id === activeTaskId);
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-2xl overflow-hidden shadow-sm">
+    <div className="flex flex-col h-full bg-card dark:bg-slate-800/90 border border-border dark:border-slate-700/80 rounded-2xl overflow-hidden shadow-sm">
       {/* Column Header & Active Pomodoro Focus Banner */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-700/80 bg-gradient-to-r from-slate-50 via-blue-50/40 to-slate-50 dark:from-slate-900 dark:via-blue-950/40 dark:to-slate-900">
+      <div className="p-4 border-b border-border dark:border-slate-700/80 bg-gradient-to-r from-slate-50 via-blue-50/40 to-slate-50 dark:from-slate-900 dark:via-blue-950/40 dark:to-slate-900">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-sm font-bold text-foreground dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
             {t("my_orbit.daily_focus_title", "Daily Focus Top 3")}
           </h3>
           {/* Presence Indicator */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xs">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-card dark:bg-slate-900 border border-border dark:border-slate-700 shadow-2xs">
             {isRunning ? (
               <>
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
@@ -127,8 +127,8 @@ export default function FocusArenaColumn({
         </div>
 
         {/* Pomodoro Duration Presets Bar */}
-        <div className="flex items-center justify-between gap-1 mb-3 bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700">
-          <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium px-1.5">
+        <div className="flex items-center justify-between gap-1 mb-3 bg-muted dark:bg-slate-800/80 p-1.5 rounded-xl border border-border/80 dark:border-slate-700">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground dark:text-muted-foreground font-medium px-1.5">
             <Timer className="w-3.5 h-3.5 text-amber-500" />
             <span className="hidden sm:inline">{t("my_orbit.timer_presets_title", "Timer Duration:")}</span>
           </div>
@@ -145,7 +145,7 @@ export default function FocusArenaColumn({
                 className={`px-2 py-1 rounded-lg text-xs font-mono font-bold transition-all ${
                   selectedPresetMinutes === p.mins
                     ? "bg-brand text-white shadow-2xs"
-                    : "bg-white text-slate-600 hover:bg-slate-200"
+                    : "bg-card text-muted-foreground hover:bg-slate-200"
                 }`}
               >
                 {p.label}
@@ -153,7 +153,7 @@ export default function FocusArenaColumn({
             ))}
             <button
               onClick={handleCustomDuration}
-              className="px-2 py-1 rounded-lg text-xs font-semibold bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 border border-dashed border-slate-300 dark:border-slate-600"
+              className="px-2 py-1 rounded-lg text-xs font-semibold bg-card dark:bg-slate-700 text-muted-foreground dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 border border-dashed border-border dark:border-slate-600"
             >
               ⚙ {t("my_orbit.preset_custom", "Custom")}
             </button>
@@ -161,16 +161,16 @@ export default function FocusArenaColumn({
         </div>
 
         {/* Pomodoro Timer Banner */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-card dark:bg-slate-900 border border-border dark:border-slate-700 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-brand/10 border border-brand/20 dark:bg-blue-500/10 dark:border-blue-500/20 flex items-center justify-center text-brand dark:text-blue-400 shrink-0">
               <Clock className={`w-6 h-6 ${isRunning ? "animate-spin" : ""}`} />
             </div>
             <div>
-              <div className="text-2xl font-mono font-bold text-slate-800 dark:text-slate-100 tracking-wider">
+              <div className="text-2xl font-mono font-bold text-foreground dark:text-slate-100 tracking-wider">
                 {formatTime(secondsLeft)}
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">
+              <p className="text-xs text-muted-foreground dark:text-muted-foreground line-clamp-1">
                 {activeTaskObj
                   ? `${t("my_orbit.focusing_prefix", "Focusing:")} ${activeTaskObj.title}`
                   : t("my_orbit.pomodoro_banner_title", "Select a Top 3 task & press Start")}
@@ -228,12 +228,12 @@ export default function FocusArenaColumn({
             return (
               <div
                 key={slotNum}
-                className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center text-center bg-slate-50/50 dark:bg-slate-900/30 min-h-[140px] transition-all hover:border-slate-300 dark:hover:border-slate-600"
+                className="border-2 border-dashed border-border dark:border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center text-center bg-muted/50 dark:bg-slate-900/30 min-h-[140px] transition-all hover:border-border dark:hover:border-slate-600"
               >
-                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 font-mono font-bold text-sm mb-2 border border-slate-200 dark:border-slate-700">
+                <div className="w-8 h-8 rounded-full bg-muted dark:bg-slate-800 flex items-center justify-center text-muted-foreground font-mono font-bold text-sm mb-2 border border-border dark:border-slate-700">
                   {slotNum}
                 </div>
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 max-w-xs">
+                <p className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground max-w-xs">
                   {t("my_orbit.empty_slot", "Empty Zen Slot — Promote or drag a task here")}
                 </p>
               </div>
@@ -248,7 +248,7 @@ export default function FocusArenaColumn({
               className={`relative rounded-2xl p-4 transition-all shadow-sm border ${
                 isThisActive
                   ? "bg-blue-50/40 dark:bg-blue-950/40 border-brand ring-2 ring-brand/30 animate-pulse-border"
-                  : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                  : "bg-card dark:bg-slate-800 border-border dark:border-slate-700 hover:border-border dark:hover:border-slate-600"
               }`}
             >
               {/* Slot Number Badge */}
@@ -266,7 +266,7 @@ export default function FocusArenaColumn({
                   <button
                     onClick={() => onDemoteFromTop3(taskInSlot)}
                     title={t("my_orbit.demote_top3", "Unpin from Top 3")}
-                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
+                    className="p-1.5 rounded-lg bg-muted hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-slate-200 transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -274,17 +274,17 @@ export default function FocusArenaColumn({
               </div>
 
               {/* Task Title and Description */}
-              <h4 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1.5 leading-snug">
+              <h4 className="text-base font-bold text-foreground dark:text-slate-100 mb-1.5 leading-snug">
                 {taskInSlot.title}
               </h4>
               {taskInSlot.description && (
-                <p className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 mb-3">
+                <p className="text-xs text-muted-foreground dark:text-slate-300 bg-muted dark:bg-slate-900/60 p-2.5 rounded-xl border border-border/80 dark:border-slate-700/60 mb-3">
                   {taskInSlot.description}
                 </p>
               )}
 
               {/* Footer / Actions */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700/80">
+              <div className="flex items-center justify-between pt-3 border-t border-border dark:border-slate-700/80">
                 <div className="flex items-center gap-2">
                   <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700/50 font-mono font-bold">
                     +{taskInSlot.xp_reward + 25} XP (Bonus!)
@@ -333,18 +333,18 @@ export default function FocusArenaColumn({
 
       {/* Immersive Fullscreen Zen Focus Mode Modal */}
       {isZenModeOpen && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-between bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 p-6 sm:p-12 animate-in fade-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-between bg-card dark:bg-slate-950 text-foreground dark:text-slate-100 p-6 sm:p-12 animate-in fade-in zoom-in-95 duration-300">
           {/* Zen Header */}
-          <div className="w-full max-w-5xl flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div className="w-full max-w-5xl flex items-center justify-between border-b border-border dark:border-slate-800 pb-4">
             <div className="flex items-center gap-3">
               <span className="text-2xl animate-bounce">🧘</span>
-              <h2 className="text-lg sm:text-xl font-bold tracking-wide text-slate-800 dark:text-slate-100">
+              <h2 className="text-lg sm:text-xl font-bold tracking-wide text-foreground dark:text-slate-100">
                 {t("my_orbit.zen_mode_title", "Immersive Zen Focus Mode")}
               </h2>
             </div>
             <button
               onClick={() => setIsZenModeOpen(false)}
-              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white flex items-center gap-2 text-sm font-semibold transition-all border border-slate-200 dark:border-slate-700"
+              className="px-4 py-2 rounded-xl bg-muted hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-muted-foreground hover:text-foreground dark:text-slate-300 dark:hover:text-white flex items-center gap-2 text-sm font-semibold transition-all border border-border dark:border-slate-700"
             >
               <Minimize2 className="w-4 h-4" />
               <span>{t("my_orbit.zen_mode_exit", "Exit Zen Mode")}</span>
@@ -355,20 +355,20 @@ export default function FocusArenaColumn({
           <div className="flex flex-col items-center justify-center my-auto text-center max-w-3xl px-4 space-y-8">
             <div className="relative">
               <div className="absolute inset-0 bg-blue-100/60 dark:bg-blue-500/10 blur-3xl rounded-full pointer-events-none" />
-              <div className="text-7xl sm:text-9xl font-mono font-extrabold tracking-wider tabular-nums text-slate-800 dark:text-slate-100 relative z-10 py-4">
+              <div className="text-7xl sm:text-9xl font-mono font-extrabold tracking-wider tabular-nums text-foreground dark:text-slate-100 relative z-10 py-4">
                 {formatTime(secondsLeft)}
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="inline-block px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold tracking-wide">
+              <div className="inline-block px-3 py-1 rounded-full bg-muted dark:bg-slate-800 border border-border dark:border-slate-700 text-muted-foreground dark:text-slate-300 text-xs font-semibold tracking-wide">
                 {activeTaskObj ? t("my_orbit.focusing_prefix", "Focusing:") : t("my_orbit.zen_ready", "Zen Mode Ready")}
               </div>
-              <h3 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-slate-100 leading-tight">
+              <h3 className="text-2xl sm:text-4xl font-extrabold text-foreground dark:text-slate-100 leading-tight">
                 {activeTaskObj ? activeTaskObj.title : t("my_orbit.select_task_banner", "Select a Top 3 task & press Start")}
               </h3>
               {activeTaskObj?.description && (
-                <p className="text-sm text-slate-600 dark:text-slate-300 max-w-xl mx-auto bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <p className="text-sm text-muted-foreground dark:text-slate-300 max-w-xl mx-auto bg-card dark:bg-slate-900 p-4 rounded-2xl border border-border dark:border-slate-700 shadow-sm">
                   {activeTaskObj.description}
                 </p>
               )}
@@ -420,7 +420,7 @@ export default function FocusArenaColumn({
           </div>
 
           {/* Zen Footer Presets */}
-          <div className="w-full max-w-4xl border-t border-slate-200 dark:border-slate-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-600 dark:text-slate-300 font-medium">
+          <div className="w-full max-w-4xl border-t border-border dark:border-slate-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground dark:text-slate-300 font-medium">
             <span>{t("my_orbit.timer_presets_title", "Timer Duration:")}</span>
             <div className="flex items-center gap-2 flex-wrap justify-center">
               {[
@@ -435,7 +435,7 @@ export default function FocusArenaColumn({
                   className={`px-3 py-1.5 rounded-xl border transition-all ${
                     selectedPresetMinutes === p.mins
                       ? "bg-brand/10 border-brand text-brand dark:text-blue-300 font-bold shadow-sm"
-                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand/40 hover:text-slate-800 dark:hover:text-slate-100"
+                      : "bg-card dark:bg-slate-900 border-border dark:border-slate-700 text-muted-foreground dark:text-slate-300 hover:border-brand/40 hover:text-foreground dark:hover:text-slate-100"
                   }`}
                 >
                   {p.label}
@@ -443,7 +443,7 @@ export default function FocusArenaColumn({
               ))}
               <button
                 onClick={handleCustomDuration}
-                className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-brand/40 hover:text-slate-800 dark:hover:text-slate-100 transition-all"
+                className="px-3 py-1.5 rounded-xl bg-card dark:bg-slate-900 border border-dashed border-border dark:border-slate-600 text-muted-foreground dark:text-slate-300 hover:border-brand/40 hover:text-foreground dark:hover:text-slate-100 transition-all"
               >
                 ⚙ {t("my_orbit.preset_custom", "Custom Time")}
               </button>

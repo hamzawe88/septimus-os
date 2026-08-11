@@ -1,10 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { X, Hash } from "lucide-react";
+import { Hash, Save, ShieldAlert } from "lucide-react";
 import { apiPut } from "@/lib/apiClient";
 import { Channel } from "@/types/chat";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { FormField } from "@/components/ui/form-field";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ChannelSettingsModalProps {
   isOpen: boolean;
@@ -19,15 +25,17 @@ export default function ChannelSettingsModal({ isOpen, onClose, channel, onUpdat
   const [description, setDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [prevChannel, setPrevChannel] = useState<Channel | null>(null);
 
   // Sync form state when a different channel is selected (adjust-state-during-render pattern)
   if (channel !== prevChannel) {
     setPrevChannel(channel);
     if (channel) {
-      setName(channel.Name);
-      setDescription(channel.Description || "");
-      setIsPrivate(channel.Type === "PRIVATE");
+      setName(channel.name || channel.Name || '');
+      setDescription(channel.description || channel.Description || '');
+      const t = channel.type || channel.Type || '';
+      setIsPrivate(t === 'PRIVATE');
     }
   }
 
@@ -35,14 +43,14 @@ export default function ChannelSettingsModal({ isOpen, onClose, channel, onUpdat
     e.preventDefault();
     if (!channel) return;
 
-    if (channel.IsSystem) {
-      alert(t("chat.systemChannelError"));
+    if (channel.is_system || channel.IsSystem) {
+      setErrorMessage(t("chat.systemChannelError"));
       return;
     }
 
     setLoading(true);
     try {
-      await apiPut(`/channels/${channel.ID}`, {
+      await apiPut(`/channels/${channel.id || channel.ID}`, {
         name,
         description,
         is_private: isPrivate
@@ -50,84 +58,83 @@ export default function ChannelSettingsModal({ isOpen, onClose, channel, onUpdat
       onUpdate();
       onClose();
     } catch {
-      alert(t("chat.saveSettingsError"));
+      setErrorMessage(t("chat.saveSettingsError"));
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen || !channel) return null;
+  if (!channel) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-background border border-border rounded-xl w-[400px] flex flex-col shadow-2xl relative">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <Hash size={20} className="text-brand" />
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="w-[95vw] max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Hash className="size-5 text-brand" aria-hidden />
             {t("chat.channelSettings")}
-          </h2>
-          <button onClick={onClose} className="p-1 hover:bg-accent rounded-md transition-colors" title={t("common.close")}>
-            <X size={20} className="text-muted-foreground" />
-          </button>
-        </div>
+          </DialogTitle>
+          <DialogDescription>{t("chat.channelSettingsDescription")}</DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">{t("chat.channelName")}</label>
-            <input 
-              type="text" 
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormField label={t("chat.channelName")} htmlFor="channel-settings-name" required>
+            <Input
+              id="channel-settings-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              disabled={channel.IsSystem}
-              className="w-full bg-background border border-input rounded-md px-3 py-2 text-foreground focus:ring-1 focus:ring-brand focus:border-brand focus:outline-none disabled:opacity-50"
-              title={t("chat.channelName")}
+              disabled={channel.is_system || channel.IsSystem}
               placeholder={t("chat.channelName")}
             />
-          </div>
+          </FormField>
           
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">{t("chat.channelDesc")}</label>
-            <textarea 
+          <FormField label={t("chat.channelDesc")} htmlFor="channel-settings-description">
+            <Textarea
+              id="channel-settings-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              disabled={channel.IsSystem}
-              className="w-full bg-background border border-input rounded-md px-3 py-2 text-foreground focus:ring-1 focus:ring-brand focus:border-brand focus:outline-none h-24 resize-none disabled:opacity-50"
-              title={t("chat.channelDesc")}
+              disabled={channel.is_system || channel.IsSystem}
+              className="h-24 resize-none"
               placeholder={t("chat.channelDescOptional")}
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">{t("chat.channelPrivacy")}</label>
+          <FormField label={t("chat.channelPrivacy")} htmlFor="channel-settings-privacy">
             <select
+              id="channel-settings-privacy"
               value={isPrivate ? "private" : "public"}
               onChange={(e) => setIsPrivate(e.target.value === "private")}
-              disabled={channel.IsSystem}
-              className="w-full bg-background border border-input rounded-md px-3 py-2 text-foreground focus:ring-1 focus:ring-brand focus:border-brand focus:outline-none disabled:opacity-50"
-              title={t("chat.channelPrivacy")}
+              disabled={channel.is_system || channel.IsSystem}
+              className="h-9 w-full rounded-[var(--radius-control)] border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:opacity-50"
             >
               <option value="public">{t("chat.publicChannelOpt")}</option>
               <option value="private">{t("chat.privateChannelOpt")}</option>
             </select>
-          </div>
+          </FormField>
 
-          {channel.IsSystem && (
-            <p className="text-xs text-orange-400 bg-orange-400/10 p-2 rounded">
-              {t("chat.systemChannelNote")}
-            </p>
+          {(channel.is_system || channel.IsSystem) && (
+            <Alert tone="warning">
+              <ShieldAlert />
+              <AlertDescription>{t("chat.systemChannelNote")}</AlertDescription>
+            </Alert>
           )}
 
-          <div className="pt-2">
-            <button 
+          {errorMessage ? (
+            <Alert tone="danger"><AlertDescription>{errorMessage}</AlertDescription></Alert>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>{t("common.cancel")}</Button>
+            <Button
               type="submit" 
-              disabled={loading || channel.IsSystem}
-              className="w-full bg-brand text-white py-2 rounded-md hover:bg-brand/90 transition-colors disabled:opacity-50 font-medium"
+              disabled={loading || !name.trim() || (channel.is_system ?? channel.IsSystem)}
             >
+              <Save />
               {loading ? t("common.saving") : t("common.saveChanges")}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

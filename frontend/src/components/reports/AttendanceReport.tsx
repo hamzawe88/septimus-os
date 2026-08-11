@@ -112,8 +112,8 @@ export default function AttendanceReport() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Weekly Hours Bar Chart */}
-        <div className="col-span-2 bg-white dark:bg-[#1a1a1a] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-          <h3 className="text-lg font-semibold mb-6 text-slate-800 dark:text-slate-100">{t("reports.totalHoursWeek")}</h3>
+        <div className="col-span-2 bg-card dark:bg-[#1a1a1a] p-6 rounded-xl border border-border dark:border-slate-800 shadow-sm transition-colors">
+          <h3 className="text-lg font-semibold mb-6 text-foreground dark:text-slate-100">{t("reports.totalHoursWeek")}</h3>
           <div className="h-72 w-full" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={mockAttendanceData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -130,8 +130,8 @@ export default function AttendanceReport() {
         </div>
 
         {/* Status Pie Chart */}
-        <div className="col-span-1 bg-white dark:bg-[#1a1a1a] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-          <h3 className="text-lg font-semibold mb-6 text-slate-800 dark:text-slate-100">{t("reports.statusDistribution")}</h3>
+        <div className="col-span-1 bg-card dark:bg-[#1a1a1a] p-6 rounded-xl border border-border dark:border-slate-800 shadow-sm transition-colors">
+          <h3 className="text-lg font-semibold mb-6 text-foreground dark:text-slate-100">{t("reports.statusDistribution")}</h3>
           <div className="h-64 w-full" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -155,7 +155,7 @@ export default function AttendanceReport() {
           {/* Custom Legend */}
           <div className="flex flex-wrap justify-center gap-4 mt-4">
             {activeStatusData.map((item, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+              <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground dark:text-muted-foreground">
                 <span className="w-3 h-3 rounded-full inline-block" ref={(el) => { if (el) el.style.backgroundColor = item.color; }} />
                 {item.name} ({item.value})
               </div>
@@ -165,17 +165,17 @@ export default function AttendanceReport() {
       </div>
 
       {/* Data Table */}
-      <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("reports.dailyLog")}</h3>
-          <button className="flex items-center gap-2 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-md transition-colors">
+      <div className="bg-card dark:bg-[#1a1a1a] rounded-xl border border-border dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
+        <div className="px-6 py-4 border-b border-border dark:border-slate-800 flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-foreground dark:text-slate-100">{t("reports.dailyLog")}</h3>
+          <button className="flex items-center gap-2 text-sm bg-muted hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-foreground dark:text-slate-300 px-3 py-1.5 rounded-md transition-colors">
             <Download className="w-4 h-4" />
             {t("common.exportCsv")}
           </button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-start">
-            <thead className="bg-[#f8fafc] dark:bg-[#121212] text-slate-500 dark:text-slate-400">
+            <thead className="bg-background dark:bg-[#121212] text-muted-foreground dark:text-muted-foreground">
               <tr>
                 <th className="px-6 py-3 font-medium text-start">{t("reports.employee")}</th>
                 <th className="px-6 py-3 font-medium text-start">{t("reports.dateIn")}</th>
@@ -184,15 +184,15 @@ export default function AttendanceReport() {
                 <th className="px-6 py-3 font-medium text-start">{t("reports.location")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+            <tbody className="divide-y divide-border dark:divide-slate-800 text-foreground dark:text-slate-300">
               {logs.map((row) => (
-                <tr key={row.ID} className="hover:bg-[#f8fafc] dark:hover:bg-[#121212] transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-900 dark:text-slate-100">{row.User?.Name || t("reports.unknownUser")}</td>
+                <tr key={row.ID} className="hover:bg-background dark:hover:bg-[#121212] transition-colors">
+                  <td className="px-6 py-4 font-medium text-foreground dark:text-slate-100">{row.User?.Name || t("reports.unknownUser")}</td>
                   <td className="px-6 py-4">{new Date(row.CheckInTime).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US')}</td>
                   <td className="px-6 py-4">{row.CheckOutTime ? new Date(row.CheckOutTime).toLocaleString(language === 'ar' ? 'ar-EG' : 'en-US') : '-'}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium
-                      ${row.Status === 'present' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-slate-100 text-slate-700 dark:bg-slate-500/10 dark:text-slate-400'}
+                      ${row.Status === 'present' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-muted text-foreground dark:bg-slate-500/10 dark:text-muted-foreground'}
                     `}>
                       {t(`reports.status.${row.Status}`, row.Status)}
                     </span>
@@ -202,7 +202,7 @@ export default function AttendanceReport() {
               ))}
               {logs.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-slate-500">{t("reports.noLogs")}</td>
+                  <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">{t("reports.noLogs")}</td>
                 </tr>
               )}
             </tbody>
@@ -215,13 +215,13 @@ export default function AttendanceReport() {
 
 function StatCard({ title, value, icon }: { title: string; value: string; icon: React.ReactNode }) {
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-4 transition-colors">
-      <div className="w-12 h-12 rounded-full flex items-center justify-center bg-[#f8fafc] dark:bg-[#121212] border border-slate-100 dark:border-slate-700">
+    <div className="bg-card dark:bg-[#1a1a1a] p-6 rounded-xl border border-border dark:border-slate-800 shadow-sm flex items-center gap-4 transition-colors">
+      <div className="w-12 h-12 rounded-full flex items-center justify-center bg-background dark:bg-[#121212] border border-border dark:border-slate-700">
         {icon}
       </div>
       <div>
-        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</p>
-        <h4 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-1">{value}</h4>
+        <p className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">{title}</p>
+        <h4 className="text-2xl font-bold text-foreground dark:text-slate-100 mt-1">{value}</h4>
       </div>
     </div>
   );

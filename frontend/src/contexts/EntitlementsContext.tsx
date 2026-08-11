@@ -40,11 +40,6 @@ export function EntitlementsProvider({ children }: { children: React.ReactNode }
   const [isLoading, setIsLoading] = useState(true);
 
   const refresh = useCallback(() => {
-    if (typeof window !== "undefined" && !localStorage.getItem("septimus_token")) {
-      setIsLoading(false);
-      setData(null);
-      return;
-    }
     fetchWithAuth(`${API_BASE_URL}/billing/entitlements`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setData(j))

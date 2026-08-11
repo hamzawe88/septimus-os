@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { X, Plus, Trash2, FileText, CheckCircle2, ShieldCheck, ArrowRight, DollarSign } from "lucide-react";
 import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
-import { LeadEntity } from "./CRMLeadsView";
+import type { LeadEntity } from "@/types/crm";
 import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface LineItem {
@@ -20,11 +20,18 @@ interface AddQuoteModalProps {
 export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModalProps) {
   const defaultVal = Number(lead.data?.value || 1000);
   
-  const { secondaryCurrency, formatCurrency, t } = useLocalization();
+  const { baseCurrency, secondaryCurrency, formatCurrency, t } = useLocalization();
   const [useSecondaryCurrency, setUseSecondaryCurrency] = useState(false);
+	const [conversionKey] = useState(() => {
+		if (typeof globalThis.crypto?.randomUUID === "function") {
+			return globalThis.crypto.randomUUID();
+		}
+		return `crm-conversion-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+	});
 
   const [quoteNumber, setQuoteNumber] = useState(() => `QT-${Date.now().toString().slice(-6)}`);
   const [validUntil, setValidUntil] = useState(() => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+  const [taxRatePercent, setTaxRatePercent] = useState(15);
   const [items, setItems] = useState<LineItem[]>([
     {
       id: "1",
@@ -33,16 +40,14 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
       unitPrice: isNaN(defaultVal) ? 1000 : defaultVal,
     },
   ]);
-  const [notes, setNotes] = useState(
-    "Terms & Conditions: Prices are valid for 30 days. Prices include VAT (15%). Payment is due within 14 days of invoice issuance."
-  );
+  const [notes, setNotes] = useState(() => t("plugins.crm.defaultQuoteTerms"));
   const [loading, setLoading] = useState(false);
   const [bridgeLoading, setBridgeLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Financial calculations
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  const taxRate = 0.15; // 15% VAT
+  const taxRate = Math.min(100, Math.max(0, Number(taxRatePercent) || 0)) / 100;
   const taxAmount = subtotal * taxRate;
   const totalAmount = subtotal + taxAmount;
 
@@ -81,14 +86,13 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
     setErrorMsg(null);
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
-
       const quoteData = {
-        lead_id: lead.id,
+		opportunity_id: lead.id,
         company: lead.data?.company || "Unknown Client",
         contact_person: lead.data?.contact_person || "",
         email: lead.data?.email || "",
         quote_number: quoteNumber,
+        currency: useSecondaryCurrency ? secondaryCurrency : baseCurrency,
         items,
         subtotal,
         tax_rate: taxRate,
@@ -100,13 +104,9 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
         created_date: new Date().toISOString(),
       };
 
-      const res = await fetchWithAuth(`${API_BASE_URL}/entities?workspace_id=${workspaceId}`, {
+	  const res = await fetchWithAuth(`${API_BASE_URL}/crm/quotes`, {
         method: "POST",
-        body: JSON.stringify({
-          entity_type: "crm_quote",
-          name: `${quoteNumber} - ${quoteData.company}`,
-          data: quoteData,
-        }),
+		body: JSON.stringify(quoteData),
       });
 
       if (!res.ok) {
@@ -130,58 +130,25 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
     setErrorMsg(null);
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
-      const invoiceNumber = `INV-${new Date().getTime().toString().slice(-6)}`;
-
-      // 1. Create Finance Invoice Entity
-      const invoiceData = {
-        quote_number: quoteNumber,
-        lead_id: lead.id,
-        client_name: lead.data?.company || "Unknown Client",
-        client_email: lead.data?.email || "",
-        amount: totalAmount,
-        subtotal: subtotal,
-        vat_amount: taxAmount,
-        status: "issued",
-        items,
-        issue_date: new Date().toISOString().split("T")[0],
-        due_date: validUntil,
-        notes,
-      };
-
-      const invRes = await fetchWithAuth(`${API_BASE_URL}/entities?workspace_id=${workspaceId}`, {
+      const response = await fetchWithAuth(`${API_BASE_URL}/crm/quotes/convert-to-invoice`, {
         method: "POST",
+        headers: {
+          "Idempotency-Key": conversionKey,
+        },
         body: JSON.stringify({
-          entity_type: "finance_invoice",
-          name: `${invoiceNumber} - ${invoiceData.client_name}`,
-          data: invoiceData,
+		  opportunity_id: lead.id,
+          quote_number: quoteNumber,
+          valid_until: validUntil,
+          currency: useSecondaryCurrency ? secondaryCurrency : baseCurrency,
+          tax_rate: taxRate,
+          items,
+          notes,
         }),
       });
 
-      if (!invRes.ok) {
-        const errData = await invRes.json().catch(() => ({}));
-        throw new Error(errData.error || `Invoice creation failed (${invRes.status})`);
-      }
-
-      // 2. Update CRM Lead Status to closed_won & attach invoice total
-      const updatedLeadData = {
-        ...lead.data,
-        status: "closed_won",
-        value: totalAmount, // Update lead value to final invoice total
-        converted_invoice: invoiceNumber,
-        converted_date: new Date().toISOString(),
-      };
-
-      const leadRes = await fetchWithAuth(`${API_BASE_URL}/entities/${lead.id}?workspace_id=${workspaceId}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          data: updatedLeadData,
-        }),
-      });
-
-      if (!leadRes.ok) {
-        const errData = await leadRes.json().catch(() => ({}));
-        throw new Error(errData.error || `Lead status update failed (${leadRes.status})`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Quote conversion failed (${response.status})`);
       }
 
       onSuccess();
@@ -196,10 +163,10 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4">
-      <div className="bg-white text-slate-900 w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-card text-foreground w-full max-w-4xl rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-gradient-to-r from-slate-900 to-slate-800 text-white">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-lg ltr:me-3 rtl:ms-3">
               <FileText className="w-6 h-6 text-purple-400" />
@@ -215,7 +182,7 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
             type="button"
             aria-label="Close modal"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+            className="p-2 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -232,34 +199,45 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
           )}
 
           {/* Quote Meta info */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted p-4 rounded-xl border border-border">
             <div>
-              <label htmlFor="quoteNumber" className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t("plugins.crm.quoteRef")}</label>
+              <label htmlFor="quoteNumber" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">{t("plugins.crm.quoteRef")}</label>
               <input
                 id="quoteNumber"
                 type="text"
                 value={quoteNumber}
                 onChange={(e) => setQuoteNumber(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg p-2 text-sm font-mono font-bold text-slate-800 focus:border-purple-500 outline-none text-start"
+                className="w-full bg-card border border-border rounded-lg p-2 text-sm font-mono font-bold text-foreground focus:border-purple-500 outline-none text-start"
                 dir="ltr"
               />
             </div>
             <div>
-              <label htmlFor="validUntil" className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t("plugins.crm.validUntil")}</label>
+              <label htmlFor="validUntil" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">{t("plugins.crm.validUntil")}</label>
               <input
                 id="validUntil"
                 type="date"
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg p-2 text-sm text-slate-800 focus:border-purple-500 outline-none text-start"
+                className="w-full bg-card border border-border rounded-lg p-2 text-sm text-foreground focus:border-purple-500 outline-none text-start"
                 dir="ltr"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t("plugins.crm.taxStatus")}</label>
-              <div className="flex items-center gap-2 h-[38px] px-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 text-sm font-semibold">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>{t("plugins.crm.compliantTax")}</span>
+              <label htmlFor="taxRate" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">{t("plugins.crm.taxRate")}</label>
+              <div className="relative">
+                <input
+                  id="taxRate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  required
+                  value={taxRatePercent}
+                  onChange={(event) => setTaxRatePercent(Number(event.target.value))}
+                  className="w-full bg-card border border-border rounded-lg p-2 pe-9 text-sm font-mono text-foreground focus:border-purple-500 outline-none text-start"
+                  dir="ltr"
+                />
+                <span className="absolute inset-y-0 end-3 flex items-center text-xs font-semibold text-muted-foreground" aria-hidden>%</span>
               </div>
             </div>
           </div>
@@ -267,7 +245,7 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
           {/* Line Items Table */}
           <div>
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <DollarSign className="w-4 h-4 text-purple-600" />
                 {t("plugins.crm.lineItems")}
                 <label className="flex items-center gap-2 ltr:ms-4 rtl:me-4 cursor-pointer" htmlFor="secondary-currency-checkbox">
@@ -286,9 +264,9 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
               </button>
             </div>
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+            <div className="border border-border rounded-xl overflow-hidden shadow-2xs">
               <table className="w-full text-start border-collapse">
-                <thead className="bg-slate-100 text-slate-600 text-xs font-semibold uppercase text-start">
+                <thead className="bg-muted text-muted-foreground text-xs font-semibold uppercase text-start">
                   <tr>
                     <th className="p-3 w-1/2 text-start">{t("plugins.crm.description")}</th>
                     <th className="p-3 w-1/6 text-center">{t("plugins.crm.qty")}</th>
@@ -297,16 +275,16 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
                     <th className="p-3 w-12 text-center"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
+                <tbody className="divide-y divide-border text-sm">
                   {items.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-50/50">
+                    <tr key={item.id} className="hover:bg-muted/50">
                       <td className="p-2.5">
                         <input
                           type="text"
                           aria-label="Item description"
                           value={item.description}
                           onChange={(e) => handleItemChange(item.id, "description", e.target.value)}
-                          className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-purple-500 focus:bg-white rounded p-1 text-slate-800 outline-none transition-colors"
+                          className="w-full bg-transparent border border-transparent hover:border-border focus:border-purple-500 focus:bg-card rounded p-1 text-foreground outline-none transition-colors"
                           placeholder={t("plugins.crm.itemDescPlaceholder")}
                         />
                       </td>
@@ -317,7 +295,7 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
                           min="1"
                           value={item.quantity}
                           onChange={(e) => handleItemChange(item.id, "quantity", Number(e.target.value))}
-                          className="w-full text-center bg-transparent border border-transparent hover:border-slate-300 focus:border-purple-500 focus:bg-white rounded p-1 text-slate-800 outline-none transition-colors font-mono"
+                          className="w-full text-center bg-transparent border border-transparent hover:border-border focus:border-purple-500 focus:bg-card rounded p-1 text-foreground outline-none transition-colors font-mono"
                         />
                       </td>
                       <td className="p-2.5">
@@ -328,11 +306,11 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
                           step="0.01"
                           value={item.unitPrice}
                           onChange={(e) => handleItemChange(item.id, "unitPrice", Number(e.target.value))}
-                          className="w-full ltr:text-end rtl:text-start bg-transparent border border-transparent hover:border-slate-300 focus:border-purple-500 focus:bg-white rounded p-1 text-slate-800 outline-none transition-colors font-mono text-start"
+                          className="w-full ltr:text-end rtl:text-start bg-transparent border border-transparent hover:border-border focus:border-purple-500 focus:bg-card rounded p-1 text-foreground outline-none transition-colors font-mono text-start"
                           dir="ltr"
                         />
                       </td>
-                      <td className="p-2.5 ltr:text-end rtl:text-start font-mono font-semibold text-slate-800" dir="ltr">
+                      <td className="p-2.5 ltr:text-end rtl:text-start font-mono font-semibold text-foreground" dir="ltr">
                         {formatCurrency(item.quantity * item.unitPrice, useSecondaryCurrency)}
                       </td>
                       <td className="p-2.5 text-center">
@@ -341,7 +319,7 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
                           aria-label="Remove item"
                           onClick={() => handleRemoveItem(item.id)}
                           disabled={items.length <= 1}
-                          className="p-1 text-slate-400 hover:text-rose-600 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors"
+                          className="p-1 text-muted-foreground hover:text-rose-600 disabled:opacity-30 disabled:hover:text-muted-foreground transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -356,27 +334,27 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
           {/* Totals & Notes Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
             <div>
-              <label htmlFor="notes" className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t("plugins.crm.termsAndNotes")}</label>
+              <label htmlFor="notes" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">{t("plugins.crm.termsAndNotes")}</label>
               <textarea
                 id="notes"
                 rows={4}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm text-slate-800 focus:bg-white focus:border-purple-500 outline-none transition-all resize-none"
+                className="w-full bg-muted border border-border rounded-xl p-3 text-sm text-foreground focus:bg-card focus:border-purple-500 outline-none transition-all resize-none"
               />
             </div>
 
-            <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-3 flex flex-col justify-center">
-              <div className="flex justify-between text-sm text-slate-600">
+            <div className="bg-muted p-5 rounded-xl border border-border space-y-3 flex flex-col justify-center">
+              <div className="flex justify-between text-sm text-muted-foreground">
                 <span>{t("plugins.crm.subtotal")}</span>
                 <span className="font-mono font-semibold" dir="ltr">{formatCurrency(subtotal, useSecondaryCurrency)}</span>
               </div>
-              <div className="flex justify-between text-sm text-slate-600">
-                <span>{t("plugins.crm.vat")}</span>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>{t("plugins.crm.vat")} ({taxRatePercent || 0}%)</span>
                 <span className="font-mono font-semibold text-purple-700" dir="ltr">{formatCurrency(taxAmount, useSecondaryCurrency)}</span>
               </div>
-              <div className="pt-3 border-t border-slate-200 flex justify-between items-baseline">
-                <span className="text-base font-bold text-slate-900">{t("plugins.crm.totalAmount")}</span>
+              <div className="pt-3 border-t border-border flex justify-between items-baseline">
+                <span className="text-base font-bold text-foreground">{t("plugins.crm.totalAmount")}</span>
                 <span className="text-2xl font-black text-emerald-600 font-mono" dir="ltr">{formatCurrency(totalAmount, useSecondaryCurrency)}</span>
               </div>
             </div>
@@ -385,12 +363,12 @@ export default function AddQuoteModal({ lead, onClose, onSuccess }: AddQuoteModa
         </div>
 
         {/* Modal Footer (Action Buttons) */}
-        <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50 gap-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-t border-border bg-muted gap-4">
           <button
             type="button"
             onClick={onClose}
             disabled={loading || bridgeLoading}
-            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50"
+            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-foreground bg-card border border-border rounded-xl hover:bg-muted transition-colors disabled:opacity-50"
           >
             {t("common.cancel")}
           </button>

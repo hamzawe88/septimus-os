@@ -3,7 +3,7 @@ import { CalendarDays, Clock } from "lucide-react";
 import { useLocalization } from "@/contexts/LocalizationContext";
 
 export default function LiveDateTime() {
-  const { isRtl } = useLocalization();
+  const { language } = useLocalization();
   const [time, setTime] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -16,8 +16,7 @@ export default function LiveDateTime() {
 
   if (!time) return null; // Avoid hydration mismatch
 
-  // Arabic month/weekday names but Western digits (matches the app's numeral convention)
-  const locale = isRtl ? "ar-SA-u-nu-latn" : "en-US";
+  const locale = language === "ar" ? "ar-SA-u-nu-latn" : "en-US";
 
   const formattedDate = time.toLocaleDateString(locale, {
     weekday: 'short',
@@ -32,14 +31,17 @@ export default function LiveDateTime() {
   });
 
   return (
-    <div className="flex items-center gap-3 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg shadow-sm">
-      <div className="flex items-center gap-1.5 border-e border-slate-200 pe-3">
-        <CalendarDays className="w-4 h-4 text-brand" />
-        <span className="text-xs font-semibold text-slate-700">{formattedDate}</span>
+    <div
+      className="flex items-center gap-3 rounded-lg border border-border bg-surface-subtle px-3 py-1.5 shadow-sm"
+      data-testid="live-date-time"
+    >
+      <div className="flex items-center gap-1.5 border-e border-border pe-3">
+        <CalendarDays className="size-4 text-brand" />
+        <span className="text-xs font-semibold text-foreground-muted">{formattedDate}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <Clock className="w-4 h-4 text-brand" />
-        <span className="text-xs font-bold text-slate-800 tracking-wide" dir="ltr">{formattedTime}</span>
+        <Clock className="size-4 text-brand" />
+        <span className="text-xs font-bold tracking-wide text-foreground" dir="ltr">{formattedTime}</span>
       </div>
     </div>
   );

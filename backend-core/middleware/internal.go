@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"crypto/subtle"
+	"log"
 	"os"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,14 +15,17 @@ const InternalTokenName = "X-Internal-Token"
 // (which present INTERNAL_API_TOKEN) can reach service endpoints such as
 // decrypted provider keys, entity mutation, and system message injection.
 //
-// When INTERNAL_API_TOKEN is unset the guard is disabled and a warning is
-// logged, preserving zero-config local development while allowing production
-// to fail closed simply by setting the variable.
+// The service boundary is fail-closed. Local development may opt into the
+// insecure mode explicitly with ALLOW_INSECURE_DEV_AUTH=true; an empty token
+// must never silently turn internal endpoints into public endpoints.
 func RequireInternalToken(c *fiber.Ctx) error {
 	expected := os.Getenv("INTERNAL_API_TOKEN")
 	if expected == "" {
-		// Dev mode: no token configured, allow through.
-		return c.Next()
+		if os.Getenv("APP_ENV") == "development" && os.Getenv("ALLOW_INSECURE_DEV_AUTH") == "true" {
+			log.Printf("WARNING: allowing unauthenticated internal request in explicit development mode: %s", c.Path())
+			return c.Next()
+		}
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "internal service authentication is not configured"})
 	}
 
 	provided := c.Get(InternalTokenName)

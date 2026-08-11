@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+!.env.example
+tmp
+uploads
+*.db
+*.log
+coverage.out
+**/*_test.go

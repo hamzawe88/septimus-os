@@ -52,11 +52,11 @@ export default function AiReport() {
   }, []);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">{t("reports.ai.loading")}</div>;
+    return <div className="flex items-center justify-center h-64 text-muted-foreground dark:text-muted-foreground">{t("reports.ai.loading")}</div>;
   }
 
   if (!data) {
-    return <div className="flex items-center justify-center h-64 text-slate-500 dark:text-slate-400">{t("reports.ai.error")}</div>;
+    return <div className="flex items-center justify-center h-64 text-muted-foreground dark:text-muted-foreground">{t("reports.ai.error")}</div>;
   }
 
   const formattedTrend = data.daily_trend?.map(d => ({
@@ -88,8 +88,8 @@ export default function AiReport() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Trend Chart */}
-        <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-6">{t("reports.ai.usageTitle")}</h3>
+        <div className="bg-card dark:bg-[#1a1a1a] p-6 rounded-xl border border-border dark:border-slate-800 shadow-sm transition-colors">
+          <h3 className="text-lg font-semibold text-foreground dark:text-slate-100 mb-6">{t("reports.ai.usageTitle")}</h3>
           <div className="h-[300px]" dir="ltr">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={formattedTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -113,8 +113,8 @@ export default function AiReport() {
         </div>
 
         {/* Workflows Chart */}
-        <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-6">{t("reports.ai.workflowsStatus")}</h3>
+        <div className="bg-card dark:bg-[#1a1a1a] p-6 rounded-xl border border-border dark:border-slate-800 shadow-sm transition-colors">
+          <h3 className="text-lg font-semibold text-foreground dark:text-slate-100 mb-6">{t("reports.ai.workflowsStatus")}</h3>
           <div className="h-[300px]" dir="ltr">
             {workflowChartData && workflowChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -130,40 +130,40 @@ export default function AiReport() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-400">{t("reports.ai.noAutomations")}</div>
+              <div className="h-full flex items-center justify-center text-muted-foreground">{t("reports.ai.noAutomations")}</div>
             )}
           </div>
         </div>
       </div>
 
       {/* AI Observability & MessageFeedback Card */}
-      <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+      <div className="bg-card dark:bg-[#1a1a1a] p-6 rounded-xl border border-border dark:border-slate-800 shadow-sm transition-colors">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2.5 bg-brand/10 dark:bg-brand/20 text-brand rounded-lg">
             <Activity className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+            <h3 className="text-lg font-semibold text-foreground dark:text-slate-100">
               {isRtl ? "مراقبة جودة الذكاء الاصطناعي (AI Observability & Message Feedback)" : "AI Observability & Message Feedback"}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
               {isRtl ? "تحليل تقييمات ردود المساعد الذكي (👍 / 👎) من قبل المستخدمين في قنوات العمل" : "Live telemetry of AI response ratings (👍 / 👎) across team channels"}
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#121212] border border-slate-200/60 dark:border-slate-800 flex flex-col justify-between">
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{isRtl ? "إجمالي التقييمات المسجلة" : "Total Rated Responses"}</span>
+          <div className="p-4 rounded-xl bg-muted dark:bg-[#121212] border border-border/60 dark:border-slate-800 flex flex-col justify-between">
+            <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">{isRtl ? "إجمالي التقييمات المسجلة" : "Total Rated Responses"}</span>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-slate-800 dark:text-slate-100">{totalVotes}</span>
+              <span className="text-3xl font-extrabold text-foreground dark:text-slate-100">{totalVotes}</span>
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand/10 text-brand">Signals</span>
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#121212] border border-slate-200/60 dark:border-slate-800 flex flex-col justify-between">
+          <div className="p-4 rounded-xl bg-muted dark:bg-[#121212] border border-border/60 dark:border-slate-800 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{isRtl ? "الردود الإيجابية المفيدة (👍)" : "Helpful / Positive (👍)"}</span>
+              <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">{isRtl ? "الردود الإيجابية المفيدة (👍)" : "Helpful / Positive (👍)"}</span>
               <ThumbsUp className="w-4 h-4 text-emerald-500" />
             </div>
             <div className="mt-3 flex items-baseline gap-2">
@@ -174,9 +174,9 @@ export default function AiReport() {
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#121212] border border-slate-200/60 dark:border-slate-800 flex flex-col justify-between">
+          <div className="p-4 rounded-xl bg-muted dark:bg-[#121212] border border-border/60 dark:border-slate-800 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{isRtl ? "الردود السلبية / بحاجة لتحسين (👎)" : "Needs Improvement (👎)"}</span>
+              <span className="text-sm font-medium text-muted-foreground dark:text-muted-foreground">{isRtl ? "الردود السلبية / بحاجة لتحسين (👎)" : "Needs Improvement (👎)"}</span>
               <ThumbsDown className="w-4 h-4 text-red-500" />
             </div>
             <div className="mt-3 flex items-baseline gap-2">
@@ -190,7 +190,7 @@ export default function AiReport() {
 
         {/* Visual Progress Bar */}
         <div className="mt-6">
-          <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">
+          <div className="flex justify-between text-xs font-semibold text-muted-foreground dark:text-slate-300 mb-2">
             <span>{isRtl ? "نسبة الرضا الدقيقة للنماذج الذكية" : "Overall Quality Index"}</span>
             <span>{feedbackScorePct}% {isRtl ? "رضا" : "Satisfaction"}</span>
           </div>
@@ -212,13 +212,13 @@ export default function AiReport() {
 
 function StatCard({ title, value, icon }: { title: string, value: string | number, icon: React.ReactNode }) {
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-start gap-4 transition-colors">
-      <div className="p-3 bg-slate-50 dark:bg-[#121212] rounded-lg">
+    <div className="bg-card dark:bg-[#1a1a1a] p-6 rounded-xl border border-border dark:border-slate-800 shadow-sm flex items-start gap-4 transition-colors">
+      <div className="p-3 bg-muted dark:bg-[#121212] rounded-lg">
         {icon}
       </div>
       <div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{title}</p>
-        <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-1">{value}</h3>
+        <p className="text-sm text-muted-foreground dark:text-muted-foreground font-medium">{title}</p>
+        <h3 className="text-2xl font-bold text-foreground dark:text-slate-100 mt-1">{value}</h3>
       </div>
     </div>
   );

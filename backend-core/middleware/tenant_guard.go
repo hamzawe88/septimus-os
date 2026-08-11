@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/models"
 	"gorm.io/gorm"
@@ -29,18 +30,30 @@ func tierRank(tier string) int {
 // TenantEnforcerMiddleware extracts workspace_id from claims/locals, validates workspace status, and configures PostgreSQL RLS isolation
 func TenantEnforcerMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		wsIDVal := c.Locals("workspace_id")
-		if wsIDVal == nil || wsIDVal == "" {
-			// Some unauthenticated or system routes don't require workspace_id
-			return c.Next()
-		}
-
-		wsIDStr, ok := wsIDVal.(string)
-		if !ok || wsIDStr == "" {
-			return c.Next()
+		wsIDStr, _ := c.Locals("workspace_id").(string)
+		role, _ := c.Locals("role").(string)
+		isImpersonated, _ := c.Locals("is_impersonated").(bool)
+		if wsIDStr == "" {
+			// Only an explicitly non-impersonated super-admin may use a global
+			// route. Every normal JWT request must carry a tenant; continuing
+			// here used to turn a missing claim into an unscoped request.
+			if strings.EqualFold(role, "super_admin") && !isImpersonated {
+				c.Locals("allow_global_access", true)
+				return c.Next()
+			}
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "workspace context is required",
+				"code":  "TENANT_CONTEXT_REQUIRED",
+			})
 		}
 
 		wsID := database.ParseUUID(wsIDStr)
+		if wsID == uuid.Nil {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "invalid workspace context",
+				"code":  "TENANT_CONTEXT_INVALID",
+			})
+		}
 		var ws models.Workspace
 		if err := database.DB.Where("id = ?", wsID).First(&ws).Error; err != nil {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
@@ -60,11 +73,40 @@ func TenantEnforcerMiddleware() fiber.Handler {
 		c.Locals("workspace", &ws)
 		c.Locals("workspace_tier", ws.Tier)
 
-		// Start a database transaction for this request to ensure PostgreSQL Row-Level Security (RLS) is applied properly.
-		// Since SET LOCAL only applies to the current transaction block, all queries for this request MUST use this transaction.
-		txErr := database.DB.Transaction(func(tx *gorm.DB) error {
-			// Set PostgreSQL session-local variable for Row-Level Security (RLS) policies
-			if err := tx.Exec(fmt.Sprintf("SET LOCAL app.current_workspace_id = '%s'", wsIDStr)).Error; err != nil {
+		// Super admins (when not impersonating) are allowed to read across
+		// tenants. They therefore run on the privileged pool: leaving no
+		// transaction in locals makes database.GetDB fall back to it. Opening an
+		// RLS-enforced transaction without setting the tenant key would instead
+		// return zero rows once the permissive policy branch is removed.
+		if role == "super_admin" && !isImpersonated {
+			c.Locals("allow_global_access", true)
+			return c.Next()
+		}
+
+		// Everything else runs on the least-privilege pool so PostgreSQL applies
+		// the tenant policies. If that pool is unavailable the middleware falls
+		// back to the privileged one — the request still works, but without the
+		// RLS backstop, which database.connectAppRole has already logged.
+		pool := database.AppDB
+		if pool == nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"error": "tenant isolation is unavailable",
+				"code":  "TENANT_ISOLATION_UNAVAILABLE",
+			})
+		}
+
+		// The tenant key is transaction-local, so every query for this request
+		// MUST run inside this transaction (handlers get it via database.GetDB).
+		txErr := pool.Transaction(func(tx *gorm.DB) error {
+			// Set the transaction-local variable the RLS policies read.
+			// Parameterised via set_config: SET LOCAL cannot take a bind
+			// parameter, so the previous version interpolated the workspace id
+			// straight into the statement string. The workspace lookup above
+			// happens to reject malformed ids before this line, but a tenant
+			// identifier must never be concatenated into SQL — the safety of this
+			// line should not depend on a check elsewhere.
+			// The third argument (true) makes it transaction-local.
+			if err := tx.Exec(`SELECT set_config('app.current_workspace_id', ?, true)`, wsID.String()).Error; err != nil {
 				return err
 			}
 

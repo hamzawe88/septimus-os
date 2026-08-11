@@ -1,232 +1,296 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { ChevronDown, Plus, LayoutGrid, Calendar, Hash, Sparkles, SlidersHorizontal, Layers, User as UserIcon } from "lucide-react";
-import TaskDetailsPanel from "./TaskDetailsPanel";
-import DynamicBoardRow from "./DynamicBoardRow";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  Calendar,
+  ChevronDown,
+  Hash,
+  Layers,
+  LayoutGrid,
+  Plus,
+  SlidersHorizontal,
+  User as UserIcon,
+} from "lucide-react";
 
-import { apiGet, apiPost, apiPut } from "@/lib/apiClient";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { Surface } from "@/components/ui/surface";
+import { Switch } from "@/components/ui/switch";
+import { Tag } from "@/components/ui/tag";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { apiGet, apiPost, apiPut } from "@/lib/apiClient";
+import { getAllProjectTasks } from "@/lib/pm";
+import { useAppStore } from "@/store/useAppStore";
+import { cn } from "@/lib/utils";
 import { Task, User } from "@/types";
 
-const getIndentLevel = (path?: string) => {
-  if (!path) return 0;
-  return path.split(".").length - 1;
+import DynamicBoardRow, {
+  BoardColumns,
+  BoardPriority,
+  BoardStatus,
+} from "./DynamicBoardRow";
+import TaskDetailsPanel from "./TaskDetailsPanel";
+
+type GroupBy = "none" | "status" | "priority" | "assignee";
+
+interface BoardGroup {
+  key: string;
+  label: string;
+  tasks: Task[];
+  tone: "neutral" | "brand" | "success" | "warning" | "danger" | "info";
+}
+
+const defaultColumns: BoardColumns = {
+  status: true,
+  priority: true,
+  points: true,
+  dueDate: true,
+  assignee: true,
 };
 
+const getIndentLevel = (path?: string) => (path ? path.split(".").length - 1 : 0);
+
+function loadColumns(): BoardColumns {
+  if (typeof window === "undefined") return defaultColumns;
+  try {
+    const saved = window.localStorage.getItem("septimus_grid_cols");
+    return saved ? { ...defaultColumns, ...JSON.parse(saved) } : defaultColumns;
+  } catch {
+    return defaultColumns;
+  }
+}
+
 export default function DynamicBoard() {
-  const { isRtl } = useLocalization();
+  const { t } = useLocalization();
+  const { projectId: activeProjectId } = useAppStore();
   const [treeData, setTreeData] = useState<Task[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
-
-  // Super-Grid States
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editTitleValue, setEditTitleValue] = useState("");
-  const [showColMenu, setShowColMenu] = useState(false);
-  const [groupBy, setGroupBy] = useState<"none" | "status" | "priority" | "assignee">("none");
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  const [cols, setCols] = useState<BoardColumns>(loadColumns);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Persistent column visibility
-  const [cols, setCols] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("septimus_grid_cols");
-      if (saved) {
-        try { return JSON.parse(saved); } catch { /* ignore */ }
-      }
-    }
-    return { status: true, priority: true, points: true, dueDate: true, assignee: true };
-  });
-
-  const updateCols = (newCols: typeof cols) => {
-    setCols(newCols);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("septimus_grid_cols", JSON.stringify(newCols));
+  const updateColumns = (next: BoardColumns) => {
+    setCols(next);
+    try {
+      window.localStorage.setItem("septimus_grid_cols", JSON.stringify(next));
+    } catch {
+      // Column persistence is optional; the board remains functional without storage.
     }
   };
 
+  const fetchBoard = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      if (!activeProjectId) {
+        setTreeData([]);
+        setUsers([]);
+        return;
+      }
+      const [taskResponse, userResponse] = await Promise.all([
+        getAllProjectTasks(activeProjectId),
+        apiGet("/users/search?q=") as Promise<User[]>,
+      ]);
+      const nextTasks = [...taskResponse].sort((a, b) =>
+        (a.Path || "").localeCompare(b.Path || ""),
+      );
+      setTreeData(nextTasks);
+      setUsers(userResponse || []);
+    } catch (fetchError) {
+      console.error(fetchError);
+      setError(t("pm.dynamicBoard.loadFailed"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeProjectId, t]);
+
   useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const data = await apiGet("/tasks") as unknown as { tasks: Task[] };
-        const tasks: Task[] = data.tasks || [];
-          tasks.sort((a, b) => (a.Path || "").localeCompare(b.Path || ""));
-          setTreeData(tasks);
-          if (tasks.length > 0) {
-             const pid = (tasks[0] as any).ProjectID as string;
-             if (pid) setProjectId(pid);
-          }
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchTasks();
+    void Promise.resolve().then(fetchBoard);
 
-    const fetchUsers = async () => {
-      try {
-        const data = await apiGet("/users/search?q=") as unknown as User[];
-        setUsers(data || []);
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchUsers();
-
-    const handleWsMessage = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      const msg = customEvent.detail;
-      if (msg && (msg.type === "task_updated" || msg.type === "task_created" || msg.type === "task_deleted")) {
-        fetchTasks();
+    const handleWsMessage = (event: Event) => {
+      const message = (event as CustomEvent).detail;
+      if (
+        message &&
+        ["task_updated", "task_created", "task_deleted"].includes(message.type)
+      ) {
+        void fetchBoard();
       }
     };
 
     window.addEventListener("ws-message", handleWsMessage);
     return () => window.removeEventListener("ws-message", handleWsMessage);
-  }, []);
+  }, [fetchBoard]);
 
-  const toggleRow = (id: string) => {
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
-    setExpandedRows(newExpanded);
-  };
+  const statuses: BoardStatus[] = useMemo(
+    () => [
+      { value: "todo", label: t("pm.kanban.status.todo") },
+      { value: "in_progress", label: t("pm.kanban.status.in_progress") },
+      { value: "review", label: t("pm.kanban.status.review") },
+      { value: "blocked", label: t("pm.kanban.status.blocked") },
+      { value: "done", label: t("pm.kanban.status.done") },
+    ],
+    [t],
+  );
 
-  const toggleGroup = (groupKey: string) => {
-    const next = new Set(collapsedGroups);
-    if (next.has(groupKey)) next.delete(groupKey);
-    else next.add(groupKey);
-    setCollapsedGroups(next);
-  };
+  const priorities: BoardPriority[] = useMemo(
+    () => [
+      { value: 1, label: t("pm.dynamicBoard.priorityUrgent") },
+      { value: 2, label: t("pm.dynamicBoard.priorityHigh") },
+      { value: 3, label: t("pm.dynamicBoard.priorityNormal") },
+      { value: 0, label: t("pm.dynamicBoard.priorityNone") },
+    ],
+    [t],
+  );
 
-  const selectedTask = treeData.find(t => t.ID === selectedTaskId);
+  const projectId = activeProjectId || null;
 
-  const handleCreateNewTask = async (e: React.KeyboardEvent<HTMLInputElement>, defaultStatus = "todo") => {
-    if (e.key === "Enter" && newTaskTitle.trim()) {
-      if (!projectId) return;
-      try {
-        await apiPost(`/projects/${projectId}/tasks`, {
-            title: newTaskTitle.trim(),
-            description: "",
-            status: defaultStatus
-        });
-        setNewTaskTitle("");
-        setIsCreatingNew(false);
-        window.dispatchEvent(new CustomEvent("ws-message", { detail: { type: "task_created" } }));
-      } catch (err) { console.error(err); }
-    } else if (e.key === "Escape") {
+  const handleCreateTask = async (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Escape") {
       setIsCreatingNew(false);
       setNewTaskTitle("");
+      return;
+    }
+    if (event.key !== "Enter" || !newTaskTitle.trim() || !projectId) return;
+
+    setError(null);
+    try {
+      await apiPost("/tasks", {
+        project_id: projectId,
+        title: newTaskTitle.trim(),
+        description: "",
+      });
+      setNewTaskTitle("");
+      setIsCreatingNew(false);
+      await fetchBoard();
+    } catch (createError) {
+      console.error(createError);
+      setError(t("pm.dynamicBoard.createFailed"));
     }
   };
 
-  const handleUpdateTaskField = async (taskId: string, field: string, value: unknown) => {
-    // Optimistic UI update
-    setTreeData(prev => prev.map(t => {
-      if (t.ID === taskId) {
-        if (field === 'title') return { ...t, Title: value as string };
-        if (field === 'status') return { ...t, Status: value as string };
-        if (field === 'priority') return { ...t, Priority: value as number };
-        if (field === 'story_points') return { ...t, StoryPoints: value as number };
-        if (field === 'due_date') return { ...t, DueDate: value as string };
-        if (field === 'assignee_id') return { ...t, AssigneeID: (value === "" ? undefined : value as string) };
-      }
-      return t;
-    }));
+  const handleUpdateTaskField = async (
+    taskId: string,
+    field: string,
+    value: unknown,
+  ) => {
+    if (field === "title" && !String(value).trim()) return;
+
+    const previous = treeData;
+    setError(null);
+    setTreeData((current) =>
+      current.map((task) => {
+        if (task.ID !== taskId) return task;
+        if (field === "title") return { ...task, Title: String(value) };
+        if (field === "status") return { ...task, Status: String(value) };
+        if (field === "priority") return { ...task, Priority: Number(value) };
+        if (field === "story_points") return { ...task, StoryPoints: Number(value) };
+        if (field === "due_date") return { ...task, DueDate: String(value) };
+        if (field === "assignee_id") {
+          return { ...task, AssigneeID: value ? String(value) : undefined };
+        }
+        return task;
+      }),
+    );
     setEditingCell(null);
 
     try {
-      const payload: any = {};
-      payload[field] = value;
-      await apiPut("/tasks/${taskId}", payload);
-      window.dispatchEvent(new CustomEvent("ws-message", { detail: { type: "task_updated" } }));
-    } catch (err) {
-      console.error(err);
+      if (field === "status") {
+        await apiPost(`/tasks/${taskId}/transition`, { status: value });
+      } else {
+        await apiPut(`/tasks/${taskId}`, { [field]: value });
+      }
+    } catch (updateError) {
+      console.error(updateError);
+      setTreeData(previous);
+      setError(t("pm.dynamicBoard.updateFailed"));
     }
   };
 
-  // Status definitions with curated vibrant palettes
-  const statuses = [
-    { value: "todo", label: isRtl ? "قيد الانتظار" : "To Do", bg: "bg-slate-100 text-slate-700 border-slate-200", dot: "bg-slate-400" },
-    { value: "in_progress", label: isRtl ? "قيد التنفيذ" : "In Progress", bg: "bg-brand-light text-brand-dark border-brand-light font-semibold", dot: "bg-[#dfb2e5]" },
-    { value: "review", label: isRtl ? "قيد المراجعة" : "In Review", bg: "bg-amber-50 text-amber-800 border-amber-200 font-semibold", dot: "bg-amber-400" },
-    { value: "done", label: isRtl ? "مكتملة" : "Done", bg: "bg-emerald-50 text-emerald-800 border-emerald-200 font-semibold", dot: "bg-emerald-500" }
-  ];
+  const toggleRow = (id: string) => {
+    setExpandedRows((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
-  // Priority definitions
-  const priorities = [
-    { value: 1, label: isRtl ? "P1 عاجلة" : "P1 Urgent", badge: "text-red-700 bg-red-100 border-red-200 font-bold" },
-    { value: 2, label: isRtl ? "P2 عالية" : "P2 High", badge: "text-orange-700 bg-orange-100 border-orange-200 font-semibold" },
-    { value: 3, label: isRtl ? "P3 عادية" : "P3 Normal", badge: "text-brand bg-brand-light border-brand-light font-medium" },
-    { value: 0, label: isRtl ? "بلا أولوية" : "No Priority", badge: "text-slate-500 bg-slate-100 border-slate-200 font-normal" }
-  ];
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
-  const totalTasks = treeData.length;
-  const completedTasks = treeData.filter(t => t.Status === 'done').length;
-  const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-  // Grouping generator
-  const getGroupedTasks = () => {
-    if (groupBy === "none") return [{ key: "all", label: "", tasks: treeData, badge: "" }];
-
+  const groupedData = useMemo<BoardGroup[]>(() => {
     if (groupBy === "status") {
-      return statuses.map(s => ({
-        key: s.value,
-        label: s.label,
-        tasks: treeData.filter(t => t.Status === s.value),
-        badge: s.bg
+      const tones: BoardGroup["tone"][] = ["neutral", "brand", "warning", "success"];
+      return statuses.map((status, index) => ({
+        key: status.value,
+        label: status.label,
+        tasks: treeData.filter((task) => task.Status === status.value),
+        tone: tones[index],
       }));
     }
-
     if (groupBy === "priority") {
-      return priorities.map(p => ({
-        key: String(p.value),
-        label: p.label,
-        tasks: treeData.filter(t => (t.Priority || 0) === p.value),
-        badge: p.badge
+      const tones: BoardGroup["tone"][] = ["danger", "warning", "brand", "neutral"];
+      return priorities.map((priority, index) => ({
+        key: String(priority.value),
+        label: priority.label,
+        tasks: treeData.filter((task) => (task.Priority || 0) === priority.value),
+        tone: tones[index],
       }));
     }
-
     if (groupBy === "assignee") {
-      const assignedGroups = users.map(u => ({
-        key: u.id,
-        label: u.email.split('@')[0],
-        tasks: treeData.filter(t => t.AssigneeID === u.id),
-        badge: "bg-brand-light text-brand border-brand-light"
-      })).filter(g => g.tasks.length > 0);
-
-      const unassignedTasks = treeData.filter(t => !t.AssigneeID);
-      if (unassignedTasks.length > 0) {
-        assignedGroups.push({
+      const assigned: BoardGroup[] = users
+        .map((user) => ({
+          key: user.id,
+          label: user.email.split("@")[0],
+          tasks: treeData.filter((task) => task.AssigneeID === user.id),
+          tone: "brand" as const,
+        }))
+        .filter((group) => group.tasks.length > 0);
+      const unassigned = treeData.filter((task) => !task.AssigneeID);
+      if (unassigned.length > 0) {
+        assigned.push({
           key: "unassigned",
-          label: isRtl ? "غير مُسند" : "Unassigned",
-          tasks: unassignedTasks,
-          badge: "bg-slate-100 text-slate-600 border-slate-200"
+          label: t("pm.taskDetails.unassigned"),
+          tasks: unassigned,
+          tone: "neutral",
         });
       }
-      return assignedGroups;
+      return assigned;
     }
+    return [{ key: "all", label: "", tasks: treeData, tone: "neutral" }];
+  }, [groupBy, priorities, statuses, t, treeData, users]);
 
-    return [{ key: "all", label: "", tasks: treeData, badge: "" }];
-  };
-
-  const groupedData = getGroupedTasks();
+  const selectedTask = treeData.find((task) => task.ID === selectedTaskId);
+  const completedTasks = treeData.filter((task) => task.Status === "done").length;
+  const completionPercentage =
+    treeData.length > 0 ? Math.round((completedTasks / treeData.length) * 100) : 0;
 
   const renderTaskRow = (task: Task, index: number) => {
     const level = groupBy === "none" ? getIndentLevel(task.Path) : 0;
-    const hasChildren = groupBy === "none" && treeData.some(t => t.ParentID === task.ID);
-    const isExpanded = expandedRows.has(task.ID);
-    
-    if (groupBy === "none" && task.ParentID && !expandedRows.has(task.ParentID)) return null;
+    const hasChildren =
+      groupBy === "none" && treeData.some((candidate) => candidate.ParentID === task.ID);
 
-    const isSelected = selectedTaskId === task.ID;
+    if (groupBy === "none" && task.ParentID && !expandedRows.has(task.ParentID)) {
+      return null;
+    }
 
     return (
       <DynamicBoardRow
@@ -236,8 +300,8 @@ export default function DynamicBoard() {
         groupBy={groupBy}
         level={level}
         hasChildren={hasChildren}
-        isExpanded={isExpanded}
-        isSelected={isSelected}
+        isExpanded={expandedRows.has(task.ID)}
+        isSelected={selectedTaskId === task.ID}
         cols={cols}
         statuses={statuses}
         priorities={priorities}
@@ -253,205 +317,299 @@ export default function DynamicBoard() {
     );
   };
 
+  const groupOptions: GroupBy[] = ["none", "status", "priority", "assignee"];
+  const columnOptions: Array<{
+    key: keyof BoardColumns;
+    label: string;
+    icon?: React.ReactNode;
+  }> = [
+    { key: "status", label: t("pm.dynamicBoard.status") },
+    { key: "priority", label: t("pm.dynamicBoard.priority") },
+    {
+      key: "points",
+      label: t("pm.dynamicBoard.storyPoints"),
+      icon: <Hash className="size-3.5" />,
+    },
+    {
+      key: "dueDate",
+      label: t("pm.dynamicBoard.dueDate"),
+      icon: <Calendar className="size-3.5" />,
+    },
+    {
+      key: "assignee",
+      label: t("pm.dynamicBoard.assignee"),
+      icon: <UserIcon className="size-3.5" />,
+    },
+  ];
+
   return (
-    <div className="flex-1 h-full flex flex-col bg-slate-50/50 overflow-hidden relative">
-      {/* Top Header with Glassmorphism */}
-      <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200/80 bg-white/80 backdrop-blur-md z-20 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-brand-light/80 rounded-xl text-[#9d4edd]">
-            <Sparkles className="w-6 h-6 animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">Task Table</h2>
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-full shadow-sm">Super-Grid</span>
+    <div
+      data-testid="dynamic-board"
+      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background"
+    >
+      <header className="flex flex-col gap-4 border-b border-border bg-card px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-brand-light text-brand">
+            <LayoutGrid className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-bold text-foreground">
+                {t("pm.dynamicBoard.title")}
+              </h2>
+              <Tag tone="brand">{t("pm.dynamicBoard.badge")}</Tag>
             </div>
-            <p className="text-xs font-medium text-slate-500">Phase 2: Dynamic Grouping, Persistent Custom Columns & Inline Pickers</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("pm.dynamicBoard.description")}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Dynamic Group By Control */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/60 text-xs font-semibold text-slate-600">
-            <span className="px-2.5 py-1 text-slate-400 flex items-center gap-1"><Layers className="w-3.5 h-3.5"/> Group:</span>
-            {(["none", "status", "priority", "assignee"] as const).map(g => (
-              <button
-                key={g}
-                onClick={() => setGroupBy(g)}
-                className={`px-3 py-1 rounded-lg capitalize transition-all ${groupBy === g ? 'bg-white text-brand shadow-sm font-bold' : 'hover:text-slate-900'}`}
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="flex flex-wrap items-center gap-1 rounded-[var(--radius-control)] border border-border bg-muted p-1"
+            aria-label={t("pm.dynamicBoard.groupBy")}
+          >
+            <span className="flex items-center gap-1 px-2 text-xs font-semibold text-muted-foreground">
+              <Layers className="size-3.5" />
+              {t("pm.dynamicBoard.groupBy")}
+            </span>
+            {groupOptions.map((option) => (
+              <Button
+                key={option}
+                type="button"
+                variant={groupBy === option ? "outline" : "ghost"}
+                size="xs"
+                onClick={() => setGroupBy(option)}
+                aria-pressed={groupBy === option}
               >
-                {g}
-              </button>
+                {t(`pm.dynamicBoard.group.${option}`)}
+              </Button>
             ))}
           </div>
 
-          {/* Custom Columns Dropdown Trigger */}
           <div className="relative">
-            <button
-              onClick={() => setShowColMenu(!showColMenu)}
-              className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowColumnMenu((current) => !current)}
+              aria-expanded={showColumnMenu}
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-              Columns
-            </button>
-
-            {showColMenu && (
-              <div className="absolute end-0 mt-2 w-52 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-30 animate-in fade-in zoom-in-95 duration-150">
-                <div className="text-[11px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">Toggle Custom Columns</div>
-                
-                <label className="flex items-center justify-between px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-medium text-slate-700">
-                  <span>{isRtl ? "الحالة" : "Status"}</span>
-                  <input type="checkbox" checked={cols.status} onChange={(e) => updateCols({...cols, status: e.target.checked})} className="rounded text-brand focus:ring-brand"/>
-                </label>
-                <label className="flex items-center justify-between px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-medium text-slate-700">
-                  <span>{isRtl ? "الأولوية" : "Priority"}</span>
-                  <input type="checkbox" checked={cols.priority} onChange={(e) => updateCols({...cols, priority: e.target.checked})} className="rounded text-brand focus:ring-brand"/>
-                </label>
-                <label className="flex items-center justify-between px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-medium text-slate-700">
-                  <span className="flex items-center gap-2"><Hash className="w-3.5 h-3.5 text-slate-400"/> Story Points</span>
-                  <input type="checkbox" checked={cols.points} onChange={(e) => updateCols({...cols, points: e.target.checked})} className="rounded text-brand focus:ring-brand"/>
-                </label>
-                <label className="flex items-center justify-between px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-medium text-slate-700">
-                  <span className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-slate-400"/> Due Date</span>
-                  <input type="checkbox" checked={cols.dueDate} onChange={(e) => updateCols({...cols, dueDate: e.target.checked})} className="rounded text-brand focus:ring-brand"/>
-                </label>
-                <label className="flex items-center justify-between px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer text-xs font-medium text-slate-700">
-                  <span className="flex items-center gap-2"><UserIcon className="w-3.5 h-3.5 text-slate-400"/> Assignee</span>
-                  <input type="checkbox" checked={cols.assignee} onChange={(e) => updateCols({...cols, assignee: e.target.checked})} className="rounded text-brand focus:ring-brand"/>
-                </label>
-              </div>
-            )}
+              <SlidersHorizontal data-icon="inline-start" />
+              {t("pm.dynamicBoard.columns")}
+            </Button>
+            {showColumnMenu ? (
+              <Surface
+                variant="raised"
+                padding="sm"
+                className="absolute end-0 z-30 mt-2 w-60 space-y-1"
+              >
+                <p className="px-2 pb-1 text-xs font-bold text-muted-foreground">
+                  {t("pm.dynamicBoard.chooseColumns")}
+                </p>
+                {columnOptions.map((option) => (
+                  <label
+                    key={option.key}
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-[var(--radius-control)] px-2 py-2 text-sm hover:bg-muted"
+                  >
+                    <span className="flex items-center gap-2">
+                      {option.icon}
+                      {option.label}
+                    </span>
+                    <Switch
+                      checked={cols[option.key]}
+                      onCheckedChange={(checked) =>
+                        updateColumns({ ...cols, [option.key]: checked })
+                      }
+                      aria-label={option.label}
+                    />
+                  </label>
+                ))}
+              </Surface>
+            ) : null}
           </div>
 
-          <button 
+          <Button
+            type="button"
             onClick={() => setIsCreatingNew(true)}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg font-semibold transition-all flex items-center gap-2 text-xs"
+            disabled={!projectId}
           >
-            <Plus className="w-4 h-4" />
-            New Row
-          </button>
+            <Plus data-icon="inline-start" />
+            {t("pm.dynamicBoard.newRow")}
+          </Button>
         </div>
-      </div>
+      </header>
 
-      {/* Main Grid Container */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden flex flex-col p-6">
-        <div className="flex-1 min-w-[1050px] border border-slate-200/80 rounded-2xl overflow-hidden flex flex-col bg-white shadow-lg shadow-slate-100/50">
-          
-          {/* Sticky Table Header */}
-          <div className="flex items-center bg-slate-50/90 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider sticky top-0 z-10 select-none">
-            <div className="w-12 py-3.5 border-e border-slate-200 flex justify-center">
-              <input type="checkbox" title="Select all tasks" aria-label="Select all tasks" className="rounded border-slate-300 text-brand focus:ring-brand" />
+      {error ? (
+        <div
+          role="alert"
+          className="mx-4 mt-4 flex items-center gap-2 rounded-[var(--radius-control)] border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive lg:mx-6"
+        >
+          <AlertCircle className="size-4 shrink-0" />
+          <span>{error}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="ms-auto"
+            onClick={() => void fetchBoard()}
+          >
+            {t("common.retry")}
+          </Button>
+        </div>
+      ) : null}
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-x-auto p-4 lg:p-6">
+        <Surface
+          padding="none"
+          className="flex min-h-0 min-w-[1050px] flex-1 flex-col overflow-hidden"
+        >
+          <div className="flex min-w-max items-center border-b border-border bg-muted text-xs font-bold text-muted-foreground">
+            <div className="w-12 border-e border-border px-3 py-3 text-center">#</div>
+            <div className="w-24 border-e border-border px-3 py-3">{t("common.id")}</div>
+            <div className="min-w-[280px] flex-1 border-e border-border px-3 py-3">
+              {t("pm.dynamicBoard.taskTitle")}
             </div>
-            <div className="w-24 py-3.5 px-4 border-e border-slate-200">ID</div>
-            <div className="flex-1 py-3.5 px-4 border-e border-slate-200">Task Title</div>
-            {cols.status && <div className="w-40 py-3.5 px-4 border-e border-slate-200">Status</div>}
-            {cols.priority && <div className="w-36 py-3.5 px-4 border-e border-slate-200">Priority</div>}
-            {cols.points && <div className="w-28 py-3.5 px-4 border-e border-slate-200 text-center">Points</div>}
-            {cols.dueDate && <div className="w-36 py-3.5 px-4 border-e border-slate-200 text-center">Due Date</div>}
-            {cols.assignee && <div className="w-40 py-3.5 px-4">Assignee</div>}
+            {cols.status ? (
+              <div className="w-40 border-e border-border px-3 py-3">
+                {t("pm.dynamicBoard.status")}
+              </div>
+            ) : null}
+            {cols.priority ? (
+              <div className="w-36 border-e border-border px-3 py-3">
+                {t("pm.dynamicBoard.priority")}
+              </div>
+            ) : null}
+            {cols.points ? (
+              <div className="w-28 border-e border-border px-3 py-3 text-center">
+                {t("pm.dynamicBoard.storyPoints")}
+              </div>
+            ) : null}
+            {cols.dueDate ? (
+              <div className="w-36 border-e border-border px-3 py-3 text-center">
+                {t("pm.dynamicBoard.dueDate")}
+              </div>
+            ) : null}
+            {cols.assignee ? (
+              <div className="w-40 px-3 py-3">{t("pm.dynamicBoard.assignee")}</div>
+            ) : null}
           </div>
 
-          {/* Table Body */}
-          <div className="flex-1 overflow-y-auto bg-white divide-y divide-slate-100 custom-scrollbar">
-            {isCreatingNew && (
-              <div className="flex items-center bg-brand-light/40 animate-in fade-in duration-200">
-                <div className="w-12 py-3 border-e border-slate-100 flex justify-center"></div>
-                <div className="w-24 py-3 px-4 border-e border-slate-100 text-xs font-mono text-brand font-bold">NEW</div>
-                <div className="flex-1 py-2 px-4 border-e border-slate-100">
-                  <input 
-                    type="text" 
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {isCreatingNew ? (
+              <div className="flex min-w-max items-center border-b border-border bg-brand-light">
+                <div className="w-12 border-e border-border px-3 py-3" />
+                <div className="w-24 border-e border-border px-3 py-3 font-mono text-xs font-bold text-brand">
+                  {t("pm.dynamicBoard.new")}
+                </div>
+                <div className="min-w-[280px] flex-1 border-e border-border px-3 py-2">
+                  <Input
                     autoFocus
-                    title={isRtl ? "عنوان المهمة الجديدة" : "New task title"}
-                    aria-label={isRtl ? "عنوان المهمة الجديدة" : "New task title"}
-                    placeholder={isRtl ? "أدخل عنوان المهمة واضغط Enter (Esc للإلغاء)..." : "Enter task title and press Enter (Esc to cancel)..."}
                     value={newTaskTitle}
-                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                    onKeyDown={(e) => handleCreateNewTask(e)}
-                    className="w-full bg-white border border-brand-light rounded-md focus:ring-2 focus:ring-brand text-sm font-medium text-slate-900 px-3 py-1.5 shadow-inner"
+                    onChange={(event) => setNewTaskTitle(event.target.value)}
+                    onKeyDown={handleCreateTask}
+                    placeholder={t("pm.dynamicBoard.newTaskPlaceholder")}
+                    aria-label={t("pm.dynamicBoard.newTaskTitle")}
+                    className="h-8"
                   />
                 </div>
-                {cols.status && <div className="w-40 py-3 px-4 border-e border-slate-100"></div>}
-                {cols.priority && <div className="w-36 py-3 px-4 border-e border-slate-100"></div>}
-                {cols.points && <div className="w-28 py-3 px-4 border-e border-slate-100"></div>}
-                {cols.dueDate && <div className="w-36 py-3 px-4 border-e border-slate-100"></div>}
-                {cols.assignee && <div className="w-40 py-3 px-4"></div>}
+                {cols.status ? <div className="w-40 border-e border-border px-3 py-3" /> : null}
+                {cols.priority ? <div className="w-36 border-e border-border px-3 py-3" /> : null}
+                {cols.points ? <div className="w-28 border-e border-border px-3 py-3" /> : null}
+                {cols.dueDate ? <div className="w-36 border-e border-border px-3 py-3" /> : null}
+                {cols.assignee ? <div className="w-40 px-3 py-3" /> : null}
               </div>
-            )}
+            ) : null}
 
-            {treeData.length === 0 && !isCreatingNew ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400 p-12 space-y-4">
-                <div className="p-4 bg-slate-50 rounded-full">
-                  <LayoutGrid className="w-12 h-12 text-slate-300" />
-                </div>
-                <div className="text-center">
-                  <p className="text-base font-semibold text-slate-600">No tasks found</p>
-                  <p className="text-xs text-slate-400 mt-1">Click &quot;New Row&quot; above to create your first task in the super-grid.</p>
-                </div>
+            {isLoading ? (
+              <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+                {t("pm.dynamicBoard.loading")}
               </div>
+            ) : treeData.length === 0 && !isCreatingNew ? (
+              <EmptyState
+                className="m-6"
+                icon={<LayoutGrid />}
+                title={t("pm.dynamicBoard.empty")}
+                description={
+                  projectId
+                    ? t("pm.dynamicBoard.emptyDescription")
+                    : t("pm.dynamicBoard.selectProject")
+                }
+                action={
+                  projectId ? (
+                    <Button type="button" onClick={() => setIsCreatingNew(true)}>
+                      <Plus data-icon="inline-start" />
+                      {t("pm.dynamicBoard.newRow")}
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               groupedData.map((group) => {
-                const isGroupCollapsed = collapsedGroups.has(group.key);
-
+                const collapsed = collapsedGroups.has(group.key);
                 return (
                   <React.Fragment key={group.key}>
-                    {/* Group Section Header */}
-                    {groupBy !== "none" && (
-                      <div 
+                    {groupBy !== "none" ? (
+                      <button
+                        type="button"
                         onClick={() => toggleGroup(group.key)}
-                        className="flex items-center justify-between px-4 py-2.5 bg-slate-100/80 border-y border-slate-200 cursor-pointer hover:bg-slate-200/60 transition-colors select-none"
+                        className="flex w-full min-w-max items-center gap-2 border-b border-border bg-muted/70 px-4 py-2 text-start hover:bg-muted"
+                        aria-expanded={!collapsed}
                       >
-                        <div className="flex items-center gap-2">
-                          <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isGroupCollapsed ? '-rotate-90' : ''}`} />
-                          <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold border ${group.badge || 'bg-white text-slate-700 border-slate-300'}`}>
-                            {group.label}
-                          </span>
-                          <span className="text-xs font-semibold text-slate-500">({group.tasks.length})</span>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsCreatingNew(true);
-                          }}
-                          className="text-xs text-brand hover:text-brand font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Add in group
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Group Rows */}
-                    {!isGroupCollapsed && group.tasks.map((task, idx) => renderTaskRow(task, idx))}
+                        <ChevronDown
+                          className={cn(
+                            "size-4 text-muted-foreground transition-transform",
+                            collapsed && "-rotate-90 rtl:rotate-90",
+                          )}
+                        />
+                        <Tag tone={group.tone}>{group.label}</Tag>
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          {group.tasks.length}
+                        </span>
+                      </button>
+                    ) : null}
+                    {!collapsed
+                      ? group.tasks.map((task, index) => renderTaskRow(task, index))
+                      : null}
                   </React.Fragment>
                 );
               })
             )}
           </div>
-          
-          {/* Smart Footer Summary */}
-          <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600 font-medium">
-            <div className="flex items-center gap-6">
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-brand"></span> <b>{totalTasks}</b> Total Tasks</span>
-              <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> <b>{completedTasks}</b> Completed</span>
-              <div className="flex items-center gap-2">
-                <span>Progress:</span>
-                <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-purple-500 to-emerald-500 transition-all duration-500" ref={(el) => { if (el) el.style.width = `${completionPercentage}%`; }}></div>
-                </div>
-                <span className="font-bold text-slate-800">{completionPercentage}%</span>
+
+          <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/50 px-4 py-3 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-4">
+              <span>
+                <strong className="text-foreground">{treeData.length}</strong>{" "}
+                {t("pm.dynamicBoard.totalTasks")}
+              </span>
+              <span>
+                <strong className="text-success">{completedTasks}</strong>{" "}
+                {t("pm.dynamicBoard.completed")}
+              </span>
+              <div className="flex min-w-52 items-center gap-2">
+                <span>{t("pm.dynamicBoard.progress")}</span>
+                <Progress value={completionPercentage} className="w-24" />
+                <strong className="text-foreground">{completionPercentage}%</strong>
               </div>
             </div>
-
-            <button 
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setIsCreatingNew(true)}
-              className="flex items-center gap-1 text-brand hover:text-brand font-semibold transition-colors"
+              disabled={!projectId}
             >
-              <Plus className="w-3.5 h-3.5" /> Quick Add Row
-            </button>
-          </div>
-        </div>
+              <Plus data-icon="inline-start" />
+              {t("pm.dynamicBoard.quickAdd")}
+            </Button>
+          </footer>
+        </Surface>
       </div>
 
-      <TaskDetailsPanel task={selectedTask as unknown as import("@/types").Task} onClose={() => setSelectedTaskId(null)} />
+      {selectedTask ? (
+        <TaskDetailsPanel task={selectedTask} onClose={() => setSelectedTaskId(null)} />
+      ) : null}
     </div>
   );
 }

@@ -10,17 +10,20 @@ This module is the thin wiring layer. Domain logic lives in:
 """
 import asyncio
 import json
+import secrets
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
 import uvicorn
+import http_client
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from config import CORS_ALLOW_ORIGINS, INTERNAL_API_TOKEN, get_default_workspace_id
+from llm_json import extract_json_object
 from i18n import language_directive, resolve_lang
 from reasoning_manual import (
     get_injection_defense_prompt,
@@ -28,6 +31,7 @@ from reasoning_manual import (
     get_validation_gate_prompt,
 )
 from knowledge import retrieve_context
+from observability import BudgetExceededError
 from providers import get_active_llm
 from agents_chat import run_chat_agent
 from agents_correspondence import rewrite_official_letter, audit_legal_compliance
@@ -39,9 +43,9 @@ from agents_orchestrator import agent_orchestrator
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 Starting Septimus AI Sidecar...")
+    print("🚀 Starting Septimus AI Sidecar... [build: 2026-07-23 morning-brief+security fixes]")
     from skills_registry import skills_registry
-    skills_registry.sync_with_pgvector("default")
+    print(f"[startup] skills registry: {len(skills_registry.registry)} persona(s) loaded")
     nats_task = asyncio.create_task(start_nats_listener())
     yield
     nats_task.cancel()
@@ -49,25 +53,48 @@ async def lifespan(app: FastAPI):
         await nats_task
     except asyncio.CancelledError:
         pass
+    await http_client.close_session()
 
 
 app = FastAPI(title="Septimus AI Sidecar", lifespan=lifespan)
+
+
+@app.get("/health")
+async def health() -> dict:
+    """Liveness endpoint for the container health check; no tenant data."""
+    return {"status": "ok"}
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ALLOW_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Internal-Token", "X-Workspace-Id", "X-User-Id", "X-User-Role"],
 )
 
 
-def verify_internal_token(x_internal_token: str = Header(default="")):
+@app.exception_handler(BudgetExceededError)
+async def _budget_exceeded_handler(request, exc: BudgetExceededError):
+    """The daily token guardrail now fires inside get_active_llm, which every
+    inference path goes through, so it can surface on any AI endpoint. Handling
+    it once here keeps the message the localized one the guardrail composed
+    instead of a bare 500, without wrapping every route in a try/except."""
+    return JSONResponse(status_code=429, content={"error": str(exc), "code": "budget_exceeded"})
+
+
+from fastapi import Request
+def verify_internal_token(request: Request, x_internal_token: str = Header(default="")):
     """Reject any HTTP request that did not come through the trusted backend
-    proxy. When INTERNAL_API_TOKEN is unset the check is disabled (local dev)."""
+    proxy. An explicit development opt-in is required to run without it."""
     if not INTERNAL_API_TOKEN:
-        return
+        import os
+        if os.getenv("APP_ENV") == "development" and os.getenv("ALLOW_INSECURE_DEV_AUTH") == "true":
+            return
+        raise HTTPException(status_code=503, detail="internal service authentication is not configured")
+    # Never log the token or the raw headers — both carry the shared service
+    # secret, and a rejected request is the only thing worth recording.
     if x_internal_token != INTERNAL_API_TOKEN:
+        print(f"[auth] rejected {request.method} {request.url.path}: bad internal token", flush=True)
         raise HTTPException(status_code=401, detail="invalid internal token")
 
 
@@ -79,6 +106,7 @@ class ChatRequest(BaseModel):
     context: dict = {}
     thread_id: str = "default-thread"
     system_prompt: Optional[str] = None
+    llm_preferences: Optional[dict] = None
 
 
 class QueryRequest(BaseModel):
@@ -98,6 +126,10 @@ class GenerateSubtasksRequest(BaseModel):
     lang: Optional[str] = None
 
 
+class TextToTaskRequest(BaseModel):
+    message: str
+    workspace_id: Optional[str] = None
+    lang: Optional[str] = "en"
 class VoiceSessionRequest(BaseModel):
     workspace_id: Optional[str] = None
     voice: str = "alloy"
@@ -132,16 +164,90 @@ class OrchestratorQueryRequest(BaseModel):
     workspace_id: Optional[str] = None
     user_id: Optional[str] = None
     user_role: Optional[str] = None
+    # Scope routing to one specialist's catalogue: finance / sales / marketing / pm.
+    domain: Optional[str] = None
 
 
 def _workspace_from(explicit: Optional[str], header_ws: str) -> str:
-    """Caller's workspace: explicit body value → X-Workspace-Id header (stamped
-    from the JWT by the Go proxy) → single-tenant default. Keeps every endpoint
-    scoped to the requester instead of silently using the default tenant."""
-    return explicit or header_ws or get_default_workspace_id()
+    """Caller's workspace: X-Workspace-Id header (stamped from the JWT by the Go
+    proxy) → body value → single-tenant default.
+
+    The header is authoritative and deliberately wins over anything in the
+    request body: the body is client-controlled, so preferring it let any
+    authenticated user read and write another tenant's data just by sending a
+    different workspace_id. The body value only survives when no proxy header is
+    present at all (internal service-to-service callers)."""
+    workspace_id = header_ws or explicit
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="workspace context is required")
+    return workspace_id
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
+@app.post("/api/v1/ai/text-to-task", dependencies=[Depends(verify_internal_token)])
+async def extract_text_to_task(req: TextToTaskRequest, x_workspace_id: str = Header(default="")):
+    """
+    Extracts a title, timeline, and checklist from a brainstorming message.
+    Returns a strict JSON payload matching the PinnedTask JSONB structure.
+    Uses the fast tier LLM (gemini-2.5-flash or equivalent) for sub-second latency.
+    """
+    ws_id = _workspace_from(req.workspace_id, x_workspace_id)
+    # Attempt to get a fast model, fallback to default active llm
+    llm = await get_active_llm(ws_id)
+
+    # We want strict JSON output, prompt handles it.
+
+    system_prompt = f"""
+    You are a strict data extraction AI. Extract actionable items from the message into the exact JSON format below.
+    CRITICAL INSTRUCTION: You must return ONLY a valid JSON object. Do NOT include any markdown formatting, backticks, reasoning, explanations, or `<think>` tags. Output nothing but the raw JSON object.
+    Schema:
+    {{
+      "title": "A short clear title",
+      "description": "A summary of the task context",
+      "timeline": {{
+        "start_date": "ISO8601 string or null",
+        "due_date": "ISO8601 string or null",
+        "progress_percentage": 0
+      }},
+      "checklist": [
+        {{
+          "id": "uuid",
+          "text": "Actionable item",
+          "is_completed": false
+        }}
+      ]
+    }}
+    If dates are not mentioned, leave them null. Keep the title concise.
+    {language_directive(req.lang)}
+    """
+
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=req.message)
+    ]
+
+    try:
+        response = await llm.ainvoke(messages)
+        content = response.content
+
+        # 1. Remove reasoning tags first: a <think> block may itself contain a
+        #    brace, which would mislead any "first {" heuristic downstream.
+        import re
+        content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+
+        # 2. Shared tolerant parser (llm_json): strips a fence only if present,
+        #    decodes from the first brace via raw_decode (trailing prose is
+        #    ignored), and raises loudly when no JSON exists. This site used to
+        #    carry its own greedy-regex + bare json.loads variant of the exact
+        #    pattern llm_json was built to eliminate.
+        return extract_json_object(content)
+    except Exception as e:
+        print(f"Error in text-to-task: {e}")
+        raise HTTPException(status_code=500, detail="Failed to extract task data")
+
+
+# ── Project Management Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.post("/api/v1/ai/voice/session", dependencies=[Depends(verify_internal_token)])
 async def create_voice_session(req: VoiceSessionRequest, x_workspace_id: str = Header(default="")):
@@ -204,6 +310,8 @@ async def voice_transcribe(
     audio = await file.read()
     if not audio:
         raise HTTPException(status_code=400, detail=_voice_error("failed", resolved))
+    if len(audio) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="audio file exceeds 25MB")
 
     # Whisper autodetects when no language is pinned; only pin an explicit hint.
     text, err = await asyncio.to_thread(transcribe, audio, lang if lang in ("ar", "en") else None)
@@ -216,6 +324,8 @@ async def voice_transcribe(
 @app.post("/api/v1/ai/voice/speak", dependencies=[Depends(verify_internal_token)])
 async def voice_speak(req: SpeakRequest, x_workspace_id: str = Header(default="")):
     """Text to speech with the local Piper voice (Arabic: ar_JO-kareem)."""
+    if not req.text.strip() or len(req.text) > 10000:
+        raise HTTPException(status_code=400, detail="text must be between 1 and 10000 characters")
     resolved = resolve_lang(req.lang)
     audio, err = await asyncio.to_thread(synthesize, req.text, resolved)
     if err:
@@ -225,14 +335,40 @@ async def voice_speak(req: SpeakRequest, x_workspace_id: str = Header(default=""
 
 
 @app.websocket("/api/v1/ai/voice/ws")
-async def voice_websocket_endpoint(websocket: WebSocket, workspace_id: str = "", voice: str = "alloy"):
-    """Server-side bidirectional WebSocket proxy relay connecting client <-> OpenAI Realtime API with RAG tool execution."""
+async def voice_websocket_endpoint(
+    websocket: WebSocket,
+    workspace_id: str = "",
+    voice: str = "alloy",
+    token: str = "",
+):
+    """Bidirectional relay: client <-> OpenAI Realtime API, with RAG tool execution.
+
+    Authentication is explicit here because `dependencies=[Depends(...)]` does not
+    apply to WebSocket routes — this endpoint previously had none at all, while
+    opening a session against ANY workspace named in the query string using that
+    workspace's own OpenAI key and its knowledge base.
+
+    The token may arrive as a header (service-to-service) or as a query parameter,
+    since browsers cannot set headers on a WebSocket handshake. Rejection happens
+    before `accept()`, so an unauthenticated caller never gets an open socket.
+    """
+    if not INTERNAL_API_TOKEN:
+        await websocket.close(code=1013, reason="service authentication is not configured")
+        return
+    presented = websocket.headers.get("x-internal-token") or token
+    if not secrets.compare_digest(presented or "", INTERNAL_API_TOKEN):
+        print("[voice/ws] rejected: bad or missing internal token", flush=True)
+        await websocket.close(code=1008, reason="unauthorized")
+        return
+
+    # No silent fallback to the default tenant: an unspecified workspace would
+    # otherwise spend some unrelated tenant's API key and read their documents.
+    if not workspace_id:
+        await websocket.close(code=1008, reason="workspace_id is required")
+        return
+
     await websocket.accept()
-    await realtime_voice_proxy(
-        client_ws=websocket,
-        workspace_id=workspace_id or get_default_workspace_id(),
-        voice=voice,
-    )
+    await realtime_voice_proxy(client_ws=websocket, workspace_id=workspace_id, voice=voice)
 
 
 @app.get("/api/v1/ai/agents/capabilities", dependencies=[Depends(verify_internal_token)])
@@ -291,13 +427,21 @@ async def chat_with_agent(
     req: ChatRequest,
     x_workspace_id: str = Header(default=""),
     x_user_role: str = Header(default="member"),
+    x_user_id: str = Header(default=""),
 ):
     lang = resolve_lang(req.context.get("lang"))
     # Ensure a workspace and user role are always scoped for the tools.
     context = dict(req.context)
-    context.setdefault("workspace_id", _workspace_from(None, x_workspace_id))
-    context.setdefault("user_role", x_user_role or "member")
+    # The proxy headers are authoritative and always overwrite whatever the body
+    # carried: workspace_id and user_role decide which tenant's data the agent
+    # tools may touch and which of them the caller may run, so honouring the
+    # client-supplied values was a cross-tenant read/write and a privilege
+    # escalation in one. The Go proxy stamps both from the JWT.
+    context["workspace_id"] = _workspace_from(None, x_workspace_id)
+    context["user_role"] = x_user_role or "member"
+    context["user_id"] = x_user_id
     try:
+        context["llm_preferences"] = req.llm_preferences
         reply = await run_chat_agent(
             agent_type=req.agent_type,
             message=req.message,
@@ -340,10 +484,7 @@ async def plan_sprint(req: SprintPlanRequest, x_workspace_id: str = Header(defau
     """
     try:
         res = await llm.ainvoke([HumanMessage(content=prompt)])
-        content = res.content.strip()
-        if content.startswith("```json"):
-            content = content[7:-3]
-        return json.loads(content)
+        return extract_json_object(res.content)
     except Exception as e:
         print(f"[plan-sprint] parse error: {e}")
         return {"selected_task_ids": []}
@@ -401,25 +542,30 @@ async def generate_subtasks(req: GenerateSubtasksRequest, x_workspace_id: str = 
     """
     try:
         res = await llm.ainvoke([HumanMessage(content=prompt)])
-        content = res.content.strip()
-        if content.startswith("```json"):
-            content = content[7:-3]
-        return json.loads(content)
+        return extract_json_object(res.content)
     except Exception as e:
         print(f"[generate-subtasks] parse error: {e}")
         return {"subtasks": []}
 
 
 @app.post("/internal/ai/orchestrator/execute", dependencies=[Depends(verify_internal_token)])
-async def handle_orchestrator_execute(req: OrchestratorQueryRequest, x_workspace_id: str = Header(default="")):
-    workspace_id = _workspace_from(req.workspace_id, x_workspace_id)
+async def handle_orchestrator_execute(
+    req: OrchestratorQueryRequest,
+    x_workspace_id: str = Header(default=""),
+    x_user_id: str = Header(default=""),
+    x_user_role: str = Header(default=""),
+):
+    # Same rule as /ai/chat: identity comes from the headers the Go layer stamps
+    # off the JWT. The body fields survive only for internal service callers
+    # that send no headers at all.
     return await agent_orchestrator.execute_query(
         query=req.query,
         target_persona=req.target_persona,
         context_parameters=req.context_parameters,
-        workspace_id=workspace_id,
-        user_id=req.user_id or "system",
-        user_role=req.user_role or "member"
+        workspace_id=_workspace_from(req.workspace_id, x_workspace_id),
+        user_id=x_user_id or req.user_id or "system",
+        user_role=x_user_role or req.user_role or "member",
+        domain=req.domain,
     )
 
 

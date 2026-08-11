@@ -14,6 +14,7 @@ import (
 	"github.com/septimus-os/backend-core/events"
 	"github.com/septimus-os/backend-core/models"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // OrbitTaskData represents the JSON structure stored inside data for user_orbit_task entities
@@ -26,7 +27,7 @@ type OrbitTaskData struct {
 	SourceID         string                 `json:"source_id"`
 	SourceLink       string                 `json:"source_link"`
 	SourceMeta       map[string]interface{} `json:"source_meta"`
-	Status           string                 `json:"status"` // TODO, IN_PROGRESS, DONE, ARCHIVED
+	Status           string                 `json:"status"`         // TODO, IN_PROGRESS, DONE, ARCHIVED
 	FocusPriority    int                    `json:"focus_priority"` // 1, 2, or 3 if in Daily Top 3, 0 if normal
 	EnergyTag        string                 `json:"energy_tag"`     // HIGH_ENERGY, DEEP_FOCUS, LIGHT
 	XPReward         int                    `json:"xp_reward"`
@@ -250,11 +251,16 @@ func UpdateOrbitTask(c *fiber.Ctx) error {
 			if task.FocusPriority >= 1 && task.FocusPriority <= 3 {
 				xpToGrant += 25 // Top 3 bonus
 			}
-			go grantOrbitXP(workspaceID, userID, xpToGrant, task.Title)
+			if err := grantOrbitXP(database.GetDB(c), workspaceID, userID, xpToGrant, task.Title); err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to grant orbit XP"})
+			}
 		}
 	}
 
-	updatedBytes, _ := json.Marshal(task)
+	updatedBytes, err := json.Marshal(task)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to encode orbit task"})
+	}
 	entity.Data = datatypes.JSON(updatedBytes)
 	if err := database.GetDB(c).Save(&entity).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update orbit task"})
@@ -390,11 +396,11 @@ func UpdateOrbitProfile(c *fiber.Ctx) error {
 			}
 			// Emit NATS notification about presence change
 			eventPayload, _ := json.Marshal(map[string]interface{}{
-				"user_id":     userID,
+				"user_id":      userID,
 				"workspace_id": workspaceID.String(),
-				"in_focus":    *req.FocusTimerActive,
-				"status_text": statusMsg,
-				"timestamp":   time.Now().Format(time.RFC3339),
+				"in_focus":     *req.FocusTimerActive,
+				"status_text":  statusMsg,
+				"timestamp":    time.Now().Format(time.RFC3339),
 			})
 			events.PublishEvent("events.user.presence.focus", eventPayload)
 		}
@@ -410,17 +416,17 @@ func UpdateOrbitProfile(c *fiber.Ctx) error {
 }
 
 // grantOrbitXP increments XP and checks for level up or badges
-func grantOrbitXP(workspaceID uuid.UUID, userID string, xpAdd int, taskTitle string) {
+func grantOrbitXP(db *gorm.DB, workspaceID uuid.UUID, userID string, xpAdd int, taskTitle string) error {
 	var entity models.Entity
-	err := database.DB.Where("workspace_id = ? AND entity_type = ? AND data->>'user_id' = ?",
+	err := db.Where("workspace_id = ? AND entity_type = ? AND data->>'user_id' = ?",
 		workspaceID, "user_orbit_profile", userID).First(&entity).Error
 	if err != nil {
-		return
+		return err
 	}
 
 	var profile OrbitProfileData
 	if err := json.Unmarshal(entity.Data, &profile); err != nil {
-		return
+		return err
 	}
 
 	oldLevel := profile.Level
@@ -449,10 +455,16 @@ func grantOrbitXP(workspaceID uuid.UUID, userID string, xpAdd int, taskTitle str
 		profile.EarnedBadges = append(profile.EarnedBadges, "ORBIT_LEGEND_1000_👑")
 	}
 
-	dataBytes, _ := json.Marshal(profile)
+	dataBytes, err := json.Marshal(profile)
+	if err != nil {
+		return err
+	}
 	entity.Data = datatypes.JSON(dataBytes)
-	database.DB.Save(&entity)
+	if err := db.Save(&entity).Error; err != nil {
+		return err
+	}
 	log.Printf("[MyOrbit] Granted +%d XP to user %s for completing '%s'. Total XP: %d (Level %d)", xpAdd, userID, taskTitle, profile.XP, profile.Level)
+	return nil
 }
 
 // GenerateWeeklyHarvest creates an executive AI summary report of completed tasks this week
@@ -467,7 +479,11 @@ func GenerateWeeklyHarvest(c *fiber.Ctx) error {
 	var req struct {
 		Language string `json:"language"` // "en" or "ar"
 	}
-	c.BodyParser(&req)
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid harvest payload"})
+		}
+	}
 	if req.Language != "ar" {
 		req.Language = "en"
 	}
@@ -491,9 +507,10 @@ func GenerateWeeklyHarvest(c *fiber.Ctx) error {
 			if task.Status == "DONE" && task.CompletedAt != nil && task.CompletedAt.After(weekAgo) {
 				completedThisWeek = append(completedThisWeek, task)
 				totalXPThisWeek += task.XPReward
-				if task.SourceType == "CHAT" {
+				switch task.SourceType {
+				case "CHAT":
 					chatTasks++
-				} else if task.SourceType == "WORKFLOW" || task.SourceType == "CRM" || task.SourceType == "HR" {
+				case "WORKFLOW", "CRM", "HR":
 					workflowTasks++
 				}
 			}

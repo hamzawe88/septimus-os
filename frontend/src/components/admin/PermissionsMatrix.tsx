@@ -163,20 +163,20 @@ export default function PermissionsMatrix() {
   };
 
   if (isLoading) {
-    return <div className="p-8 text-center text-slate-500 dark:text-slate-400">{t("admin.permissionsMatrix.loading")}</div>;
+    return <div className="p-8 text-center text-muted-foreground dark:text-muted-foreground">{t("admin.permissionsMatrix.loading")}</div>;
   }
 
   const modules = Array.from(new Set(permissions.map(p => p.module)));
 
   return (
-    <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full transition-colors">
-      <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-[#121212]">
+    <div className="bg-card dark:bg-[#1a1a1a] rounded-xl border border-border dark:border-slate-800 shadow-sm overflow-hidden flex flex-col h-full transition-colors">
+      <div className="p-6 border-b border-border dark:border-slate-800 flex justify-between items-center bg-muted dark:bg-[#121212]">
         <div>
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-foreground dark:text-slate-100 flex items-center gap-2">
             <Shield className="w-5 h-5 text-brand" />
             {t("admin.permissionsMatrix.title")}
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t("admin.permissionsMatrix.subtitle")}</p>
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">{t("admin.permissionsMatrix.subtitle")}</p>
         </div>
         <Button 
           onClick={savePermissions} 
@@ -189,13 +189,13 @@ export default function PermissionsMatrix() {
 
       <div className="flex-1 overflow-auto p-0">
         <table className="w-full text-start border-collapse">
-          <thead className="bg-white dark:bg-[#1a1a1a] sticky top-0 z-10 shadow-sm">
+          <thead className="bg-card dark:bg-[#1a1a1a] sticky top-0 z-10 shadow-sm">
             <tr>
-              <th className="p-4 border-b border-e border-slate-200 dark:border-slate-800 font-semibold text-slate-700 dark:text-slate-300 w-1/3 bg-white dark:bg-[#1a1a1a]">
+              <th className="p-4 border-b border-e border-border dark:border-slate-800 font-semibold text-foreground dark:text-slate-300 w-1/3 bg-card dark:bg-[#1a1a1a]">
                 {t("admin.permissionsMatrix.modulePermission")}
               </th>
               {roles.map(role => (
-                <th key={role.id} className="p-4 border-b border-e border-slate-200 dark:border-slate-800 font-semibold text-slate-700 dark:text-slate-300 text-center w-48 bg-white dark:bg-[#1a1a1a]">
+                <th key={role.id} className="p-4 border-b border-e border-border dark:border-slate-800 font-semibold text-foreground dark:text-slate-300 text-center w-48 bg-card dark:bg-[#1a1a1a]">
                   {role.name}
                 </th>
               ))}
@@ -206,27 +206,27 @@ export default function PermissionsMatrix() {
               const modulePerms = permissions.filter(p => p.module === moduleName);
               return (
                 <React.Fragment key={moduleName}>
-                  <tr className="bg-slate-50 dark:bg-slate-800/30">
-                    <td colSpan={roles.length + 1} className="p-3 border-b border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-200 text-sm">
+                  <tr className="bg-muted dark:bg-slate-800/30">
+                    <td colSpan={roles.length + 1} className="p-3 border-b border-border dark:border-slate-800 font-bold text-foreground dark:text-slate-200 text-sm">
                       {t(`admin.permissionsMatrix.modules.${moduleName}`, moduleName)}
                     </td>
                   </tr>
                   
                   {modulePerms.map(perm => (
-                    <tr key={perm.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors bg-white dark:bg-[#1a1a1a]">
-                      <td className="p-3 border-b border-e border-slate-200 dark:border-slate-800">
-                        <div className="font-medium text-slate-700 dark:text-slate-300 text-sm">{t(`admin.permissionsMatrix.actions.${perm.action}`, perm.action)}</div>
+                    <tr key={perm.id} className="hover:bg-muted/50 dark:hover:bg-slate-800/50 transition-colors bg-card dark:bg-[#1a1a1a]">
+                      <td className="p-3 border-b border-e border-border dark:border-slate-800">
+                        <div className="font-medium text-foreground dark:text-slate-300 text-sm">{t(`admin.permissionsMatrix.actions.${perm.action}`, perm.action)}</div>
                       </td>
                       {roles.map(role => {
                         const hasPerm = role.permissions.includes(perm.id);
                         return (
-                          <td key={`${role.id}-${perm.id}`} className="p-3 border-b border-e border-slate-200 dark:border-slate-800 text-center align-middle">
+                          <td key={`${role.id}-${perm.id}`} className="p-3 border-b border-e border-border dark:border-slate-800 text-center align-middle">
                             <button
                               onClick={() => togglePermission(role.id, perm.id)}
                               className={`w-8 h-8 rounded flex items-center justify-center mx-auto transition-colors ${
                                 hasPerm 
                                   ? "bg-brand/10 text-brand hover:bg-brand/20 dark:bg-brand/20 dark:hover:bg-brand/30" 
-                                  : "bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-500 dark:hover:text-slate-400"
+                                  : "bg-muted dark:bg-slate-800 text-slate-300 dark:text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-muted-foreground dark:hover:text-muted-foreground"
                               }`}
                               title={hasPerm ? t("admin.permissionsMatrix.revoke") : t("admin.permissionsMatrix.grant")}
                             >
@@ -242,7 +242,7 @@ export default function PermissionsMatrix() {
             })}
             {permissions.length === 0 && (
               <tr>
-                <td colSpan={roles.length + 1} className="p-8 text-center text-slate-500 dark:text-slate-400">
+                <td colSpan={roles.length + 1} className="p-8 text-center text-muted-foreground dark:text-muted-foreground">
                   {t("admin.permissionsMatrix.noPermissions")}
                 </td>
               </tr>

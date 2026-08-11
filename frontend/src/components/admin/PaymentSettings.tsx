@@ -35,7 +35,10 @@ export default function PaymentSettings() {
   };
 
   useEffect(() => {
-    fetchGateways();
+    const timer = setTimeout(() => {
+      fetchGateways();
+    }, 0);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -91,20 +94,20 @@ export default function PaymentSettings() {
   return (
     <div className="space-y-6" dir={isRtl ? "rtl" : "ltr"}>
       <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+        <h2 className="text-2xl font-bold text-foreground dark:text-white mb-2 flex items-center gap-2">
           <CreditCard className="w-6 h-6 text-brand" />
           {t('admin.paymentGateways', 'Payment Gateways')}
         </h2>
-        <p className="text-slate-500 dark:text-slate-400">
+        <p className="text-muted-foreground dark:text-muted-foreground">
           Configure payment integrations like Stripe, Moamalat, and OnePay to accept subscriptions.
         </p>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {gateways.map(gateway => (
-          <div key={gateway.id} className={`bg-white dark:bg-[#1a1a1a] rounded-xl border transition-all ${gateway.is_active ? 'border-brand shadow-md shadow-brand/5' : 'border-slate-200 dark:border-slate-800 shadow-sm'} p-6 relative overflow-hidden`}>
+          <div key={gateway.id} className={`bg-card dark:bg-[#1a1a1a] rounded-xl border transition-all ${gateway.is_active ? 'border-brand shadow-md shadow-brand/5' : 'border-border dark:border-slate-800 shadow-sm'} p-6 relative overflow-hidden`}>
             {/* Header */}
-            <div className="flex justify-between items-start mb-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex justify-between items-start mb-6 pb-6 border-b border-border dark:border-slate-800">
               <div className="flex items-center gap-3">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold text-white shadow-inner
                   ${gateway.gateway_name === 'stripe' ? 'bg-[#635BFF]' : 
@@ -112,11 +115,11 @@ export default function PaymentSettings() {
                   {gateway.gateway_name.substring(0, 1).toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white capitalize">
+                  <h3 className="text-xl font-bold text-foreground dark:text-white capitalize">
                     {gateway.gateway_name}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${gateway.is_active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${gateway.is_active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' : 'bg-muted text-muted-foreground dark:bg-slate-800 dark:text-muted-foreground'}`}>
                       {gateway.is_active ? 'Active' : 'Inactive'}
                     </span>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${gateway.is_test_mode ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400'}`}>
@@ -129,7 +132,7 @@ export default function PaymentSettings() {
                 <div className="relative">
                   <input type="checkbox" className="sr-only" checked={gateway.is_active} onChange={(e) => handleSettingChange(gateway.id, 'is_active', e.target.checked)} />
                   <div className={`block w-14 h-8 rounded-full transition-colors ${gateway.is_active ? 'bg-brand' : 'bg-slate-300 dark:bg-slate-700'}`}></div>
-                  <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${gateway.is_active ? 'transform translate-x-6' : ''}`}></div>
+                  <div className={`dot absolute left-1 top-1 bg-card w-6 h-6 rounded-full transition-transform ${gateway.is_active ? 'transform translate-x-6' : ''}`}></div>
                 </div>
               </label>
             </div>
@@ -138,24 +141,24 @@ export default function PaymentSettings() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <label className="text-sm font-medium text-foreground dark:text-slate-300 flex items-center gap-2">
                     <Globe className="w-4 h-4" /> Mode
                   </label>
                   <select 
                     value={gateway.is_test_mode ? "true" : "false"} 
                     onChange={(e) => handleSettingChange(gateway.id, 'is_test_mode', e.target.value === "true")}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:ring-2 focus:ring-brand focus:border-brand"
+                    className="w-full p-2.5 bg-muted dark:bg-[#121212] border border-border dark:border-slate-800 rounded-lg text-sm focus:ring-2 focus:ring-brand focus:border-brand"
                   >
                     <option value="true">Test (Sandbox)</option>
                     <option value="false">Live (Production)</option>
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Default Currency</label>
+                  <label className="text-sm font-medium text-foreground dark:text-slate-300">Default Currency</label>
                   <select 
                     value={gateway.currency} 
                     onChange={(e) => handleSettingChange(gateway.id, 'currency', e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:ring-2 focus:ring-brand focus:border-brand"
+                    className="w-full p-2.5 bg-muted dark:bg-[#121212] border border-border dark:border-slate-800 rounded-lg text-sm focus:ring-2 focus:ring-brand focus:border-brand"
                   >
                     <option value="USD">USD ($)</option>
                     <option value="LYD">LYD (د.ل)</option>
@@ -165,13 +168,13 @@ export default function PaymentSettings() {
               </div>
 
               <div className="pt-2">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-                  <Key className="w-4 h-4 text-slate-400" /> API Credentials
+                <h4 className="text-sm font-bold text-foreground dark:text-white mb-3 flex items-center gap-2">
+                  <Key className="w-4 h-4 text-muted-foreground" /> API Credentials
                 </h4>
                 <div className="space-y-3">
                   {Object.keys(gateway.credentials).map(key => (
                     <div key={key}>
-                      <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 capitalize">
+                      <label className="block text-xs font-medium text-muted-foreground dark:text-muted-foreground mb-1 capitalize">
                         {key.replace(/_/g, ' ')}
                       </label>
                       <input 
@@ -179,7 +182,7 @@ export default function PaymentSettings() {
                         value={gateway.credentials[key] || ''}
                         onChange={(e) => handleCredentialChange(gateway.id, key, e.target.value)}
                         placeholder={`Enter ${key.replace(/_/g, ' ')}`}
-                        className="w-full p-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-slate-800 rounded-lg text-sm focus:ring-2 focus:ring-brand focus:border-brand font-mono"
+                        className="w-full p-2.5 bg-muted dark:bg-[#121212] border border-border dark:border-slate-800 rounded-lg text-sm focus:ring-2 focus:ring-brand focus:border-brand font-mono"
                         dir="ltr"
                       />
                     </div>

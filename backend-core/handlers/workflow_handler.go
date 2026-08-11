@@ -3,10 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"log"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/septimus-os/backend-core/database"
+	"github.com/septimus-os/backend-core/events"
 	"github.com/septimus-os/backend-core/models"
 	"github.com/septimus-os/backend-core/services"
 )
@@ -19,16 +21,28 @@ type WorkflowPayload struct {
 	Edges    map[string]interface{} `json:"edges"`
 }
 
+func decryptWorkflowView(workflow *models.Workflow) error {
+	nodes, err := services.DecodeWorkflowNodes(workflow.Nodes)
+	if err != nil {
+		return err
+	}
+	workflow.Nodes, err = services.RedactWorkflowSecrets(nodes)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // SaveWorkflow handles creating or updating a workflow
 func SaveWorkflow(c *fiber.Ctx) error {
-	workspaceIDStr := c.Query("workspace_id")
-	if workspaceIDStr == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "workspace_id query param is required"})
-	}
-
-	workspaceID := database.ParseUUID(workspaceIDStr)
+	// Tenant comes from the JWT. This handler used to take it from
+	// ?workspace_id= and never look at the session at all, so any authorised
+	// member could write a workflow into another tenant by editing the URL.
+	// Explicit scoping remains mandatory even though PostgreSQL RLS now provides
+	// a second tenant boundary.
+	workspaceID := CurrentWorkspaceID(c)
 	if workspaceID == uuid.Nil {
-		return c.Status(400).JSON(fiber.Map{"error": "invalid workspace_id"})
+		return c.Status(403).JSON(fiber.Map{"error": "workspace context is required"})
 	}
 
 	// We simply expect nodes and edges as JSON arrays
@@ -44,12 +58,45 @@ func SaveWorkflow(c *fiber.Ctx) error {
 		log.Printf("Error parsing workflow payload: %v", err)
 		return c.Status(400).JSON(fiber.Map{"error": "invalid JSON"})
 	}
+	payload.Name = strings.TrimSpace(payload.Name)
+	if payload.Name == "" || len(payload.Name) > 255 {
+		return c.Status(400).JSON(fiber.Map{"error": "workflow name must be between 1 and 255 characters"})
+	}
+	if len(payload.Nodes) > 500 || len(payload.Edges) > 2000 {
+		return c.Status(400).JSON(fiber.Map{"error": "workflow graph exceeds the supported size"})
+	}
+
+	var workflow models.Workflow
+	isUpdate := payload.ID != "" && payload.ID != "00000000-0000-0000-0000-000000000000"
+	if isUpdate {
+		wfID, err := uuid.Parse(payload.ID)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "invalid workflow id"})
+		}
+		if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).First(&workflow, "id = ?", wfID).Error; err != nil {
+			return c.Status(404).JSON(fiber.Map{"error": "workflow not found for update"})
+		}
+	}
 
 	nodesBytes, err := json.Marshal(payload.Nodes)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to encode nodes"})
 	}
-	
+	if isUpdate {
+		existingNodes, err := services.DecodeWorkflowNodes(workflow.Nodes)
+		if err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "failed to decode stored workflow configuration"})
+		}
+		nodesBytes, err = services.MergeWorkflowSecretPlaceholders(nodesBytes, existingNodes)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "failed to merge protected workflow fields"})
+		}
+	}
+	encryptedNodes, err := services.EncodeWorkflowNodes(nodesBytes)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to protect workflow node configuration"})
+	}
+
 	edgesBytes, err := json.Marshal(payload.Edges)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to encode edges"})
@@ -98,17 +145,10 @@ func SaveWorkflow(c *fiber.Ctx) error {
 		}
 	}
 
-	var workflow models.Workflow
-	isUpdate := payload.ID != "" && payload.ID != "00000000-0000-0000-0000-000000000000"
-
 	if isUpdate {
-		wfID := database.ParseUUID(payload.ID)
-		if err := database.GetDB(c).First(&workflow, "id = ?", wfID).Error; err != nil {
-			return c.Status(404).JSON(fiber.Map{"error": "workflow not found for update"})
-		}
 		workflow.Name = payload.Name
 		workflow.IsActive = payload.IsActive
-		workflow.Nodes = nodesBytes
+		workflow.Nodes = encryptedNodes
 		workflow.Edges = edgesBytes
 		if err := database.GetDB(c).Save(&workflow).Error; err != nil {
 			log.Printf("Failed to update workflow: %v", err)
@@ -119,7 +159,7 @@ func SaveWorkflow(c *fiber.Ctx) error {
 			WorkspaceID: workspaceID,
 			Name:        payload.Name,
 			IsActive:    payload.IsActive,
-			Nodes:       nodesBytes,
+			Nodes:       encryptedNodes,
 			Edges:       edgesBytes,
 		}
 		if err := database.GetDB(c).Create(&workflow).Error; err != nil {
@@ -133,22 +173,33 @@ func SaveWorkflow(c *fiber.Ctx) error {
 	// Reload cron schedules so any new/updated cron triggers take effect immediately
 	ReloadCronManager()
 
+	workflowView := workflow
+	if err := decryptWorkflowView(&workflowView); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to render workflow"})
+	}
 	return c.Status(201).JSON(fiber.Map{
-		"message": "Workflow saved successfully",
-		"workflow": workflow,
+		"message":  "Workflow saved successfully",
+		"workflow": workflowView,
 	})
 }
 
 // GetWorkflows lists workflows for a given workspace
 func GetWorkflows(c *fiber.Ctx) error {
-	workspaceIDStr := c.Query("workspace_id")
-	if workspaceIDStr == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "workspace_id query param is required"})
+	// JWT-derived only — see SaveWorkflow. Reading by ?workspace_id= let any
+	// member list another tenant's automations.
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(403).JSON(fiber.Map{"error": "workspace context is required"})
 	}
 
 	var workflows []models.Workflow
-	if err := database.GetDB(c).Where("workspace_id = ?", workspaceIDStr).Find(&workflows).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Find(&workflows).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to fetch workflows"})
+	}
+	for i := range workflows {
+		if err := decryptWorkflowView(&workflows[i]); err != nil {
+			return c.Status(500).JSON(fiber.Map{"error": "failed to decode workflow configuration"})
+		}
 	}
 
 	return c.JSON(workflows)
@@ -162,19 +213,29 @@ func TriggerWorkflowManually(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid workflow id"})
 	}
 
-	// Parse optional context body
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(403).JSON(fiber.Map{"error": "workspace context is required"})
+	}
+
+	// Parse optional context body. It is event data only: tenant identity is
+	// always stamped from the authenticated workflow owner below.
 	ctx := make(map[string]interface{})
 	_ = c.BodyParser(&ctx)
 
-	// Fetch workflow
+	// Fetch workflow — tenant-scoped, see SaveWorkflow.
 	var wf models.Workflow
-	if err := database.GetDB(c).First(&wf, "id = ?", workflowID).Error; err != nil {
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).First(&wf, "id = ?", workflowID).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "workflow not found"})
 	}
 
 	// Parse nodes
 	var nodes []WFNode
-	if err := json.Unmarshal(wf.Nodes, &nodes); err != nil {
+	decryptedNodes, err := services.DecodeWorkflowNodes(wf.Nodes)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to decrypt workflow nodes"})
+	}
+	if err := json.Unmarshal(decryptedNodes, &nodes); err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to parse workflow nodes"})
 	}
 	var edges []WFEdge
@@ -184,12 +245,16 @@ func TriggerWorkflowManually(c *fiber.Ctx) error {
 
 	// Run in background goroutine
 	go func() {
+		runCtx := cloneWorkflowContext(ctx, workspaceID)
 		triggers := findTriggerNodes(nodes)
 		adjacency := buildAdjacency(edges)
+		status := "success"
 		for _, trigger := range triggers {
-			traverseAndExecute(trigger.ID, nodes, adjacency, ctx)
+			if err := traverseAndExecute(trigger.ID, nodes, adjacency, runCtx); err != nil {
+				status = "failed"
+			}
 		}
-		StoreWorkflowRun(workflowID, "manual", "success", ctx)
+		StoreWorkflowRun(workflowID, "manual", status, runCtx)
 	}()
 
 	logWorkflowEvent(c, "workflow.trigger", workflowIDStr, ctx)
@@ -217,7 +282,8 @@ func PatchWorkflow(c *fiber.Ctx) error {
 	}
 
 	var wf models.Workflow
-	if err := database.GetDB(c).First(&wf, "id = ?", workflowID).Error; err != nil {
+	// Tenant-scoped, see SaveWorkflow.
+	if err := database.GetDB(c).Where("workspace_id = ?", CurrentWorkspaceID(c)).First(&wf, "id = ?", workflowID).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "workflow not found"})
 	}
 
@@ -237,6 +303,9 @@ func PatchWorkflow(c *fiber.Ctx) error {
 	// Reload cron schedules in case active state changed
 	ReloadCronManager()
 
+	if err := decryptWorkflowView(&wf); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to decode workflow configuration"})
+	}
 	return c.JSON(wf)
 }
 
@@ -257,10 +326,62 @@ func GetWorkflowRuns(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "workflow id is required"})
 	}
 
+	// Run history is only readable through a workflow the caller's tenant owns —
+	// workflow_runs carries no workspace_id of its own, so the ownership check
+	// has to happen on the parent.
+	var parent models.Workflow
+	if err := database.GetDB(c).Where("workspace_id = ?", CurrentWorkspaceID(c)).
+		First(&parent, "id = ?", database.ParseUUID(workflowIDStr)).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "workflow not found"})
+	}
+
 	var runs []models.WorkflowRun
 	if err := database.GetDB(c).Where("workflow_id = ?", workflowIDStr).Order("created_at desc").Limit(50).Find(&runs).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to fetch workflow runs"})
 	}
 
 	return c.JSON(runs)
+}
+
+// GenerateWorkflow handles Text-to-Workflow requests via AI
+func GenerateWorkflow(c *fiber.Ctx) error {
+	// JWT-derived only — see SaveWorkflow.
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(403).JSON(fiber.Map{"error": "workspace context is required"})
+	}
+
+	var payload struct {
+		Prompt string `json:"prompt"`
+	}
+	if err := c.BodyParser(&payload); err != nil {
+		log.Printf("Error parsing workflow generate payload: %v", err)
+		return c.Status(400).JSON(fiber.Map{"error": "invalid JSON"})
+	}
+
+	userID := ""
+	if idStr, ok := c.Locals("user_id").(string); ok {
+		userID = idStr
+	}
+
+	// 2. Publish to NATS JetStream for AI Sidecar
+	eventData := map[string]interface{}{
+		"workspace_id": workspaceID.String(),
+		"user_id":      userID,
+		"prompt":       payload.Prompt,
+	}
+	dataBytes, err := json.Marshal(eventData)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to encode event data"})
+	}
+
+	// Publish to the durable stream (Text-to-Workflow)
+	if err := events.PublishEvent("events.workflow.generate", dataBytes); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to publish to AI sidecar"})
+	}
+
+	return c.Status(202).JSON(fiber.Map{
+		"status":  "accepted",
+		"message": "Workflow generation started via AI sidecar",
+	})
 }

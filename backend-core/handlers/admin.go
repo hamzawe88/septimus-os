@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/septimus-os/backend-core/database"
@@ -29,9 +31,12 @@ func CreateDepartment(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
 	}
 	// Tenant scope is derived from the session, never trusted from the client.
-	if ws, ok := c.Locals("workspace_id").(string); ok {
-		dept.WorkspaceID = database.ParseUUID(ws)
+	// uuid.Nil is an authorization failure, not "create without a tenant".
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Workspace context is required"})
 	}
+	dept.WorkspaceID = workspaceID
 	if err := database.GetDB(c).Create(&dept).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create department"})
 	}
@@ -47,13 +52,19 @@ func UpdateDepartment(c *fiber.Ctx) error {
 	}
 
 	var dept models.Department
-	if err := database.GetDB(c).Where("id = ?", id).First(&dept).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Workspace context is required"})
+	}
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).First(&dept).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Department not found"})
 	}
 
 	dept.Name = req.Name
 	dept.ParentID = req.ParentID
 	dept.ManagerID = req.ManagerID
+	dept.StorageQuotaBytes = req.StorageQuotaBytes
+	dept.MaxFileSize = req.MaxFileSize
 
 	if err := database.GetDB(c).Save(&dept).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update department"})
@@ -64,7 +75,11 @@ func UpdateDepartment(c *fiber.Ctx) error {
 
 func DeleteDepartment(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if err := database.GetDB(c).Where("id = ?", id).Delete(&models.Department{}).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Workspace context is required"})
+	}
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).Delete(&models.Department{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete department"})
 	}
 	logAdminEvent(c, "department.delete", "Department", id, nil)
@@ -117,7 +132,7 @@ func UpdateRole(c *fiber.Ctx) error {
 
 func DeleteRole(c *fiber.Ctx) error {
 	id := c.Params("id")
-	
+
 	// Prevent deleting system roles
 	var role models.Role
 	if err := database.GetDB(c).Where("id = ?", id).First(&role).Error; err == nil && role.IsSystemRole {
@@ -299,7 +314,11 @@ func UpdateUserAdmin(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	if err := database.GetDB(c).Where("id = ?", id).First(&user).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Workspace context is required"})
+	}
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).First(&user).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
 	}
 
@@ -308,7 +327,7 @@ func UpdateUserAdmin(c *fiber.Ctx) error {
 			user.RoleID = &rid
 		}
 	}
-	
+
 	if req.Role != "" {
 		user.Role = req.Role
 		// Try to find the role by name to assign RoleID if not provided
@@ -322,6 +341,12 @@ func UpdateUserAdmin(c *fiber.Ctx) error {
 
 	if err := database.GetDB(c).Save(&user).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update user"})
+	}
+	now := time.Now().UTC()
+	if err := database.GetDB(c).Model(&models.AuthSession{}).
+		Where("user_id = ? AND revoked_at IS NULL", user.ID).
+		Update("revoked_at", &now).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to revoke user sessions"})
 	}
 
 	logAdminEvent(c, "user.update", "User", user.ID.String(), req)
@@ -339,7 +364,11 @@ func DeleteUserAdmin(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Cannot delete your own account"})
 	}
 
-	if err := database.GetDB(c).Where("id = ?", id).Delete(&models.User{}).Error; err != nil {
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Workspace context is required"})
+	}
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).Delete(&models.User{}).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to delete user"})
 	}
 
@@ -363,13 +392,29 @@ func GetAuditLogs(c *fiber.Ctx) error {
 	search := c.Query("search")
 	entityType := c.Query("entity_type")
 	userID := c.Query("user_id")
+	filterType := c.Query("filter_type", "all") // "all", "security", "activity"
 
 	query := database.GetDB(c).Model(&models.AuditLog{})
+	if global, _ := c.Locals("allow_global_access").(bool); !global {
+		workspaceID := CurrentWorkspaceID(c)
+		if workspaceID == uuid.Nil {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Workspace context is required"})
+		}
+		query = query.Where("workspace_id = ?", workspaceID)
+	}
 
 	if search != "" {
 		searchLike := "%" + search + "%"
 		query = query.Where("action ILIKE ? OR entity_type ILIKE ? OR entity_id ILIKE ? OR ip_address ILIKE ? OR details::text ILIKE ?", searchLike, searchLike, searchLike, searchLike, searchLike)
 	}
+
+	switch filterType {
+	case "security":
+		query = query.Where("action LIKE 'auth.%' OR action LIKE 'settings.%'")
+	case "activity":
+		query = query.Where("action NOT LIKE 'auth.%' AND action NOT LIKE 'settings.%'")
+	}
+
 	if entityType != "" && entityType != "all" && entityType != "All" {
 		query = query.Where("entity_type ILIKE ?", entityType)
 	}
@@ -403,5 +448,13 @@ func logAdminEvent(c *fiber.Ctx, action, entityType, entityID string, details in
 			uid = &parsed
 		}
 	}
-	services.LogEvent(uid, action, entityType, entityID, details, c.IP())
+	// comma-ok: this helper runs on every admin mutation; a missing local must
+	// degrade to a global log entry, never panic the request.
+	workspaceIDStr, _ := c.Locals("workspace_id").(string)
+	workspaceID := database.ParseUUID(workspaceIDStr)
+	if workspaceID == uuid.Nil {
+		services.LogEvent(uid, action, entityType, entityID, details, c.IP())
+		return
+	}
+	services.LogEventForWorkspace(&workspaceID, uid, action, entityType, entityID, details, c.IP())
 }

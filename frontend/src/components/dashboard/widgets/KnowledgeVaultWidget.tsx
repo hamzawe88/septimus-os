@@ -1,85 +1,116 @@
 "use client";
 
-import React, { useState } from "react";
-import { BookOpen, Search, FileText, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import {
+  ArrowUpRight,
+  BookOpen,
+  CheckCircle2,
+  FileText,
+  Search,
+} from "lucide-react";
+
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { Tag } from "@/components/ui/tag";
+
+const DOCUMENTS = [
+  { id: "d1", title: "d1Title", category: "d1Cat", updated: "2daysAgo" },
+  { id: "d2", title: "d2Title", category: "d2Cat", updated: "3daysAgo" },
+  { id: "d3", title: "d3Title", category: "d3Cat", updated: "1weekAgo" },
+] as const;
 
 export default function KnowledgeVaultWidget() {
   const { t } = useLocalization();
   const [query, setQuery] = useState("");
   const [previewDoc, setPreviewDoc] = useState<string | null>(null);
-
-  const docs = [
-    { id: "d1", title: t("dashboard.knowledge.d1Title", "Libya National Switch SOP (ISO-8583)"), category: t("dashboard.knowledge.d1Cat", "Payment Core"), updated: t("dashboard.knowledge.2daysAgo", "2 days ago") },
-    { id: "d2", title: t("dashboard.knowledge.d2Title", "Corporate HR Leave Policy & Benefits"), category: t("dashboard.knowledge.d2Cat", "HR Regulations"), updated: t("dashboard.knowledge.3daysAgo", "3 days ago") },
-    { id: "d3", title: t("dashboard.knowledge.d3Title", "Treasury Multi-Currency Reconciliation Guide"), category: t("dashboard.knowledge.d3Cat", "Finance SOP"), updated: t("dashboard.knowledge.1weekAgo", "1 week ago") },
-  ];
-
-  const filtered = docs.filter((d) => d.title.toLowerCase().includes(query.toLowerCase()));
+  const documents = DOCUMENTS.map((document) => ({
+    ...document,
+    titleLabel: t(`dashboard.knowledge.${document.title}`),
+    categoryLabel: t(`dashboard.knowledge.${document.category}`),
+    updatedLabel: t(`dashboard.knowledge.${document.updated}`),
+  }));
+  const filtered = documents.filter((document) =>
+    document.titleLabel.toLocaleLowerCase().includes(query.toLocaleLowerCase()),
+  );
 
   return (
-    <div className="flex flex-col justify-between h-full space-y-3">
-      {/* Header & Search */}
-      <div className="flex flex-col gap-2">
+    <div className="flex h-full flex-col gap-3">
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-            <BookOpen className="w-4 h-4 text-cyan-500" />
-            {t("dashboard.knowledge.title", "Sovereign Knowledge Vault")}
-          </span>
-          <span className="text-[10px] font-extrabold bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 px-2 py-0.5 rounded-full">
-            {docs.length} {t("dashboard.knowledge.sops", "SOPs")}
-          </span>
+          <h3 className="flex items-center gap-1.5 text-xs font-bold">
+            <BookOpen className="size-4 text-info" aria-hidden />
+            {t("dashboard.knowledge.title")}
+          </h3>
+          <Tag tone="info">
+            {documents.length} {t("dashboard.knowledge.sops")}
+          </Tag>
         </div>
-
         <div className="relative">
-          <Search className="w-3.5 h-3.5 absolute ltr:left-3 rtl:right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder={t("dashboard.knowledge.search", "Search policies, specs & guides...")}
+          <Search className="absolute start-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full ltr:pl-9 ltr:pr-3 rtl:pr-9 rtl:pl-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("dashboard.knowledge.search")}
+            aria-label={t("dashboard.knowledge.search")}
+            className="ps-9"
           />
         </div>
       </div>
 
-      {/* Docs List */}
-      <div className="flex-1 flex flex-col gap-2 overflow-y-auto pr-1 max-h-[160px]">
-        {filtered.map((doc) => (
-          <div
-            key={doc.id}
-            onClick={() => setPreviewDoc(doc.title)}
-            className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 hover:bg-cyan-50/50 dark:hover:bg-cyan-950/30 border border-slate-200/80 dark:border-slate-700 cursor-pointer transition flex items-center justify-between group"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-950/80 text-cyan-600 dark:text-cyan-400 flex items-center justify-center flex-shrink-0">
-                <FileText className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <h4 className="text-xs font-bold text-slate-800 dark:text-white truncate group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition">
-                  {doc.title}
-                </h4>
-                <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                  <span>{doc.category}</span> • <span>{doc.updated}</span>
+      <div className="flex max-h-[170px] flex-1 flex-col gap-2 overflow-y-auto">
+        {filtered.length ? (
+          filtered.map((document) => (
+            <button
+              type="button"
+              key={document.id}
+              onClick={() => setPreviewDoc(document.titleLabel)}
+              className="group flex items-center justify-between gap-2 rounded-[var(--radius-control)] border border-border bg-muted/35 p-2.5 text-start transition-colors hover:border-info/30 hover:bg-info/10"
+            >
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-info/10 text-info">
+                  <FileText className="size-4" aria-hidden />
                 </span>
-              </div>
-            </div>
-            <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-cyan-600 transition flex-shrink-0" />
-          </div>
-        ))}
+                <span className="min-w-0">
+                  <strong className="block truncate text-xs">
+                    {document.titleLabel}
+                  </strong>
+                  <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                    {document.categoryLabel} · {document.updatedLabel}
+                  </span>
+                </span>
+              </span>
+              <ArrowUpRight className="size-4 shrink-0 text-muted-foreground group-hover:text-info" />
+            </button>
+          ))
+        ) : (
+          <EmptyState
+            className="min-h-32 p-4"
+            icon={<Search />}
+            title={t("dashboard.knowledge.noResults")}
+          />
+        )}
       </div>
 
-      {previewDoc && (
-        <div className="p-2.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800 text-xs font-medium text-cyan-800 dark:text-cyan-300 flex items-center justify-between animate-in fade-in duration-200">
-          <span className="truncate flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 flex-shrink-0" />
-            <span>{t("dashboard.knowledge.previewing", "Previewing:")} {previewDoc}</span>
+      {previewDoc ? (
+        <div className="flex items-center justify-between gap-2 rounded-[var(--radius-control)] border border-info/20 bg-info/10 p-2.5 text-xs text-info">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <CheckCircle2 className="size-3.5 shrink-0" aria-hidden />
+            <span className="truncate">
+              {t("dashboard.knowledge.previewing")} {previewDoc}
+            </span>
           </span>
-          <button onClick={() => setPreviewDoc(null)} className="text-[10px] font-bold underline ml-2">
-            {t("dashboard.knowledge.close", "Close")}
-          </button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => setPreviewDoc(null)}
+          >
+            {t("dashboard.knowledge.close")}
+          </Button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

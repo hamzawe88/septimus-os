@@ -29,7 +29,7 @@ type Invoice struct {
 	Workspace       *Workspace `gorm:"foreignKey:WorkspaceID;constraint:OnDelete:CASCADE;" json:"-"`
 	StripeInvoiceID *string    `gorm:"type:varchar(255);uniqueIndex" json:"stripe_invoice_id"`
 	PaymentGateway  string     `gorm:"type:varchar(50);not null;default:'stripe'" json:"payment_gateway"` // 'stripe', 'moamalat', 'onepay'
-	AmountPaid      int64      `gorm:"not null" json:"amount_paid"` // in cents
+	AmountPaid      int64      `gorm:"not null" json:"amount_paid"`                                       // in cents
 	Currency        string     `gorm:"type:varchar(10);not null;default:'usd'" json:"currency"`
 	Status          string     `gorm:"type:varchar(30);not null;default:'paid'" json:"status"` // 'paid', 'open', 'void', 'uncollectible'
 	InvoicePDFURL   string     `gorm:"type:text" json:"invoice_pdf_url"`
@@ -54,11 +54,12 @@ type SaaSPlan struct {
 	// are enabled; Limits overrides per-resource caps (-1 = unlimited). Both are
 	// merged ON TOP of the built-in default matrix for the tier (see
 	// services/entitlements.go), so empty {} means "use tier defaults".
-	Features      datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"features"`
-	Limits        datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"limits"`
-	IsActive      bool      `gorm:"default:true" json:"is_active"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	Features        datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"features"`
+	Limits          datatypes.JSON `gorm:"type:jsonb;default:'{}'" json:"limits"`
+	MaxStorageBytes int64          `gorm:"type:bigint;not null;default:10737418240" json:"max_storage_bytes"` // 10 GB default
+	IsActive        bool           `gorm:"default:true" json:"is_active"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
 }
 
 func (SaaSPlan) TableName() string {

@@ -4,6 +4,7 @@ import React from "react";
 import { X, Printer, Download, Building2, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { useCompanyLogo } from "@/lib/storageUtils";
 
 export interface LineItem {
   id: string;
@@ -52,6 +53,7 @@ export default function InvoicePrintModal({
   invoiceId = "INV-2026-0001",
 }: InvoicePrintModalProps) {
   const { t } = useLocalization();
+  const asyncLogo = useCompanyLogo();
   const [companyProfile] = React.useState<{ name?: string; taxNumber?: string; address?: string; logoUrl?: string }>(() => {
     if (typeof window === "undefined") return {};
     try {
@@ -120,14 +122,14 @@ export default function InvoicePrintModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4 print:p-0 print:bg-white print:static">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4 print:p-0 print:bg-card print:static">
       {/* Modal Container */}
-      <div className="bg-white text-slate-900 w-full max-w-4xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-8 print:my-0 print:shadow-none print:border-none print:rounded-none print:max-w-full">
+      <div className="bg-card text-foreground w-full max-w-4xl rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col my-8 print:my-0 print:shadow-none print:border-none print:rounded-none print:max-w-full">
         {/* Top Control Bar (Hidden on Print) */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 print:hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted print:hidden">
           <div className="flex items-center gap-2">
             <Printer className="w-5 h-5 text-brand" />
-            <h2 className="text-lg font-bold text-slate-800">{t("finance.previewInvoice")}</h2>
+            <h2 className="text-lg font-bold text-foreground">{t("finance.previewInvoice")}</h2>
           </div>
           <div className="flex items-center gap-3">
             <Button
@@ -141,7 +143,7 @@ export default function InvoicePrintModal({
             </Button>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+              className="p-2 text-muted-foreground hover:text-muted-foreground rounded-lg hover:bg-muted transition-colors"
               title={t("common.close")}
               aria-label={t("common.close")}
             >
@@ -151,74 +153,74 @@ export default function InvoicePrintModal({
         </div>
 
         {/* Printable A4 Sheet */}
-        <div className="p-8 md:p-12 space-y-8 bg-white" id="printable-invoice-area">
+        <div className="p-8 md:p-12 space-y-8 bg-card" id="printable-invoice-area">
           {/* Header & Logo Section */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-200 pb-8 gap-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-8 gap-6">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                {companyProfile.logoUrl ? (
+                {(asyncLogo || companyProfile.logoUrl) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={companyProfile.logoUrl} alt="Company Logo" className="w-12 h-12 object-contain rounded-xl p-0.5" />
+                  <img src={(asyncLogo || companyProfile.logoUrl)} alt={t("finance.companyLogo")} className="w-12 h-12 object-contain rounded-xl p-0.5" />
                 ) : (
                   <div className="w-12 h-12 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-black text-2xl">
                     S
                   </div>
                 )}
                 <div>
-                  <h1 className="text-2xl font-black text-slate-900 tracking-tight">{companyProfile.name || "SEPTIMUS OS"}</h1>
-                  <p className="text-xs font-semibold text-brand tracking-wider uppercase">Enterprise Financial Suite</p>
+                  <h1 className="text-2xl font-black text-foreground tracking-tight">{companyProfile.name || t("finance.defaultCompanyName")}</h1>
+                  <p className="text-xs font-semibold text-brand">{t("finance.enterpriseSuite")}</p>
                 </div>
               </div>
-              <p className="text-sm text-slate-500 font-medium">{companyProfile.name || t("finance.companyNameLong")}</p>
-              <div className="text-xs text-slate-500 space-y-0.5">
-                <p><span className="font-semibold text-slate-700">{t("finance.taxIdVAT")}</span> {companyProfile.taxNumber || "300123456700003"}</p>
-                <p><span className="font-semibold text-slate-700">{t("finance.addressLabel")}</span> {companyProfile.address || t("finance.companyAddressValue")}</p>
+              <p className="text-sm text-muted-foreground font-medium">{companyProfile.name || t("finance.companyNameLong")}</p>
+              <div className="text-xs text-muted-foreground space-y-0.5">
+                <p><span className="font-semibold text-foreground">{t("finance.taxIdVAT")}</span> {companyProfile.taxNumber || t("common.na")}</p>
+                <p><span className="font-semibold text-foreground">{t("finance.addressLabel")}</span> {companyProfile.address || t("finance.companyAddressValue")}</p>
               </div>
             </div>
 
-            <div className="text-start md:text-end bg-slate-50 p-6 rounded-2xl border border-slate-200/80 min-w-[240px]">
+            <div className="text-start md:text-end bg-muted p-6 rounded-2xl border border-border min-w-[240px]">
               <div className="inline-block px-3 py-1 bg-brand/10 text-brand text-xs font-bold rounded-full mb-3 uppercase tracking-wider">
                 {t("finance.taxInvoiceLabel")}
               </div>
-              <h3 className="text-2xl font-black text-slate-900 font-mono mb-1">{invoiceNum}</h3>
-              <div className="text-xs text-slate-600 space-y-1 mt-3">
+              <h3 className="text-2xl font-black text-foreground font-mono mb-1">{invoiceNum}</h3>
+              <div className="text-xs text-muted-foreground space-y-1 mt-3">
                 <p className="flex justify-between md:justify-end gap-4">
-                  <span className="text-slate-400">{t("finance.issueDateLabel")}</span>
-                  <span className="font-semibold text-slate-800 font-mono">{issueDate}</span>
+                  <span className="text-muted-foreground">{t("finance.issueDateLabel")}</span>
+                  <span className="font-semibold text-foreground font-mono">{issueDate}</span>
                 </p>
                 <p className="flex justify-between md:justify-end gap-4">
-                  <span className="text-slate-400">{t("finance.dueDateLabel")}</span>
-                  <span className="font-semibold text-slate-800 font-mono">{dueDate}</span>
+                  <span className="text-muted-foreground">{t("finance.dueDateLabel")}</span>
+                  <span className="font-semibold text-foreground font-mono">{dueDate}</span>
                 </p>
               </div>
             </div>
           </div>
 
           {/* Bill To & Payment Info Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-muted/50 p-6 rounded-2xl border border-border">
             <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-brand" />
                 {t("finance.billToLabel")}
               </h4>
-              <p className="text-lg font-bold text-slate-900">{clientName}</p>
-              <p className="text-sm font-medium text-slate-700 mt-0.5">{clientCompany}</p>
-              <div className="text-xs text-slate-500 space-y-1 mt-2">
-                <p><span className="font-semibold text-slate-700">{t("finance.taxIdLabel")}</span> {clientTaxId}</p>
-                {invoiceData.clientEmail && <p><span className="font-semibold text-slate-700">{t("finance.emailLabel")}</span> {invoiceData.clientEmail}</p>}
-                {invoiceData.clientAddress && <p><span className="font-semibold text-slate-700">{t("finance.addressLabel2")}</span> {invoiceData.clientAddress}</p>}
+              <p className="text-lg font-bold text-foreground">{clientName}</p>
+              <p className="text-sm font-medium text-foreground mt-0.5">{clientCompany}</p>
+              <div className="text-xs text-muted-foreground space-y-1 mt-2">
+                <p><span className="font-semibold text-foreground">{t("finance.taxIdLabel")}</span> {clientTaxId}</p>
+                {invoiceData.clientEmail && <p><span className="font-semibold text-foreground">{t("finance.emailLabel")}</span> {invoiceData.clientEmail}</p>}
+                {invoiceData.clientAddress && <p><span className="font-semibold text-foreground">{t("finance.addressLabel2")}</span> {invoiceData.clientAddress}</p>}
               </div>
             </div>
 
-            <div className="md:border-e md:border-slate-200 md:pe-6">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <div className="md:border-e md:border-border md:pe-6">
+              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <CreditCard className="w-3.5 h-3.5 text-brand" />
                 {t("finance.paymentTermsTitle")}
               </h4>
-              <p className="text-sm font-semibold text-slate-800">{paymentTerms}</p>
-              <div className="text-xs text-slate-500 space-y-1.5 mt-2">
-                <p><span className="font-semibold text-slate-700">{t("finance.recipientBank")}</span> {t("finance.bankName")}</p>
-                <p className="font-mono bg-white px-2 py-1 rounded border border-slate-200 text-slate-800 font-semibold inline-block">
+              <p className="text-sm font-semibold text-foreground">{paymentTerms}</p>
+              <div className="text-xs text-muted-foreground space-y-1.5 mt-2">
+                <p><span className="font-semibold text-foreground">{t("finance.recipientBank")}</span> {t("finance.bankName")}</p>
+                <p className="font-mono bg-card px-2 py-1 rounded border border-border text-foreground font-semibold inline-block">
                   IBAN: {iban}
                 </p>
               </div>
@@ -229,7 +231,7 @@ export default function InvoicePrintModal({
           <div className="overflow-x-auto">
             <table className="w-full text-end border-collapse">
               <thead>
-                <tr className="border-b-2 border-slate-900 text-xs font-black text-slate-600 uppercase tracking-wider">
+                <tr className="border-b-2 border-border text-xs font-black text-muted-foreground uppercase tracking-wider">
                   <th className="py-3 px-2">#</th>
                   <th className="py-3 px-4">{t("finance.descDetailsLabel")}</th>
                   <th className="py-3 px-3 text-center">{t("finance.quantityLabel2")}</th>
@@ -239,7 +241,7 @@ export default function InvoicePrintModal({
                   <th className="py-3 px-2 text-start">{t("finance.totalLabel2")}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
+              <tbody className="divide-y divide-border text-sm">
                 {items.map((item, index) => {
                   const itemSubtotal = item.quantity * item.unitPrice;
                   const itemDiscount = (itemSubtotal * item.discountRate) / 100;
@@ -247,16 +249,16 @@ export default function InvoicePrintModal({
                   const itemTotal = itemSubtotal - itemDiscount + itemTax;
 
                   return (
-                    <tr key={item.id || index} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 px-2 font-mono text-slate-400 font-semibold">{index + 1}</td>
-                      <td className="py-4 px-4 font-bold text-slate-800">{item.description}</td>
-                      <td className="py-4 px-3 text-center font-mono font-medium text-slate-700">{item.quantity}</td>
-                      <td className="py-4 px-3 text-start font-mono text-slate-700">${item.unitPrice.toFixed(2)}</td>
-                      <td className="py-4 px-3 text-center font-mono text-slate-500">
+                    <tr key={item.id || index} className="hover:bg-muted/50 transition-colors">
+                      <td className="py-4 px-2 font-mono text-muted-foreground font-semibold">{index + 1}</td>
+                      <td className="py-4 px-4 font-bold text-foreground">{item.description}</td>
+                      <td className="py-4 px-3 text-center font-mono font-medium text-foreground">{item.quantity}</td>
+                      <td className="py-4 px-3 text-start font-mono text-foreground">${item.unitPrice.toFixed(2)}</td>
+                      <td className="py-4 px-3 text-center font-mono text-muted-foreground">
                         {item.discountRate > 0 ? `${item.discountRate}%` : "-"}
                       </td>
-                      <td className="py-4 px-3 text-center font-mono text-slate-600">{item.taxRate}%</td>
-                      <td className="py-4 px-2 text-start font-mono font-bold text-slate-900">${itemTotal.toFixed(2)}</td>
+                      <td className="py-4 px-3 text-center font-mono text-muted-foreground">{item.taxRate}%</td>
+                      <td className="py-4 px-2 text-start font-mono font-bold text-foreground">${itemTotal.toFixed(2)}</td>
                     </tr>
                   );
                 })}
@@ -265,28 +267,28 @@ export default function InvoicePrintModal({
           </div>
 
           {/* Financial Summary & QR Code Section */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pt-6 border-t border-slate-200">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pt-6 border-t border-border">
 
 
             <div className="md:col-span-2"></div>
 
             {/* Financial Calculation Table */}
-            <div className="md:col-span-5 space-y-3 bg-slate-50/80 p-6 rounded-2xl border border-slate-200">
-              <div className="flex justify-between text-sm text-slate-600">
+            <div className="md:col-span-5 space-y-3 bg-muted/80 p-6 rounded-2xl border border-border">
+              <div className="flex justify-between text-sm text-muted-foreground">
                 <span>{t("finance.subtotalLabel2")}</span>
-                <span className="font-mono font-semibold text-slate-800">${computedSubtotal.toFixed(2)}</span>
+                <span className="font-mono font-semibold text-foreground">${computedSubtotal.toFixed(2)}</span>
               </div>
               {computedDiscount > 0 && (
-                <div className="flex justify-between text-sm text-rose-600 font-medium">
+                <div className="flex justify-between text-sm text-destructive font-medium">
                   <span>{t("finance.totalDiscountLabel2")}</span>
                   <span className="font-mono">-${computedDiscount.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm text-slate-600">
+              <div className="flex justify-between text-sm text-muted-foreground">
                 <span>{t("finance.vatLabel2")}</span>
-                <span className="font-mono font-semibold text-slate-800">${computedTax.toFixed(2)}</span>
+                <span className="font-mono font-semibold text-foreground">${computedTax.toFixed(2)}</span>
               </div>
-              <div className="border-t border-slate-300 pt-3 flex justify-between items-center text-lg font-black text-slate-900">
+              <div className="border-t border-border pt-3 flex justify-between items-center text-lg font-black text-foreground">
                 <span>{t("finance.grandTotalLabel2")}</span>
                 <span className="font-mono text-xl text-brand">${computedGrandTotal.toFixed(2)}</span>
               </div>
@@ -294,8 +296,8 @@ export default function InvoicePrintModal({
           </div>
 
           {/* Footer Notes */}
-          <div className="pt-8 border-t border-slate-100 text-center md:text-end text-xs text-slate-400 space-y-1">
-            <p className="font-semibold text-slate-600">
+          <div className="pt-8 border-t border-border text-center md:text-end text-xs text-muted-foreground space-y-1">
+            <p className="font-semibold text-muted-foreground">
               {invoiceData.notes || t("finance.invoiceNotesDefault2")}
             </p>
             <p>{t("finance.electronicInvoiceNote")}</p>

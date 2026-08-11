@@ -4,6 +4,8 @@ import { useAppStore } from "@/store/useAppStore";
 import { X, MessageSquare, Clock } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ProvenanceBadge } from "@/components/ui/provenance";
 import { useLocalization } from "@/contexts/LocalizationContext";
 import { fetchWithAuth, API_BASE_URL } from "@/lib/apiClient";
 
@@ -28,16 +30,16 @@ export default function ThreadsListSidebar() {
   });
   const [currentUserName, setCurrentUserName] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("septimus_display_name") || "Admin";
+      return localStorage.getItem("septimus_display_name") || "";
     }
-    return "Admin";
+    return "";
   });
 
   useEffect(() => {
     const loadSync = () => {
       if (typeof window === "undefined") return;
       setCurrentUserAvatar(localStorage.getItem("septimus_avatar") || null);
-      setCurrentUserName(localStorage.getItem("septimus_display_name") || "Admin");
+      setCurrentUserName(localStorage.getItem("septimus_display_name") || "");
     };
     loadSync();
     window.addEventListener("septimus_avatar_updated", loadSync);
@@ -68,38 +70,45 @@ export default function ThreadsListSidebar() {
   };
 
   return (
-    <div className="w-[320px] shrink-0 border-s border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1a1a] flex flex-col h-full transition-all duration-300">
-      
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a1a1a] transition-colors">
-        <div className="flex items-center space-x-2">
-          <h3 className="font-bold text-[15px] text-[var(--sb-bg)] dark:text-slate-100 flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-[var(--sb-bg)] dark:text-brand" />
+    <aside
+      aria-label={t("chat.threads")}
+      className="flex h-full w-[320px] shrink-0 flex-col border-s border-border bg-card text-card-foreground transition-all duration-300"
+    >
+      <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3">
+        <div className="flex items-center gap-2">
+          <h3 className="flex items-center gap-2 text-[15px] font-bold text-foreground">
+            <MessageSquare className="size-4 text-brand" aria-hidden />
             {t("chat.threads")}
           </h3>
         </div>
-        <button 
+        <button
+          type="button"
           onClick={() => setIsThreadsListOpen(false)}
-          className="p-1 rounded-md hover:bg-[#f8fafc] dark:hover:bg-[#252525] text-[var(--sb-bg)]/70 dark:text-slate-400 transition-colors"
+          className="rounded-[var(--radius-control)] p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label={t("common.close")}
         >
-          <X className="w-5 h-5" />
+          <X className="size-5" />
         </button>
       </div>
 
-      <ScrollArea className="flex-1 bg-white dark:bg-[#1a1a1a] transition-colors">
-        <div className="p-4 flex flex-col gap-3">
+      <ScrollArea className="flex-1 bg-card">
+        <div className="flex flex-col gap-3 p-4">
           {threads.length === 0 && (
-            <div className="text-center text-sm text-[var(--sb-bg)]/60 dark:text-slate-500 py-10">
-              {t("chat.noThreads", "No threads yet")}
-            </div>
+            <EmptyState
+              icon={<MessageSquare aria-hidden />}
+              title={t("chat.noThreads")}
+              description={t("chat.noThreadsDescription")}
+              className="border-0 py-10 shadow-none"
+            />
           )}
           {threads.map((thread) => {
-            const isMe = thread.author === "Admin" || thread.author === "admin@septimus.local" || thread.author === currentUserName;
+            const isMe = thread.author === "Admin" || thread.author === "admin@septimus.local" || (currentUserName && thread.author === currentUserName);
             return (
-              <div 
+              <button
+                type="button"
                 key={thread.id}
                 onClick={() => {
+                  if (!activeChannelId) return;
                   setIsThreadsListOpen(false);
                   setActiveThread({
                     id: thread.id,
@@ -108,44 +117,47 @@ export default function ThreadsListSidebar() {
                     author: thread.author,
                     time: fmtTime(thread.created_at),
                     text: thread.content,
-                  } as unknown as Parameters<typeof setActiveThread>[0]);
+                  });
                 }}
-                className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#121212] hover:border-[var(--sb-bg)]/30 dark:hover:border-slate-700 hover:bg-[#f8fafc] dark:hover:bg-[#1a1a1a] shadow-sm cursor-pointer transition-all group"
+                className="group rounded-[var(--radius-control)] border border-border bg-card p-3 text-start shadow-[var(--shadow-raised)] transition-all hover:border-brand/30 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
               >
-                <div className="flex justify-between items-start mb-2">
+                <div className="mb-2 flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Avatar className="w-6 h-6 border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <Avatar className="size-6 overflow-hidden border border-border">
                       {isMe && currentUserAvatar ? (
-                        <img src={currentUserAvatar} alt="Me" className="w-full h-full rounded-full object-cover" />
+                        <img src={currentUserAvatar} alt={t("chat.myAvatar")} className="size-full rounded-full object-cover" />
                       ) : (
-                        <AvatarFallback className="bg-[var(--sb-bg)] dark:bg-brand text-xs font-bold text-white">
-                          {thread.author.charAt(0)}
+                        <AvatarFallback className="bg-brand text-xs font-bold text-brand-foreground">
+                          {thread.author.charAt(0) || t("chat.composer.unknownInitial")}
                         </AvatarFallback>
                       )}
                     </Avatar>
-                    <span className="font-semibold text-[var(--sb-bg)] dark:text-slate-100 text-[15px]">{thread.author}</span>
+                    <span className="text-[15px] font-semibold text-foreground">{thread.author || t("chat.unknownUser")}</span>
                   </div>
-                  <div className="flex items-center text-xs text-[var(--sb-bg)]/70 dark:text-slate-400">
-                    <Clock className="w-3 h-3 me-1" />
-                    {fmtTime(thread.created_at)}
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    <Clock className="me-1 size-3" aria-hidden />
+                    <time dateTime={thread.created_at}>{fmtTime(thread.created_at)}</time>
                   </div>
                 </div>
-                <div className="text-[15px] text-[var(--sb-bg)]/90 dark:text-slate-300 mb-3 line-clamp-2 leading-relaxed">
+                <div className="mb-3 line-clamp-2 text-[15px] leading-relaxed text-foreground-muted">
                   {thread.content}
                 </div>
-                {thread.reply_count > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--sb-bg)] dark:text-slate-400">
-                    <span className="flex items-center justify-center w-4 h-4 rounded-full bg-[var(--sb-bg)]/10 dark:bg-slate-800">
-                      {thread.reply_count}
-                    </span>
-                    {t("chat.replies")}
-                  </div>
-                )}
-              </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  {thread.reply_count > 0 ? (
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <span className="flex size-4 items-center justify-center rounded-full bg-muted">
+                        {thread.reply_count}
+                      </span>
+                      {t("chat.replies")}
+                    </div>
+                  ) : <span />}
+                  {thread.is_ai_generated ? <ProvenanceBadge level="speculation" /> : null}
+                </div>
+              </button>
             );
           })}
         </div>
       </ScrollArea>
-    </div>
+    </aside>
   );
 }

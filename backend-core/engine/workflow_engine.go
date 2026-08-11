@@ -5,14 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/septimus-os/backend-core/events"
 	"github.com/septimus-os/backend-core/models"
+	"github.com/septimus-os/backend-core/services"
 )
 
 var ErrConditionFalse = errors.New("condition evaluated to false")
@@ -47,7 +48,12 @@ func runWorkflowIfMatched(db *gorm.DB, wf models.Workflow, eventName string, eve
 	var nodes []ReactFlowNode
 	var edges []ReactFlowEdge
 
-	if err := json.Unmarshal(wf.Nodes, &nodes); err != nil {
+	decryptedNodes, err := services.DecodeWorkflowNodes(wf.Nodes)
+	if err != nil {
+		log.Printf("Error decrypting nodes for workflow %s: %v", wf.ID, err)
+		return
+	}
+	if err := json.Unmarshal(decryptedNodes, &nodes); err != nil {
 		log.Printf("Error parsing nodes for workflow %s: %v", wf.ID, err)
 		return
 	}
@@ -102,7 +108,7 @@ func runWorkflowIfMatched(db *gorm.DB, wf models.Workflow, eventName string, eve
 		currNode := nodeMap[currID]
 
 		// Execute the node
-		err := executeNode(db, currNode, eventData)
+		err := executeNode(db, wf.WorkspaceID, currNode, eventData)
 		if err != nil {
 			if err == ErrConditionFalse {
 				log.Printf("Condition evaluated to false for node %s. Stopping branch.", currID)
@@ -128,7 +134,10 @@ func runWorkflowIfMatched(db *gorm.DB, wf models.Workflow, eventName string, eve
 	db.Save(&run)
 }
 
-func executeNode(db *gorm.DB, node ReactFlowNode, context map[string]interface{}) error {
+// executeNode runs one workflow node. workspaceID is threaded down from the
+// workflow that owns the node so events it emits name the right tenant instead
+// of falling through to the AI side's "oldest workspace" default.
+func executeNode(db *gorm.DB, workspaceID uuid.UUID, node ReactFlowNode, context map[string]interface{}) error {
 	switch node.Type {
 	case "trigger":
 		// Trigger just starts it, nothing to do
@@ -231,17 +240,15 @@ func executeNode(db *gorm.DB, node ReactFlowNode, context map[string]interface{}
 			log.Printf("Executing ACTION: trigger_ai_agent. Context: %v", context)
 			agentType, _ := node.Data["agentType"].(string)
 			agentPrompt, _ := node.Data["agentPrompt"].(string)
-			
+
 			payload := map[string]interface{}{
 				"agent_type": agentType,
 				"prompt":     agentPrompt,
 				"context":    context,
 			}
-			
-			payloadBytes, _ := json.Marshal(payload)
-			
+
 			// Publish to NATS for the AI sidecar to pick up
-			err := events.PublishEvent("events.workflow.trigger", payloadBytes)
+			err := events.PublishTenantEvent("events.workflow.trigger", workspaceID, payload)
 			if err != nil {
 				log.Printf("Failed to trigger AI agent over NATS: %v", err)
 			} else {

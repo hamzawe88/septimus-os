@@ -1,11 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Bot, User, Sparkles, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import { X, Send, Bot, User, Sparkles, Loader2, Maximize2, Minimize2, Zap } from 'lucide-react';
 import type { PublicationContext, Subscription } from 'centrifuge';
 import { apiPost, AI_BASE_URL } from '@/lib/apiClient';
 import { useLocalization } from '@/contexts/LocalizationContext';
 import { useAppStore } from '@/store/useAppStore';
 
-export type AgentType = 'crm' | 'hr' | 'finance' | 'general' | 'supervisor';
+// These strings are sent as `agent_type` and resolved by the sidecar's alias
+// table (`agent_rbac._ALIASES`). Keep them in sync: a name the table does not
+// know now resolves to the *least* privileged family, so a typo here silently
+// produces an agent with no domain tools rather than a working specialist.
+//
+// 'tasks' and 'correspondence' were missing, which is why the project-management
+// agent appeared not to exist — the sidecar has had a "Tasks & Sprints
+// Specialist" all along with no way to reach it from the UI.
+export type AgentType =
+  | 'crm'
+  | 'hr'
+  | 'tasks'
+  | 'correspondence'
+  | 'finance'
+  | 'general'
+  | 'supervisor';
 
 interface AgentChatDrawerProps {
   isOpen: boolean;
@@ -21,22 +36,73 @@ interface Message {
   content: string;
 }
 
+function MessageRenderer({ content }: { content: string }) {
+  let widgetData = null;
+  try {
+    let jsonStr = content;
+    const jsonMatch = content.match(/```(?:json)?\n([\s\S]*?)\n```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1];
+    }
+    const data = JSON.parse(jsonStr);
+
+    if (data && data.type === 'generative_ui' && data.widget) {
+       widgetData = data;
+    }
+  } catch {
+    // Not JSON or parse failed; fall through to normal text
+  }
+
+  if (widgetData) {
+     return (
+       <div className="mt-2 p-4 border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 font-bold mb-2">
+             <Zap className="w-4 h-4" />
+             <span>Interactive Widget: {widgetData.widget}</span>
+          </div>
+          <p className="text-sm text-indigo-600 dark:text-indigo-400">
+             Generative UI widget placeholder. In production, this dynamically imports and mounts the {`<${widgetData.widget} />`} React component.
+          </p>
+          <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors w-fit">
+             Interact with {widgetData.widget}
+          </button>
+       </div>
+     );
+  }
+
+  return <p className="text-sm whitespace-pre-wrap leading-relaxed">{content}</p>;
+}
+
 export default function AgentChatDrawer({ isOpen, onClose, agentType, title, contextData }: AgentChatDrawerProps) {
   const { isRtl } = useLocalization();
-  const getWelcomeMessage = () => {
-    if (isRtl) {
-      if (agentType === 'crm') return 'مرحباً! أنا مساعد الـ CRM. أستطيع مساعدتك في صياغة الردود، تلخيص التذاكر، أو تحليل بيانات العملاء. ماذا تحتاج؟';
-      if (agentType === 'hr') return 'مرحباً! أنا مساعد الموارد البشرية. أستطيع التحقق من أرصدة الإجازات، شرح سياسات الشركة، أو معالجة الطلبات. كيف أساعدك؟';
-      if (agentType === 'finance') return 'مرحباً! أنا المساعد المالي. أستطيع تلخيص المصروفات، إيجاد الفواتير غير المدفوعة، أو إنشاء التقارير. ماذا تريد أن تفعل؟';
-      if (agentType === 'supervisor') return 'مرحباً! أنا Septimus Copilot. أدير كل الأقسام (المهام، CRM، الموارد البشرية، المالية) وأنسّق بينها. اسألني أي شيء.';
-      return 'مرحباً! كيف أساعدك اليوم؟';
-    }
-    if (agentType === 'crm') return 'Hello! I am your CRM Assistant. I can help you draft replies, summarize tickets, or analyze customer data. What do you need?';
-    if (agentType === 'hr') return 'Hello! I am your HR Assistant. I can check leave balances, explain company policies, or process requests. How can I help?';
-    if (agentType === 'finance') return 'Hello! I am your Finance Assistant. I can summarize expenses, find unpaid invoices, or generate reports. What would you like to do?';
-    if (agentType === 'supervisor') return 'Hi! I am Septimus Copilot. I coordinate every department (Tasks, CRM, HR, Finance). Ask me anything.';
-    return 'Hello! How can I help you today?';
+  const threadIdRef = useRef(crypto.randomUUID());
+
+  // Record<AgentType, …> so a new agent type cannot be added without a greeting.
+  // 'tasks' and 'correspondence' previously fell through to the generic line —
+  // and, because the greeting was computed once at mount (see the reset effect
+  // below), the drawer actually showed the *supervisor's* "I coordinate every
+  // department" line while talking to the tasks specialist.
+  const WELCOME_AR: Record<AgentType, string> = {
+    crm: 'مرحباً! أنا مساعد الـ CRM. أستطيع مساعدتك في صياغة الردود، تلخيص التذاكر، أو تحليل بيانات العملاء. ماذا تحتاج؟',
+    hr: 'مرحباً! أنا مساعد الموارد البشرية. أستطيع التحقق من أرصدة الإجازات، شرح سياسات الشركة، أو معالجة الطلبات. كيف أساعدك؟',
+    tasks: 'مرحباً! أنا مساعد المشاريع والمهام. أتابع المهام والسبرنتات، أقترح تقدير النقاط، وأساعد في تخطيط الدورات. ماذا تريد؟',
+    correspondence: 'مرحباً! أنا مساعد المراسلات والديوان. أصوغ الخطابات الرسمية وأدقّق النبرة والألقاب المعتمدة. بماذا أبدأ؟',
+    finance: 'مرحباً! أنا المساعد المالي. أستطيع تلخيص المصروفات، إيجاد الفواتير غير المدفوعة، أو إنشاء التقارير. ماذا تريد أن تفعل؟',
+    supervisor: 'مرحباً! أنا Septimus Copilot. أدير كل الأقسام (المهام، CRM، الموارد البشرية، المالية) وأنسّق بينها. اسألني أي شيء.',
+    general: 'مرحباً! كيف أساعدك اليوم؟',
   };
+
+  const WELCOME_EN: Record<AgentType, string> = {
+    crm: 'Hello! I am your CRM Assistant. I can help you draft replies, summarize tickets, or analyze customer data. What do you need?',
+    hr: 'Hello! I am your HR Assistant. I can check leave balances, explain company policies, or process requests. How can I help?',
+    tasks: 'Hello! I am your Projects & Tasks Assistant. I track tasks and sprints, suggest point estimates, and help plan cycles. What do you need?',
+    correspondence: 'Hello! I am your Correspondence & Diwan Assistant. I draft official letters and audit tone, titles, and compliance. Where shall we start?',
+    finance: 'Hello! I am your Finance Assistant. I can summarize expenses, find unpaid invoices, or generate reports. What would you like to do?',
+    supervisor: 'Hi! I am Septimus Copilot. I coordinate every department (Tasks, CRM, HR, Finance). Ask me anything.',
+    general: 'Hello! How can I help you today?',
+  };
+
+  const getWelcomeMessage = () => (isRtl ? WELCOME_AR : WELCOME_EN)[agentType] ?? WELCOME_EN.general;
 
   const centrifuge = useAppStore((s) => s.centrifuge);
   const [messages, setMessages] = useState<Message[]>([{ id: '1', role: 'assistant', content: getWelcomeMessage() }]);
@@ -44,6 +110,24 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
   const [isTyping, setIsTyping] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Switching specialists starts a new conversation.
+  //
+  // The drawer stays mounted across agents, and both the greeting and the thread
+  // id were fixed at first mount. So opening the HR copilot and then the tasks
+  // copilot kept the HR greeting AND reused the same thread_id — the sidecar
+  // checkpoints conversations per thread, so the tasks specialist resumed the HR
+  // conversation and answered with the wrong role's context. Same drawer, two
+  // agents, one memory.
+  const lastAgentRef = useRef(agentType);
+  useEffect(() => {
+    if (lastAgentRef.current === agentType) return;
+    lastAgentRef.current = agentType;
+    threadIdRef.current = crypto.randomUUID();
+    setMessages([{ id: '1', role: 'assistant', content: getWelcomeMessage() }]);
+    // getWelcomeMessage reads agentType and isRtl, both in the dependency list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agentType, isRtl]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -91,7 +175,20 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
 
     try {
       const workspaceId = localStorage.getItem('currentWorkspaceId') || '';
-      const ctx: Record<string, unknown> = contextData ? { ...contextData } : {};
+      // Context sent to AI is reference-only. The Go boundary resolves this
+      // record under the caller's tenant and projects it through schema-level
+      // AI/PII policy; browser objects must never become model context directly.
+      const ctx: Record<string, unknown> = {};
+      if (typeof contextData?.purpose === 'string') {
+        ctx.purpose = contextData.purpose;
+      }
+      const entityRef = contextData?.entity_ref;
+      if (entityRef && typeof entityRef === 'object' && !Array.isArray(entityRef)) {
+        const ref = entityRef as Record<string, unknown>;
+        if (typeof ref.definition_key === 'string' && typeof ref.record_id === 'string') {
+          ctx.entity_ref = { definition_key: ref.definition_key, record_id: ref.record_id };
+        }
+      }
       ctx.workspace_id = workspaceId;
       ctx.lang = isRtl ? 'ar' : 'en';
 
@@ -114,7 +211,7 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
         agent_type: agentType,
         message: text,
         context: ctx,
-        thread_id: 'default-thread'
+        thread_id: threadIdRef.current
       }, AI_BASE_URL);
 
       // HTTP reply is authoritative — reconcile the streamed text to it.
@@ -125,11 +222,20 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
       }
     } catch (err) {
       console.error("AI chat error", err);
-      const errText = isRtl ? "عذراً، حدث خطأ أثناء الاتصال بالذكاء الاصطناعي." : "Sorry, an error occurred while connecting to the AI.";
-      if (streaming) {
-        setAssistant(errText);
+      // A failed HTTP call does not mean the agent failed. Tokens arrive over
+      // Centrifugo independently, so when the stream already produced text the
+      // answer is on screen and correct — overwriting it with an error message
+      // threw away a complete reply and told the user it had failed. Keep what
+      // was streamed and let the request error stay in the console.
+      if (streaming && streamed.trim()) {
+        setAssistant(streamed);
       } else {
-        setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: errText }]);
+        const errText = isRtl ? "عذراً، حدث خطأ أثناء الاتصال بالذكاء الاصطناعي." : "Sorry, an error occurred while connecting to the AI.";
+        if (streaming) {
+          setAssistant(errText);
+        } else {
+          setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: errText }]);
+        }
       }
     } finally {
       cleanup();
@@ -144,9 +250,13 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
     }
   };
 
+  // Record<AgentType, …> on purpose: adding a member to AgentType without giving
+  // it a theme is a compile error, which is how the two missing agents surfaced.
   const agentThemeColors: Record<AgentType, string> = {
     crm: 'text-indigo-500 bg-indigo-50 border-indigo-200',
     hr: 'text-rose-500 bg-rose-50 border-rose-200',
+    tasks: 'text-sky-500 bg-sky-50 border-sky-200',
+    correspondence: 'text-amber-500 bg-amber-50 border-amber-200',
     finance: 'text-emerald-500 bg-emerald-50 border-emerald-200',
     supervisor: 'text-purple-500 bg-purple-50 border-purple-200',
     general: 'text-brand bg-brand-light border-brand/20'
@@ -156,35 +266,35 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
   return (
     <>
       <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 transition-opacity" onClick={onClose} />
-      
-      <div className={`fixed top-0 bottom-0 end-0 ${isExpanded ? 'w-full md:w-3/4 lg:w-2/3' : 'w-full md:w-[450px]'} bg-white dark:bg-slate-900 shadow-2xl border-s border-slate-200 dark:border-slate-800 z-50 flex flex-col transition-all duration-300 ease-in-out transform`}>
-        
+
+      <div className={`fixed top-0 bottom-0 end-0 ${isExpanded ? 'w-full md:w-3/4 lg:w-2/3' : 'w-full md:w-[450px]'} bg-card dark:bg-slate-900 shadow-2xl border-s border-border dark:border-slate-800 z-50 flex flex-col transition-all duration-300 ease-in-out transform`}>
+
         {/* Header */}
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+        <div className="p-4 border-b border-border dark:border-slate-800 flex items-center justify-between bg-muted dark:bg-slate-800/50">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${theme}`}>
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+              <h2 className="font-bold text-foreground dark:text-slate-100 flex items-center gap-2">
                 {title || 'AI Assistant'}
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Beta</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-200 dark:bg-slate-700 text-muted-foreground dark:text-slate-300">Beta</span>
               </h2>
-              <p className="text-xs text-slate-500 font-medium">Powered by Septimus Engine</p>
+              <p className="text-xs text-muted-foreground font-medium">Powered by Septimus Engine</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setIsExpanded(!isExpanded)} 
-              className="p-2 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors hidden md:block"
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-2 text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors hidden md:block"
               title={isExpanded ? 'Minimize' : 'Maximize'}
               aria-label={isExpanded ? 'Minimize' : 'Maximize'}
             >
               {isExpanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
             </button>
-            <button 
-              onClick={onClose} 
-              className="p-2 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 rounded-lg transition-colors"
+            <button
+              onClick={onClose}
+              className="p-2 text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-foreground dark:hover:text-slate-200 rounded-lg transition-colors"
               title="Close"
               aria-label="Close"
             >
@@ -194,24 +304,24 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-white dark:bg-slate-900">
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-card dark:bg-slate-900">
           {messages.map((msg) => (
             <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-brand text-white' : theme.replace('border', '')}`}>
                 {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
               </div>
-              <div className={`max-w-[80%] rounded-2xl p-4 ${msg.role === 'user' ? 'bg-brand text-white rounded-se-none' : 'bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-ss-none'}`}>
-                <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+              <div className={`max-w-[80%] rounded-2xl p-4 ${msg.role === 'user' ? 'bg-brand text-white rounded-se-none' : 'bg-muted dark:bg-slate-800 border border-border dark:border-slate-700 text-foreground dark:text-slate-300 rounded-ss-none'}`}>
+                <MessageRenderer content={msg.content} />
               </div>
             </div>
           ))}
-          
+
           {isTyping && (
             <div className="flex gap-3">
                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${theme.replace('border', '')}`}>
                 <Bot className="w-4 h-4" />
               </div>
-              <div className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-4 rounded-2xl rounded-ss-none flex items-center gap-1.5">
+              <div className="bg-muted dark:bg-slate-800 border border-border dark:border-slate-700 p-4 rounded-2xl rounded-ss-none flex items-center gap-1.5">
                  <div className="w-2 h-2 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
                  <div className="w-2 h-2 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
                  <div className="w-2 h-2 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
@@ -222,27 +332,27 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
         </div>
 
         {/* Input Area */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-          
+        <div className="p-4 border-t border-border dark:border-slate-800 bg-card dark:bg-slate-900">
+
           {/* Quick Actions based on agent type */}
           {messages.length === 1 && (
              <div className="flex flex-wrap gap-2 mb-4">
                 {agentType === 'crm' && (
                   <>
-                    <button onClick={() => handleSend('Draft a polite reply to the customer')} className="text-xs px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">✍️ Draft Reply</button>
-                    <button onClick={() => handleSend('Summarize the history of this ticket')} className="text-xs px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">📝 Summarize Ticket</button>
+                    <button onClick={() => handleSend('Draft a polite reply to the customer')} className="text-xs px-3 py-1.5 bg-muted dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-muted-foreground dark:text-slate-300 border border-border dark:border-slate-700">✍️ Draft Reply</button>
+                    <button onClick={() => handleSend('Summarize the history of this ticket')} className="text-xs px-3 py-1.5 bg-muted dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-muted-foreground dark:text-slate-300 border border-border dark:border-slate-700">📝 Summarize Ticket</button>
                   </>
                 )}
                 {agentType === 'hr' && (
                   <>
-                    <button onClick={() => handleSend('Review leave policy')} className="text-xs px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">📖 Leave Policy</button>
-                    <button onClick={() => handleSend('Check available vacation days')} className="text-xs px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">🏖️ Check Balance</button>
+                    <button onClick={() => handleSend('Review leave policy')} className="text-xs px-3 py-1.5 bg-muted dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-muted-foreground dark:text-slate-300 border border-border dark:border-slate-700">📖 Leave Policy</button>
+                    <button onClick={() => handleSend('Check available vacation days')} className="text-xs px-3 py-1.5 bg-muted dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-muted-foreground dark:text-slate-300 border border-border dark:border-slate-700">🏖️ Check Balance</button>
                   </>
                 )}
                 {agentType === 'finance' && (
                   <>
-                    <button onClick={() => handleSend('Summarize expenses for this month')} className="text-xs px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">📊 Monthly Summary</button>
-                    <button onClick={() => handleSend('List unpaid invoices')} className="text-xs px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">⚠️ Unpaid Invoices</button>
+                    <button onClick={() => handleSend('Summarize expenses for this month')} className="text-xs px-3 py-1.5 bg-muted dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-muted-foreground dark:text-slate-300 border border-border dark:border-slate-700">📊 Monthly Summary</button>
+                    <button onClick={() => handleSend('List unpaid invoices')} className="text-xs px-3 py-1.5 bg-muted dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full font-medium transition-colors text-muted-foreground dark:text-slate-300 border border-border dark:border-slate-700">⚠️ Unpaid Invoices</button>
                   </>
                 )}
              </div>
@@ -254,10 +364,10 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={`Ask ${title || 'Assistant'}...`}
-              className="w-full resize-none border border-slate-200 dark:border-slate-700 rounded-2xl py-3 ps-4 pe-12 bg-slate-50 dark:bg-slate-800/50 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand/50 min-h-[56px] max-h-32 text-sm"
+              className="w-full resize-none border border-border dark:border-slate-700 rounded-2xl py-3 ps-4 pe-12 bg-muted dark:bg-slate-800/50 text-foreground dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand/50 min-h-[56px] max-h-32 text-sm"
               rows={1}
             />
-            <button 
+            <button
               onClick={() => handleSend()}
               disabled={!input.trim() || isTyping}
               className="absolute end-2 bottom-2 w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center hover:bg-brand/90 disabled:opacity-50 disabled:hover:bg-brand transition-all shadow-md"
@@ -266,7 +376,7 @@ export default function AgentChatDrawer({ isOpen, onClose, agentType, title, con
             </button>
           </div>
           <div className="text-center mt-2">
-            <span className="text-[10px] text-slate-400 font-medium">AI can make mistakes. Verify important information.</span>
+            <span className="text-[10px] text-muted-foreground font-medium">AI can make mistakes. Verify important information.</span>
           </div>
         </div>
       </div>

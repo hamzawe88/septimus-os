@@ -10,6 +10,7 @@ import {
   Check
 } from 'lucide-react';
 import { useCorrespondenceStore, CorrespondenceTemplate } from '../../store/useCorrespondenceStore';
+import { sanitizeHtml } from '@/lib/sanitizeHtml';
 
 const getCompanyDefaults = () => {
   if (typeof window === 'undefined') return {};
@@ -23,7 +24,7 @@ const getCompanyDefaults = () => {
 };
 
 export const TemplateDesigner: React.FC = () => {
-  const { t, isRtl } = useLocalization();
+  const { t } = useLocalization();
   const { templates, fetchTemplates, createTemplate, updateTemplate, deleteTemplate, loading } = useCorrespondenceStore();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -31,13 +32,13 @@ export const TemplateDesigner: React.FC = () => {
   const [type, setType] = useState('external_letter');
   const [headerHtml, setHeaderHtml] = useState(() => {
     const d = getCompanyDefaults();
-    const title = d.name ? `${d.name} • ديوان المراسلات والوثائق` : 'إدارة العمليات والمراسلات الرسمية • Septimus OS';
-    const sub = d.address ? `${d.address} • إدارة الأرشيف والختم الموثق` : 'نظام إدارة المراسلات والوثائق المعتمدة';
+    const title = d.name ? `${d.name} • ${t("correspondence.designer.diwan")}` : t("correspondence.designer.defaultHeader");
+    const sub = d.address ? `${d.address} • ${t("correspondence.designer.archiveAndSeal")}` : t("correspondence.designer.defaultSubheader");
     return `<div style="text-align: center; border-bottom: 2px solid #1E293B; padding-bottom: 15px; margin-bottom: 20px;">\n  <h2 style="margin: 0; color: #0F172A; font-family: serif;">${title}</h2>\n  <p style="margin: 5px 0 0; font-size: 13px; color: #64748B;">${sub}</p>\n</div>`;
   });
   const [footerHtml, setFooterHtml] = useState(() => {
     const d = getCompanyDefaults();
-    const f = d.name ? `${d.name} • المقر الرئيسي • نظام الختم والمراسلات المعتمدة (HMAC256 QR Verifiable)` : 'نظام Septimus OS الموحد • طرابلس، ليبيا • نظام الختم والمراسلات الرقمية (HMAC256 QR Verifiable)';
+    const f = d.name ? `${d.name} • ${t("correspondence.designer.defaultFooter")}` : t("correspondence.designer.defaultFooter");
     return `<div style="text-align: center; border-top: 1px solid #CBD5E1; padding-top: 15px; margin-top: 30px; font-size: 11px; color: #64748B;">\n  <p style="margin: 0;">${f}</p>\n</div>`;
   });
   const [logoUrl, setLogoUrl] = useState('');
@@ -54,10 +55,10 @@ export const TemplateDesigner: React.FC = () => {
     setName(tpl.name || '');
     setType(tpl.type || 'external_letter');
     const d = getCompanyDefaults();
-    const title = d.name ? `${d.name} • ديوان المراسلات والوثائق` : 'إدارة العمليات والمراسلات الرسمية • Septimus OS';
-    const sub = d.address ? `${d.address} • إدارة الأرشيف والختم الموثق` : 'نظام إدارة المراسلات والوثائق المعتمدة';
+    const title = d.name ? `${d.name} • ${t("correspondence.designer.diwan")}` : t("correspondence.designer.defaultHeader");
+    const sub = d.address ? `${d.address} • ${t("correspondence.designer.archiveAndSeal")}` : t("correspondence.designer.defaultSubheader");
     setHeaderHtml(tpl.header_html || `<div style="text-align: center; border-bottom: 2px solid #1E293B; padding-bottom: 15px; margin-bottom: 20px;">\n  <h2 style="margin: 0; color: #0F172A; font-family: serif;">${title}</h2>\n  <p style="margin: 5px 0 0; font-size: 13px; color: #64748B;">${sub}</p>\n</div>`);
-    const f = d.name ? `${d.name} • المقر الرئيسي • نظام الختم والمراسلات المعتمدة (HMAC256 QR Verifiable)` : 'نظام Septimus OS الموحد • طرابلس، ليبيا • نظام الختم والمراسلات الرقمية (HMAC256 QR Verifiable)';
+    const f = d.name ? `${d.name} • ${t("correspondence.designer.defaultFooter")}` : t("correspondence.designer.defaultFooter");
     setFooterHtml(tpl.footer_html || `<div style="text-align: center; border-top: 1px solid #CBD5E1; padding-top: 15px; margin-top: 30px; font-size: 11px; color: #64748B;">\n  <p style="margin: 0;">${f}</p>\n</div>`);
     setLogoUrl(tpl.layout_config?.logo_url || d.logoUrl || '');
     setShowQr(tpl.layout_config?.show_qr ?? true);
@@ -66,13 +67,13 @@ export const TemplateDesigner: React.FC = () => {
 
   const handleCreateNew = () => {
     setSelectedId(null);
-    setName(isRtl ? 'قالب رسمي جديد' : 'New Institutional Template');
+    setName(t("correspondence.designer.newTemplateName"));
     setType('external_letter');
     const d = getCompanyDefaults();
-    const title = d.name ? `${d.name} • ديوان المراسلات والوثائق` : 'إدارة العمليات والمراسلات الرسمية • Septimus OS';
-    const sub = d.address ? `${d.address} • إدارة الأرشيف والختم الموثق` : 'نظام إدارة المراسلات والوثائق المعتمدة';
+    const title = d.name ? `${d.name} • ${t("correspondence.designer.diwan")}` : t("correspondence.designer.defaultHeader");
+    const sub = d.address ? `${d.address} • ${t("correspondence.designer.archiveAndSeal")}` : t("correspondence.designer.defaultSubheader");
     setHeaderHtml(`<div style="text-align: center; border-bottom: 2px solid #1E293B; padding-bottom: 15px; margin-bottom: 20px;">\n  <h2 style="margin: 0; color: #0F172A;">${title}</h2>\n  <p style="margin: 5px 0 0; font-size: 13px; color: #64748B;">${sub}</p>\n</div>`);
-    const f = d.name ? `${d.name} • المقر الرئيسي • نظام الختم والمراسلات المعتمدة (HMAC256 QR Verifiable)` : 'نظام Septimus OS الموحد • طرابلس، ليبيا • نظام الختم والمراسلات الرقمية (HMAC256 QR Verifiable)';
+    const f = d.name ? `${d.name} • ${t("correspondence.designer.defaultFooter")}` : t("correspondence.designer.defaultFooter");
     setFooterHtml(`<div style="text-align: center; border-top: 1px solid #CBD5E1; padding-top: 15px; margin-top: 30px; font-size: 11px; color: #64748B;">\n  <p style="margin: 0;">${f}</p>\n</div>`);
     setLogoUrl(d.logoUrl || '');
     setShowQr(true);
@@ -96,11 +97,11 @@ export const TemplateDesigner: React.FC = () => {
     try {
       if (selectedId) {
         await updateTemplate(selectedId, data);
-        setSuccessMsg(isRtl ? 'تم تحديث القالب المؤسسي بنجاح' : 'Template updated successfully');
+        setSuccessMsg(t("correspondence.designer.updated"));
       } else {
         const created = await createTemplate(data);
         setSelectedId(created.id);
-        setSuccessMsg(isRtl ? 'تم إنشاء القالب المؤسسي بنجاح' : 'Template created successfully');
+        setSuccessMsg(t("correspondence.designer.created"));
       }
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
@@ -109,7 +110,7 @@ export const TemplateDesigner: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm(isRtl ? 'هل أنت متأكد من حذف هذا القالب؟' : 'Are you sure you want to delete this template?')) return;
+    if (!window.confirm(t("correspondence.designer.deleteConfirm"))) return;
     try {
       await deleteTemplate(id);
       if (selectedId === id) handleCreateNew();
@@ -122,27 +123,27 @@ export const TemplateDesigner: React.FC = () => {
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-300">
       {/* Left List: Existing Templates */}
       <div className="lg:col-span-4 space-y-4">
-        <div className="p-5 rounded-xl bg-white dark:bg-[#1a1d21] border border-slate-200 dark:border-slate-800/80 shadow-sm">
+        <div className="p-5 rounded-xl bg-card dark:bg-card border border-border dark:border-border shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
+            <h3 className="font-bold text-base text-foreground dark:text-white flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-brand dark:text-brand-light" />
-              <span>{t('correspondence.tabTemplates', 'Template & Brand Designer')}</span>
+              <span>{t('correspondence.tabTemplates')}</span>
             </h3>
             <button
               onClick={handleCreateNew}
               className="p-2 rounded-lg bg-brand/10 text-brand hover:bg-brand/20 dark:bg-brand/20 dark:text-brand-light transition-colors"
-              title={t('correspondence.newTemplate', 'Design New Institutional Template')}
+              title={t('correspondence.newTemplate')}
             >
               <Plus className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+          <div className="max-h-[520px] space-y-2.5 overflow-y-auto pe-1">
             {loading && templates.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 text-xs">Loading templates...</div>
+              <div className="py-8 text-center text-muted-foreground text-xs">{t("correspondence.designer.loading")}</div>
             ) : templates.length === 0 ? (
-              <div className="py-8 text-center text-slate-400 text-xs border border-dashed rounded-lg border-slate-200 dark:border-slate-800">
-                No templates saved yet. Click + to create one.
+              <div className="py-8 text-center text-muted-foreground text-xs border border-dashed rounded-lg border-border dark:border-border">
+                {t("correspondence.designer.empty")}
               </div>
             ) : (
               templates.map((tpl) => (
@@ -152,12 +153,12 @@ export const TemplateDesigner: React.FC = () => {
                   className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
                     selectedId === tpl.id
                       ? 'bg-brand/10 border-brand/50 dark:bg-brand/20 dark:border-brand/40 shadow-sm'
-                      : 'bg-slate-50/50 border-slate-200 hover:bg-slate-100/60 dark:bg-slate-800/40 dark:border-slate-700/60'
+                      : 'bg-muted/50 border-border hover:bg-muted/60 dark:bg-card/40 dark:border-border'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{tpl.name}</p>
-                    <span className="inline-block mt-1 px-2 py-0.5 rounded bg-slate-200/80 dark:bg-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wide">
+                    <p className="text-sm font-bold text-foreground dark:text-white truncate">{tpl.name}</p>
+                    <span className="inline-block mt-1 px-2 py-0.5 rounded bg-muted/80 dark:bg-muted text-[10px] font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wide">
                       {tpl.type || 'external_letter'}
                     </span>
                   </div>
@@ -166,8 +167,9 @@ export const TemplateDesigner: React.FC = () => {
                       e.stopPropagation();
                       handleDelete(tpl.id);
                     }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
-                    title="Delete"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 transition-colors"
+                    title={t("common.delete")}
+                    aria-label={t("common.delete")}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -180,17 +182,17 @@ export const TemplateDesigner: React.FC = () => {
 
       {/* Middle/Right: Template Editor & Live Preview */}
       <div className="lg:col-span-8 space-y-6">
-        <div className="p-6 rounded-xl bg-white dark:bg-[#1a1d21] border border-slate-200 dark:border-slate-800/80 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4 mb-6">
+        <div className="p-6 rounded-xl bg-card dark:bg-card border border-border dark:border-border shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border dark:border-border pb-4 mb-6">
             <div>
-              <h4 className="font-bold text-lg text-slate-900 dark:text-white">
-                {selectedId ? (isRtl ? 'تعديل القالب المؤسسي' : 'Edit Institutional Template') : (isRtl ? 'تصميم قالب مؤسسي جديد' : 'New Institutional Template')}
+              <h4 className="font-bold text-lg text-foreground dark:text-white">
+                {selectedId ? t("correspondence.designer.editTitle") : t("correspondence.designer.newTitle")}
               </h4>
-              <p className="text-xs text-slate-500 mt-0.5">Define your official letterhead, footer, and seal settings</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t("correspondence.designer.description")}</p>
             </div>
             <div className="flex items-center gap-2">
               {successMsg && (
-                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                <span className="text-xs font-semibold text-success bg-success/10 dark:bg-success/20 px-3 py-1.5 rounded-lg flex items-center gap-1">
                   <Check className="w-3.5 h-3.5" /> {successMsg}
                 </span>
               )}
@@ -200,7 +202,7 @@ export const TemplateDesigner: React.FC = () => {
                 className="px-5 py-2.5 rounded-xl bg-brand hover:bg-brand/90 text-white text-sm font-semibold shadow-md hover:shadow-brand/25 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 <Save className="w-4 h-4" />
-                <span>{t('correspondence.saveTemplate', 'Save Template')}</span>
+                <span>{t('correspondence.saveTemplate')}</span>
               </button>
             </div>
           </div>
@@ -208,45 +210,45 @@ export const TemplateDesigner: React.FC = () => {
           {/* Form Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                {t('correspondence.templateName', 'Institutional Template Name')}
+              <label className="block text-xs font-bold text-foreground dark:text-muted-foreground uppercase tracking-wider mb-1.5">
+                {t('correspondence.templateName')}
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Ministry Official Outgoing Letterhead"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                placeholder={t("correspondence.designer.namePlaceholder")}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-border dark:border-border bg-muted dark:bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                {t('correspondence.templateType', 'Correspondence Type')}
+              <label className="block text-xs font-bold text-foreground dark:text-muted-foreground uppercase tracking-wider mb-1.5">
+                {t('correspondence.templateType')}
               </label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-border dark:border-border bg-muted dark:bg-card text-sm focus:outline-none focus:ring-2 focus:ring-brand"
               >
-                <option value="external_letter">{t('correspondence.typeExternalLetter', 'External Outgoing Letter')}</option>
-                <option value="internal_memo">{t('correspondence.typeInternalMemo', 'Internal Memo')}</option>
-                <option value="decree">{t('correspondence.typeDecree', 'Administrative Decree')}</option>
-                <option value="circular">{t('correspondence.typeCircular', 'Public Circular')}</option>
+                <option value="external_letter">{t('correspondence.typeExternalLetter')}</option>
+                <option value="internal_memo">{t('correspondence.typeInternalMemo')}</option>
+                <option value="decree">{t('correspondence.typeDecree')}</option>
+                <option value="circular">{t('correspondence.typeCircular')}</option>
               </select>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                {t('correspondence.logoUrl', 'Organization Logo URL')}
+              <label className="block text-xs font-bold text-foreground dark:text-muted-foreground uppercase tracking-wider mb-1.5">
+                {t('correspondence.logoUrl')}
               </label>
               <input
                 type="text"
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://.../logo.png"
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:outline-none focus:ring-2 focus:ring-brand font-mono"
+                placeholder={t("correspondence.designer.logoPlaceholder")}
+                className="w-full px-3 py-2 rounded-lg border border-border dark:border-border bg-muted dark:bg-card text-xs focus:outline-none focus:ring-2 focus:ring-brand font-mono"
               />
             </div>
             <div className="flex items-center gap-3 pt-6">
@@ -255,10 +257,10 @@ export const TemplateDesigner: React.FC = () => {
                 id="showSerial"
                 checked={showSerial}
                 onChange={(e) => setShowSerial(e.target.checked)}
-                className="w-4 h-4 rounded text-brand focus:ring-brand border-slate-300 dark:border-slate-700"
+                className="w-4 h-4 rounded text-brand focus:ring-brand border-border dark:border-border"
               />
-              <label htmlFor="showSerial" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                {t('correspondence.showSerial', 'Show Unique Serial Number')}
+              <label htmlFor="showSerial" className="text-xs font-bold text-foreground dark:text-muted-foreground cursor-pointer">
+                {t('correspondence.showSerial')}
               </label>
             </div>
             <div className="flex items-center gap-3 pt-6">
@@ -267,11 +269,11 @@ export const TemplateDesigner: React.FC = () => {
                 id="showQr"
                 checked={showQr}
                 onChange={(e) => setShowQr(e.target.checked)}
-                className="w-4 h-4 rounded text-brand focus:ring-brand border-slate-300 dark:border-slate-700"
+                className="w-4 h-4 rounded text-brand focus:ring-brand border-border dark:border-border"
               />
-              <label htmlFor="showQr" className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer flex items-center gap-1">
+              <label htmlFor="showQr" className="text-xs font-bold text-foreground dark:text-muted-foreground cursor-pointer flex items-center gap-1">
                 <QrCode className="w-3.5 h-3.5 text-brand" />
-                {t('correspondence.showQr', 'Show QR Verification Code')}
+                {t('correspondence.showQr')}
               </label>
             </div>
           </div>
@@ -279,75 +281,75 @@ export const TemplateDesigner: React.FC = () => {
           {/* HTML Editors */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                {t('correspondence.headerHtml', 'Letter Header (HTML / Brand Identity)')}
+              <label className="block text-xs font-bold text-foreground dark:text-muted-foreground uppercase tracking-wider mb-1.5">
+                {t('correspondence.headerHtml')}
               </label>
               <textarea
                 rows={6}
                 value={headerHtml}
                 onChange={(e) => setHeaderHtml(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-800 dark:bg-[#1a1d21]/80 text-emerald-400 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-brand"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-border dark:border-border bg-card dark:bg-card/80 text-success font-mono text-xs focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                {t('correspondence.footerHtml', 'Letter Footer & Contact Info')}
+              <label className="block text-xs font-bold text-foreground dark:text-muted-foreground uppercase tracking-wider mb-1.5">
+                {t('correspondence.footerHtml')}
               </label>
               <textarea
                 rows={6}
                 value={footerHtml}
                 onChange={(e) => setFooterHtml(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-800 dark:bg-[#1a1d21]/80 text-emerald-400 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-brand"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-border dark:border-border bg-card dark:bg-card/80 text-success font-mono text-xs focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
           </div>
 
           {/* Live Institutional Preview Box */}
-          <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-6 bg-slate-50 dark:bg-[#1a1d21]/60">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Eye className="w-4 h-4" /> Live Institutional Document Preview
+          <div className="border border-border dark:border-border rounded-xl p-6 bg-muted dark:bg-card/60">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-border dark:border-border">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Eye className="w-4 h-4" /> {t("correspondence.designer.livePreview")}
               </span>
               {showSerial && (
                 <span className="font-mono text-xs font-bold px-2 py-1 rounded bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand-light">
-                  SEP-2026-OUT-0001
+                  {t("correspondence.designer.previewSerial")}
                 </span>
               )}
             </div>
 
-            <div className="max-w-2xl mx-auto bg-white text-slate-900 p-8 rounded-lg shadow-md border border-slate-200 min-h-[380px] flex flex-col justify-between font-serif relative">
+            <div className="relative mx-auto flex min-h-[380px] max-w-2xl flex-col justify-between rounded-lg border border-border bg-[var(--color-paper-raised)] p-8 font-serif text-[var(--color-ink)] shadow-md">
               {/* Header section rendered */}
               <div>
-                <div dangerouslySetInnerHTML={{ __html: headerHtml }} />
+                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(headerHtml) }} />
                 <div className="my-6">
-                  <h3 className="font-bold text-base text-center mb-4 underline">SUBJECT: SAMPLE INSTITUTIONAL DECREE OR LETTER</h3>
-                  <p className="text-sm leading-relaxed text-slate-700 text-justify">
-                    This is a live representation of your institutional template. All official letters generated using this template will automatically inherit the custom HTML header and footer configured above. Furthermore, our smart diwan applies a strictly certified external seal and verification stamp without relying on internal signatures.
+                  <h3 className="font-bold text-base text-center mb-4 underline">{t("correspondence.designer.previewSubject")}</h3>
+                  <p className="text-sm leading-relaxed text-foreground text-justify">
+                    {t("correspondence.designer.previewBody")}
                   </p>
                 </div>
               </div>
 
               {/* Footer and QR Seal preview */}
-              <div className="mt-8 pt-4 border-t border-slate-100">
+              <div className="mt-8 pt-4 border-t border-border">
                 <div className="flex items-center justify-between gap-4">
                   {showQr && (
-                    <div className="flex items-center gap-2 bg-slate-50 p-2 rounded border border-slate-200 text-slate-800">
-                      <div className="w-12 h-12 bg-white border border-slate-300 rounded flex items-center justify-center font-mono text-[9px] text-center font-bold text-brand shadow-inner">
+                    <div className="flex items-center gap-2 bg-muted p-2 rounded border border-border text-foreground">
+                      <div className="flex h-12 w-12 items-center justify-center rounded border border-border bg-[var(--color-paper-raised)] text-center font-mono text-[9px] font-bold text-brand shadow-inner">
                         <QrCode className="w-8 h-8 text-brand" />
                       </div>
                       <div className="text-[10px] leading-tight">
-                        <p className="font-bold text-slate-900 uppercase">External Certified Seal</p>
-                        <p className="text-slate-500">Scan to verify authenticity</p>
-                        <p className="font-mono text-[9px] text-brand font-semibold">VERIFIED-SEPTIMUS-OS</p>
+                        <p className="font-bold text-foreground">{t("correspondence.designer.sealPreview")}</p>
+                        <p className="text-muted-foreground">{t("correspondence.designer.sealPreviewDescription")}</p>
+                        <p className="font-mono text-[9px] text-brand font-semibold">{t("correspondence.designer.previewOnly")}</p>
                       </div>
                     </div>
                   )}
-                  <div className="text-end text-xs text-slate-500">
-                    <p className="font-bold text-slate-800">SOVEREIGN ENTERPRISE AUTHORITY</p>
-                    <p className="italic">Official Electronic Document</p>
+                  <div className="text-end text-xs text-muted-foreground">
+                    <p className="font-bold text-foreground">{t("correspondence.designer.previewAuthority")}</p>
+                    <p className="italic">{t("correspondence.designer.previewDocument")}</p>
                   </div>
                 </div>
-                <div className="mt-4" dangerouslySetInnerHTML={{ __html: footerHtml }} />
+                <div className="mt-4" dangerouslySetInnerHTML={{ __html: sanitizeHtml(footerHtml) }} />
               </div>
             </div>
           </div>

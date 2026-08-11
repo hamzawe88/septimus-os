@@ -3,12 +3,13 @@
 i18n_scan.py — find UNWIRED hardcoded UI text in the dashboard components.
 
 Flags double-quoted string literals that look like human-facing UI text and are
-NOT already localized. It skips: t() keys and fallbacks (`t("k", "Execute")`),
-Tailwind classNames, import paths, urls, and key-paths (dotted, no spaces).
+NOT already localized. It also validates recursive key parity between the
+Arabic and English dictionaries.
 
 Usage:
     python3 scripts/i18n_scan.py            # grouped by file
     python3 scripts/i18n_scan.py --json     # machine-readable
+    python3 scripts/i18n_scan.py --check    # exit non-zero on violations
 """
 import glob
 import json
@@ -29,6 +30,10 @@ FILES = (
 STR = re.compile(r'"([^"\\]{2,})"')
 T_FALLBACK = re.compile(r't\(\s*"[^"]*"\s*,\s*"([^"]*)"')
 T_KEY = re.compile(r't\(\s*"([^"]*)"')
+TECHNICAL_PROPERTY = re.compile(
+    r'\b(?:id|key|promptKey|nameKey|typeKey|daysKey|title|category|updated|'
+    r'lastRunKey|timeZone)\s*:\s*$'
+)
 
 
 def is_class_like(s: str) -> bool:
@@ -55,6 +60,10 @@ def is_ui(s: str) -> bool:
     # single lowercase/snake token ⇒ id / css / icon-name / storage key, not UI text
     if re.fullmatch(r'[a-z0-9_]+', s):
         return False
+    if re.fullmatch(r'[A-Z][A-Z0-9_]{1,}', s):  # enum, currency, agent ID
+        return False
+    if re.fullmatch(r'[A-Za-z_]+/[A-Za-z_]+', s):  # IANA time zone
+        return False
     if is_class_like(s):                    # tailwind classes
         return False
     return True
@@ -75,6 +84,11 @@ def scan(path):
                 # skip if this string is the value of a className attribute
                 if re.search(r'className\s*=\s*(\{`|")?[^"]*' + re.escape(s), line) and is_class_like(s):
                     continue
+                prefix = line[:m.start()]
+                if TECHNICAL_PROPERTY.search(prefix):
+                    continue
+                if re.search(r'event\.key\s*===\s*$', prefix):
+                    continue
                 if is_ui(s):
                     hits.append((n, s))
     # de-dup within a file, keep first line
@@ -86,8 +100,31 @@ def scan(path):
     return uniq
 
 
+def flatten_keys(value, prefix=""):
+    keys = set()
+    if isinstance(value, dict):
+        for key, child in value.items():
+            path = f"{prefix}.{key}" if prefix else key
+            if isinstance(child, dict):
+                keys.update(flatten_keys(child, path))
+            else:
+                keys.add(path)
+    return keys
+
+
+def locale_parity():
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    locale_root = os.path.join(project_root, "frontend", "src", "locales")
+    with open(os.path.join(locale_root, "ar.json"), encoding="utf-8") as fh:
+        ar_keys = flatten_keys(json.load(fh))
+    with open(os.path.join(locale_root, "en.json"), encoding="utf-8") as fh:
+        en_keys = flatten_keys(json.load(fh))
+    return sorted(en_keys - ar_keys), sorted(ar_keys - en_keys)
+
+
 def main():
     as_json = "--json" in sys.argv
+    check = "--check" in sys.argv
     out, total = {}, 0
     for f in FILES:
         if not os.path.exists(f):
@@ -97,9 +134,16 @@ def main():
             out[os.path.relpath(f, BASE)] = hits
             total += len(hits)
 
+    missing_ar, missing_en = locale_parity()
     if as_json:
-        print(json.dumps({k: [{"line": n, "text": s} for n, s in v]
-                          for k, v in out.items()}, ensure_ascii=False, indent=2))
+        print(json.dumps({
+            "unwired_literals": {
+                k: [{"line": n, "text": s} for n, s in v]
+                for k, v in out.items()
+            },
+            "missing_in_ar": missing_ar,
+            "missing_in_en": missing_en,
+        }, ensure_ascii=False, indent=2))
         return
 
     for rel, hits in out.items():
@@ -107,6 +151,15 @@ def main():
         for n, s in hits:
             print(f"  L{n}: {s}")
     print(f"\nTOTAL UNIQUE UNWIRED LITERALS: {total}")
+    print(f"MISSING IN AR: {len(missing_ar)}")
+    print(f"MISSING IN EN: {len(missing_en)}")
+    for key in missing_ar:
+        print(f"  ar <- {key}")
+    for key in missing_en:
+        print(f"  en <- {key}")
+
+    if check and (total or missing_ar or missing_en):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

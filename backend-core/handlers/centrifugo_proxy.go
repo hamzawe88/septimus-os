@@ -39,21 +39,25 @@ func subscribeDeny(c *fiber.Ctx) error {
 // leak a channel a user could not already read over HTTP.
 //
 // Channel scheme (all in Centrifugo's default namespace — no ":"):
-//   channel_<channelUUID>  → chat channel / thread; requires channel membership
-//   agents_<workspaceUUID> → agent activity;        requires workspace membership
-//   ai_<randomStreamID>    → per-request AI token stream; the id is an
-//                            unguessable capability minted for and returned to
-//                            the requester, so any authenticated user may sub.
+//
+//	channel_<channelUUID>  → chat channel / thread; requires channel membership
+//	agents_<workspaceUUID> → agent activity;        requires workspace membership
+//	workspace_<workspaceUUID> → tenant-wide events;  requires workspace membership
+//	user_<userUUID>        → private per-user events; requires that exact user
+//	ai_<randomStreamID>    → per-request AI token stream; the id is an
+//	                         unguessable capability minted for and returned to
+//	                         the requester, so any authenticated user may sub.
 func CentrifugoSubscribe(c *fiber.Ctx) error {
 	// Only Centrifugo may call this. It is configured to send the shared
-	// internal token as a static header; reject anything else. Disabled in
-	// local dev when the token is unset (same rule as RequireInternalToken).
-	if expected := os.Getenv("INTERNAL_API_TOKEN"); expected != "" {
-		provided := c.Get(middleware.InternalTokenName)
-		if provided == "" || subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
-			// A caller that is not Centrifugo has no business here at all.
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
-		}
+	// internal token as a static header; fail closed when the token is absent.
+	expected := os.Getenv("INTERNAL_API_TOKEN")
+	if expected == "" {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "internal auth is not configured"})
+	}
+	provided := c.Get(middleware.InternalTokenName)
+	if provided == "" || subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
+		// A caller that is not Centrifugo has no business here at all.
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
 	}
 
 	var req centrifugoSubscribeRequest
@@ -88,6 +92,24 @@ func CentrifugoSubscribe(c *fiber.Ctx) error {
 			return subscribeDeny(c)
 		}
 		if user.WorkspaceID != workspaceID {
+			return subscribeDeny(c)
+		}
+		return subscribeAllow(c)
+
+	case strings.HasPrefix(req.Channel, "workspace_"):
+		workspaceID, err := uuid.Parse(strings.TrimPrefix(req.Channel, "workspace_"))
+		if err != nil {
+			return subscribeDeny(c)
+		}
+		var user models.User
+		if err := database.GetDB(c).Select("id", "workspace_id").Where("id = ?", userID).First(&user).Error; err != nil || user.WorkspaceID != workspaceID {
+			return subscribeDeny(c)
+		}
+		return subscribeAllow(c)
+
+	case strings.HasPrefix(req.Channel, "user_"):
+		targetUserID, err := uuid.Parse(strings.TrimPrefix(req.Channel, "user_"))
+		if err != nil || targetUserID != userID {
 			return subscribeDeny(c)
 		}
 		return subscribeAllow(c)

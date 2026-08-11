@@ -40,53 +40,53 @@ export default function LocalizationSettings() {
           <Globe className="w-5 h-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">{t("settings.localization")}</h1>
-          <p className="text-slate-500 mt-1">Configure your region, language, and currency settings</p>
+          <h1 className="text-2xl font-bold text-foreground">{t("settings.localization")}</h1>
+          <p className="text-muted-foreground mt-1">Configure your region, language, and currency settings</p>
         </div>
       </div>
 
       <div className="space-y-8">
         {/* Language Selection */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">{t("settings.language")}</h2>
+        <section className="bg-card rounded-2xl border border-border p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-foreground mb-4">{t("settings.language")}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <button
               onClick={() => setLanguage("ar")}
               className={`p-4 rounded-xl border-2 text-start transition-all ${
                 language === "ar"
                   ? "border-blue-500 bg-blue-50/50"
-                  : "border-slate-200 hover:border-slate-300"
+                  : "border-border hover:border-border"
               }`}
             >
-              <div className="font-semibold text-slate-800">Arabic</div>
-              <div className="text-sm text-slate-500 mt-1">Arabic (RTL)</div>
+              <div className="font-semibold text-foreground">Arabic</div>
+              <div className="text-sm text-muted-foreground mt-1">Arabic (RTL)</div>
             </button>
             <button
               onClick={() => setLanguage("en")}
               className={`p-4 rounded-xl border-2 text-start transition-all ${
                 language === "en"
                   ? "border-blue-500 bg-blue-50/50"
-                  : "border-slate-200 hover:border-slate-300"
+                  : "border-border hover:border-border"
               }`}
             >
-              <div className="font-semibold text-slate-800">English</div>
-              <div className="text-sm text-slate-500 mt-1">English (LTR)</div>
+              <div className="font-semibold text-foreground">English</div>
+              <div className="text-sm text-muted-foreground mt-1">English (LTR)</div>
             </button>
           </div>
         </section>
 
         {/* Region & Currency */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">{t("settings.country")}</h2>
+        <section className="bg-card rounded-2xl border border-border p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-foreground mb-4">{t("settings.country")}</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label htmlFor="country-select" className="text-sm font-medium text-slate-700">{t("settings.country")}</label>
+              <label htmlFor="country-select" className="text-sm font-medium text-foreground">{t("settings.country")}</label>
               <select
                 id="country-select"
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all bg-slate-50"
+                className="w-full h-11 px-3 rounded-xl border border-border focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all bg-muted"
               >
                 <option value="SA">Saudi Arabia (SA)</option>
                 <option value="AE">United Arab Emirates (AE)</option>
@@ -97,12 +97,12 @@ export default function LocalizationSettings() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="base-currency-select" className="text-sm font-medium text-slate-700">{t("settings.baseCurrency")}</label>
+              <label htmlFor="base-currency-select" className="text-sm font-medium text-foreground">{t("settings.baseCurrency")}</label>
               <select
                 id="base-currency-select"
                 value={baseCurrency}
                 onChange={(e) => setBaseCurrency(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all bg-slate-50"
+                className="w-full h-11 px-3 rounded-xl border border-border focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all bg-muted"
               >
                 <option value="SAR">Saudi Riyal (SAR)</option>
                 <option value="AED">UAE Dirham (AED)</option>
@@ -127,12 +127,12 @@ export default function LocalizationSettings() {
             </div>
             
             <div className="space-y-2">
-              <label htmlFor="secondary-currency-select" className="text-sm font-medium text-slate-700">{t("settings.secondaryCurrency")}</label>
+              <label htmlFor="secondary-currency-select" className="text-sm font-medium text-foreground">{t("settings.secondaryCurrency")}</label>
               <select
                 id="secondary-currency-select"
                 value={secondaryCurrency}
                 onChange={(e) => setSecondaryCurrency(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all bg-slate-50"
+                className="w-full h-11 px-3 rounded-xl border border-border focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all bg-muted"
               >
                 <option value="USD">US Dollar (USD)</option>
                 <option value="EUR">Euro (EUR)</option>
@@ -154,48 +154,48 @@ export default function LocalizationSettings() {
                 <option value="CAD">Canadian Dollar (CAD)</option>
                 <option value="AUD">Australian Dollar (AUD)</option>
               </select>
-              <p className="text-xs text-slate-500 mt-1">Used for dual-currency transactions (e.g. Invoicing)</p>
+              <p className="text-xs text-muted-foreground mt-1">Used for dual-currency transactions (e.g. Invoicing)</p>
             </div>
           </div>
         </section>
 
         {/* Number & Date Formatting */}
-        <section className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">{t("settings.formatting", "Number & Date Formatting")}</h2>
+        <section className="bg-card rounded-2xl border border-border p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-foreground mb-4">{t("settings.formatting", "Number & Date Formatting")}</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label htmlFor="number-format-select" className="text-sm font-medium text-slate-700">{t("settings.numberFormat", "Number Format")}</label>
+              <label htmlFor="number-format-select" className="text-sm font-medium text-foreground">{t("settings.numberFormat", "Number Format")}</label>
               <select
                 id="number-format-select"
                 value={numberFormat}
                 onChange={(e) => setNumberFormat(e.target.value as "comma" | "dot")}
-                className="w-full h-11 px-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all bg-slate-50"
+                className="w-full h-11 px-3 rounded-xl border border-border focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all bg-muted"
               >
                 <option value="comma">1,234,567.89 (Comma separators)</option>
                 <option value="dot">1.234.567,89 (Dot separators)</option>
               </select>
               <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-100 flex items-center gap-2">
                 <span className="text-sm text-blue-700 font-medium">Preview:</span>
-                <span className="text-sm font-bold text-slate-800">{formatNumber(1234567.89)}</span>
+                <span className="text-sm font-bold text-foreground">{formatNumber(1234567.89)}</span>
                 <span className="text-xs text-blue-600/70 ms-auto">Western Digits Enforced</span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="date-format-select" className="text-sm font-medium text-slate-700">{t("settings.dateFormat", "Date Format")}</label>
+              <label htmlFor="date-format-select" className="text-sm font-medium text-foreground">{t("settings.dateFormat", "Date Format")}</label>
               <select
                 id="date-format-select"
                 value={dateFormat}
                 onChange={(e) => setDateFormat(e.target.value)}
-                className="w-full h-11 px-3 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all bg-slate-50"
+                className="w-full h-11 px-3 rounded-xl border border-border focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all bg-muted"
               >
                 <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                 <option value="MM/DD/YYYY">MM/DD/YYYY</option>
               </select>
-              <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center gap-2">
-                <span className="text-sm text-slate-500 font-medium">Preview:</span>
-                <span className="text-sm font-bold text-slate-800">{formatDate(new Date())}</span>
+              <div className="mt-2 p-3 bg-muted rounded-lg border border-border flex items-center gap-2">
+                <span className="text-sm text-muted-foreground font-medium">Preview:</span>
+                <span className="text-sm font-bold text-foreground">{formatDate(new Date())}</span>
               </div>
             </div>
           </div>

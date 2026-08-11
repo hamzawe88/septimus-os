@@ -4,6 +4,7 @@ import React from "react";
 import { Sparkles, X, CheckCircle2, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { ProvenanceSurface } from "@/components/ui/provenance";
 
 interface AIRecapModalProps {
   isOpen: boolean;
@@ -22,56 +23,65 @@ export default function AIRecapModal({
   citations,
   isLoading
 }: AIRecapModalProps) {
-  const { isRtl } = useLocalization();
+  const { t } = useLocalization();
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-brand-light overflow-hidden flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-foreground/55 p-4 backdrop-blur-sm animate-in fade-in">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ai-recap-title"
+        className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-[var(--radius-surface)] border border-border bg-popover text-popover-foreground shadow-[var(--shadow-overlay)]"
+      >
         
         {/* Modal Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between text-white">
+        <div className="flex items-center justify-between bg-brand px-6 py-4 text-brand-foreground">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 animate-pulse text-amber-300" />
-            <h3 className="font-bold text-lg">{isRtl ? "التلخيص الذكي الفوري" : "Instant Smart Recap (Slack AI Recap)"}</h3>
+            <Sparkles className="w-5 h-5 animate-pulse" />
+            <h3 id="ai-recap-title" className="text-lg font-bold">{t("chat.recap.title")}</h3>
           </div>
-          <button 
+          <Button
             onClick={onClose}
-            title={isRtl ? "إغلاق" : "Close"}
-            aria-label={isRtl ? "إغلاق" : "Close"}
-            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white/80 hover:text-white"
+            title={t("common.close")}
+            aria-label={t("common.close")}
+            variant="ghost"
+            size="icon-sm"
+            className="text-brand-foreground hover:bg-brand-foreground/10 hover:text-brand-foreground"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Modal Content */}
-        <div className={`p-6 overflow-y-auto flex-1 text-slate-800 space-y-4 ${isRtl ? 'text-end' : 'text-start'}`} dir={isRtl ? "rtl" : "ltr"}>
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <span className="text-sm font-semibold text-slate-500">{isRtl ? "القناة المستهدفة:" : "Target Channel:"}</span>
-            <span className="bg-brand-light text-brand px-3 py-1 rounded-full text-xs font-bold font-mono">#{channelName}</span>
+        <div className="flex-1 space-y-4 overflow-y-auto p-6 text-start">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <span className="text-sm font-semibold text-muted-foreground">{t("chat.recap.targetChannel")}</span>
+            <span className="rounded-[var(--radius-control)] bg-brand-light px-3 py-1 font-mono text-xs font-bold text-brand">#{channelName}</span>
           </div>
 
           {isLoading ? (
             <div className="py-12 flex flex-col items-center justify-center space-y-4">
               <div className="w-10 h-10 border-4 border-brand border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-brand font-medium animate-pulse">{isRtl ? "يقوم العقل السيادي Septimus AI بقراءة وتلخيص المحادثات..." : "Septimus AI is reading and summarizing conversations..."}</p>
+              <p className="animate-pulse text-sm font-medium text-brand">{t("chat.recap.loading")}</p>
             </div>
           ) : (
             <>
-              <div className="bg-brand-light/50 p-4 rounded-xl border border-brand-light/80 leading-relaxed text-[15px] whitespace-pre-wrap">
-                {summary || (isRtl ? "لم يتم العثور على ملخص." : "No summary found.")}
-              </div>
+              <ProvenanceSurface level={citations.length > 0 ? "verified" : "confident-recall"}>
+                <p className="whitespace-pre-wrap">
+                  {summary || t("chat.recap.empty")}
+                </p>
+              </ProvenanceSurface>
 
               {citations && citations.length > 0 && (
                 <div className="pt-2">
-                  <h4 className="text-xs font-bold text-slate-400 mb-2 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> {isRtl ? "المصادر الموثقة المستند إليها:" : "Grounded Citations:"}
+                  <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-success" /> {t("chat.recap.citations")}
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
                     {citations.map((citeId, idx) => (
-                      <span key={idx} className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] px-2.5 py-1 rounded-md font-mono flex items-center gap-1 transition-colors cursor-pointer">
-                        <MessageSquare className="w-3 h-3 text-slate-400" /> {isRtl ? "رسالة" : "Message"} #{citeId.slice(0, 8)}
+                      <span key={idx} className="flex cursor-pointer items-center gap-1 rounded-[var(--radius-control)] bg-muted px-2.5 py-1 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">
+                        <MessageSquare className="w-3 h-3" /> {t("chat.recap.message")} #{citeId.slice(0, 8)}
                       </span>
                     ))}
                   </div>
@@ -82,16 +92,16 @@ export default function AIRecapModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-100 flex items-center justify-between">
-          <span className="text-[11px] text-slate-400 flex items-center gap-1">
-            🔒 {isRtl ? "مُعالج محلياً 100% داخل سيادة المؤسسة" : "100% locally processed within enterprise sovereignty"}
+        <div className="flex items-center justify-between border-t border-border bg-muted/35 px-6 py-3.5">
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            🔒 {t("chat.recap.privacy")}
           </span>
-          <Button onClick={onClose} className="bg-brand hover:bg-brand text-white text-xs px-5 h-9 rounded-lg">
-            {isRtl ? "إغلاق نافذة التلخيص" : "Close Recap Window"}
+          <Button onClick={onClose}>
+            {t("chat.recap.close")}
           </Button>
         </div>
 
-      </div>
+      </section>
     </div>
   );
 }

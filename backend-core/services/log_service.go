@@ -12,6 +12,10 @@ import (
 
 // LogEvent async writes an audit log to the database
 func LogEvent(userID *uuid.UUID, action, entityType, entityID string, details interface{}, ipAddress string) {
+	LogEventForWorkspace(nil, userID, action, entityType, entityID, details, ipAddress)
+}
+
+func LogEventForWorkspace(workspaceID *uuid.UUID, userID *uuid.UUID, action, entityType, entityID string, details interface{}, ipAddress string) {
 	// Execute in a goroutine for non-blocking I/O
 	go func() {
 		var detailsBytes []byte
@@ -22,12 +26,13 @@ func LogEvent(userID *uuid.UUID, action, entityType, entityID string, details in
 		}
 
 		auditLog := models.AuditLog{
-			UserID:     userID,
-			Action:     action,
-			EntityType: entityType,
-			EntityID:   entityID,
-			Details:    datatypes.JSON(detailsBytes),
-			IPAddress:  ipAddress,
+			WorkspaceID: workspaceID,
+			UserID:      userID,
+			Action:      action,
+			EntityType:  entityType,
+			EntityID:    entityID,
+			Details:     datatypes.JSON(detailsBytes),
+			IPAddress:   ipAddress,
 		}
 
 		if err := database.DB.Create(&auditLog).Error; err != nil {

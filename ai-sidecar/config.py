@@ -4,6 +4,7 @@ from typing import Optional
 
 NATS_URL = os.getenv("NATS_URL", "nats://localhost:4222")
 DB_DSN = os.getenv("DB_DSN", "postgres://postgres:postgres@localhost:5432/septimus_db")
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend-core:4000")
 
 # Fallback keys if a workspace has no active provider configured in the DB.
@@ -25,7 +26,9 @@ def get_default_workspace_id() -> str:
     (callers then simply match no tenant data instead of a wrong tenant's).
     """
     global _resolved_default_workspace_id
-    if DEFAULT_WORKSPACE_ID:
+    if os.getenv("ALLOW_SINGLE_TENANT_DEFAULT") != "true":
+        return ""
+    if DEFAULT_WORKSPACE_ID and os.getenv("ALLOW_SINGLE_TENANT_DEFAULT") == "true":
         return DEFAULT_WORKSPACE_ID
     if _resolved_default_workspace_id is None:
         import requests
@@ -52,7 +55,10 @@ def get_default_workspace_id() -> str:
 # Centrifugo HTTP API — used to stream AI reply tokens to the browser as a
 # realtime side-channel (the HTTP response remains the authoritative final reply).
 CENTRIFUGO_API_URL = os.getenv("CENTRIFUGO_API_URL", "http://centrifugo:8000/api")
-CENTRIFUGO_API_KEY = os.getenv("CENTRIFUGO_API_KEY", "supersecretapikey")
+# No default: "supersecretapikey" is the published example value, so falling back
+# to it turned a forgotten env var into an open publish endpoint rather than a
+# broken one. Empty means realtime streaming is disabled — see realtime.publish.
+CENTRIFUGO_API_KEY = os.getenv("CENTRIFUGO_API_KEY", "")
 
 # Shared service-to-service secret. The sidecar is not published on any host
 # port — the only ingress is the JWT-protected proxy in the Go backend, which
@@ -79,8 +85,39 @@ CORS_ALLOW_ORIGINS = [
 ]
 
 
-def internal_headers() -> dict:
+def internal_headers(workspace_id: str = "", user_role: str = "") -> dict:
     """Headers for calls to the backend's token-gated /internal/* routes."""
+    headers = {}
     if INTERNAL_API_TOKEN:
-        return {"X-Internal-Token": INTERNAL_API_TOKEN}
-    return {}
+        headers["X-Internal-Token"] = INTERNAL_API_TOKEN
+    if workspace_id:
+        headers["X-Workspace-ID"] = workspace_id
+    if user_role:
+        headers["X-User-Role"] = user_role
+    return headers
+
+
+# Root the sidecar is allowed to read uploaded files from. Every file path we
+# act on arrives in a NATS payload or an HTTP body, so it is caller-controlled.
+UPLOADS_ROOT = os.path.abspath(os.getenv("UPLOADS_ROOT", "../backend-core"))
+
+
+def resolve_upload_path(candidate: str) -> Optional[str]:
+    """Resolve a caller-supplied file path, refusing anything outside UPLOADS_ROOT.
+
+    Without this, `../../../etc/passwd` (or any absolute path) reached `open()`
+    and its contents were shipped to a third-party API. Returns the absolute
+    path when it is a real file inside the root, else None — callers treat None
+    as "no such file" rather than reading whatever was asked for.
+    """
+    if not candidate or not candidate.strip():
+        return None
+    raw = candidate.strip()
+    full = os.path.abspath(raw if os.path.isabs(raw) else os.path.join(UPLOADS_ROOT, raw))
+    # Containment check on the normalized path: equal to the root, or beneath it.
+    if full != UPLOADS_ROOT and not full.startswith(UPLOADS_ROOT + os.sep):
+        print(f"[config] refused path outside uploads root: {raw!r}")
+        return None
+    if not os.path.isfile(full):
+        return None
+    return full

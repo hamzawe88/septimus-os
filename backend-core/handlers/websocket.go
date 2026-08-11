@@ -22,7 +22,8 @@ type Hub struct {
 	mu sync.RWMutex
 
 	// clients: map[UserID] → set of active connections for that user
-	clients map[string]map[*websocket.Conn]bool
+	clients              map[string]map[*websocket.Conn]bool
+	connectionWorkspaces map[*websocket.Conn]uuid.UUID
 
 	register   chan *Client
 	unregister chan *Client
@@ -30,8 +31,8 @@ type Hub struct {
 	// channelBroadcast delivers a message to members of a specific channel
 	channelBroadcast chan *ChannelMessage
 
-	// globalBroadcast delivers presence/system events to all connected clients
-	globalBroadcast chan []byte
+	// workspaceBroadcast delivers presence/system events only to one tenant.
+	workspaceBroadcast chan *WorkspaceMessage
 }
 
 // ChannelMessage carries both the target channelID and the payload to broadcast
@@ -40,19 +41,26 @@ type ChannelMessage struct {
 	Payload   []byte
 }
 
+type WorkspaceMessage struct {
+	WorkspaceID uuid.UUID
+	Payload     []byte
+}
+
 type Client struct {
-	hub    *Hub
-	conn   *websocket.Conn
-	userID string
+	hub         *Hub
+	conn        *websocket.Conn
+	userID      string
+	workspaceID uuid.UUID
 }
 
 func NewHub() *Hub {
 	return &Hub{
-		clients:          make(map[string]map[*websocket.Conn]bool),
-		register:         make(chan *Client, 256),
-		unregister:       make(chan *Client, 256),
-		channelBroadcast: make(chan *ChannelMessage, 512),
-		globalBroadcast:  make(chan []byte, 512),
+		clients:              make(map[string]map[*websocket.Conn]bool),
+		connectionWorkspaces: make(map[*websocket.Conn]uuid.UUID),
+		register:             make(chan *Client, 256),
+		unregister:           make(chan *Client, 256),
+		channelBroadcast:     make(chan *ChannelMessage, 512),
+		workspaceBroadcast:   make(chan *WorkspaceMessage, 512),
 	}
 }
 
@@ -69,8 +77,8 @@ func (h *Hub) Run() {
 			h.handleUnregister(client)
 		case cm := <-h.channelBroadcast:
 			h.handleChannelBroadcast(cm)
-		case message := <-h.globalBroadcast:
-			h.handleGlobalBroadcast(message)
+		case message := <-h.workspaceBroadcast:
+			h.handleWorkspaceBroadcast(message)
 		}
 	}
 }
@@ -84,6 +92,7 @@ func (h *Hub) handleRegister(client *Client) {
 		isNew = true
 	}
 	h.clients[client.userID][client.conn] = true
+	h.connectionWorkspaces[client.conn] = client.workspaceID
 	h.mu.Unlock()
 	log.Printf("[WS] User %s connected (%d total online)", client.userID, h.onlineCount())
 
@@ -93,7 +102,7 @@ func (h *Hub) handleRegister(client *Client) {
 			"user_id": client.userID,
 			"online":  true,
 		})
-		h.globalBroadcast <- presenceMsg
+		h.workspaceBroadcast <- &WorkspaceMessage{WorkspaceID: client.workspaceID, Payload: presenceMsg}
 	}
 }
 
@@ -104,6 +113,7 @@ func (h *Hub) handleUnregister(client *Client) {
 	if conns, ok := h.clients[client.userID]; ok {
 		if _, ok := conns[client.conn]; ok {
 			delete(conns, client.conn)
+			delete(h.connectionWorkspaces, client.conn)
 			client.conn.Close()
 			if len(conns) == 0 {
 				delete(h.clients, client.userID)
@@ -114,7 +124,7 @@ func (h *Hub) handleUnregister(client *Client) {
 					"user_id": client.userID,
 					"online":  false,
 				})
-				h.globalBroadcast <- presenceMsg
+				h.workspaceBroadcast <- &WorkspaceMessage{WorkspaceID: client.workspaceID, Payload: presenceMsg}
 				log.Printf("[WS] User %s disconnected (%d total online)", client.userID, h.onlineCount())
 				return
 			}
@@ -127,12 +137,20 @@ func (h *Hub) handleUnregister(client *Client) {
 // handleChannelBroadcast delivers a payload only to members of the target channel.
 func (h *Hub) handleChannelBroadcast(cm *ChannelMessage) {
 	// 🔐 Security: only send to members of this channel
-	members := h.getChannelMembers(cm.ChannelID)
+	members, workspaceID := h.getChannelMembers(cm.ChannelID)
+	if workspaceID == uuid.Nil {
+		return
+	}
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	for _, memberID := range members {
 		if conns, ok := h.clients[memberID]; ok {
 			for conn := range conns {
+				// A user id alone is not a tenant boundary. Only deliver to a
+				// connection authenticated for this channel's workspace.
+				if h.connectionWorkspaces[conn] != workspaceID {
+					continue
+				}
 				if err := conn.WriteMessage(websocket.TextMessage, cm.Payload); err != nil {
 					log.Printf("[WS] Write error for user %s: %v", memberID, err)
 				}
@@ -142,12 +160,15 @@ func (h *Hub) handleChannelBroadcast(cm *ChannelMessage) {
 }
 
 // handleGlobalBroadcast fans a presence/system payload out to every connection.
-func (h *Hub) handleGlobalBroadcast(message []byte) {
+func (h *Hub) handleWorkspaceBroadcast(message *WorkspaceMessage) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	for _, conns := range h.clients {
 		for conn := range conns {
-			conn.WriteMessage(websocket.TextMessage, message)
+			if h.connectionWorkspaces[conn] != message.WorkspaceID {
+				continue
+			}
+			_ = conn.WriteMessage(websocket.TextMessage, message.Payload)
 		}
 	}
 }
@@ -181,25 +202,25 @@ func (h *Hub) onlineCount() int {
 
 // getChannelMembers fetches all member user IDs for a channel from the DB.
 // Results are cached implicitly by the DB query optimizer.
-func (h *Hub) getChannelMembers(channelID string) []string {
+func (h *Hub) getChannelMembers(channelID string) ([]string, uuid.UUID) {
+	var channel models.Channel
+	if err := database.DB.Where("id = ?", channelID).First(&channel).Error; err != nil {
+		return nil, uuid.Nil
+	}
 	var members []models.ChannelMember
-	if err := database.DB.Where("channel_id = ?", channelID).Find(&members).Error; err != nil {
+	if err := database.DB.Where("channel_id = ?", channel.ID).Find(&members).Error; err != nil {
 		log.Printf("[WS] Failed to fetch members for channel %s: %v", channelID, err)
-		return nil
+		return nil, uuid.Nil
 	}
 
-	// Also include all users for PUBLIC channels
-	var channel models.Channel
-	if err := database.DB.First(&channel, "id = ?", channelID).Error; err == nil {
-		if channel.Type == "PUBLIC" {
-			// For public channels: broadcast to all connected users
-			h.mu.RLock()
-			defer h.mu.RUnlock()
-			ids := make([]string, 0, len(h.clients))
-			for uid := range h.clients {
-				ids = append(ids, uid)
-			}
-			return ids
+	if channel.Type == "PUBLIC" {
+		var users []models.User
+		if err := database.DB.Select("id").Where("workspace_id = ?", channel.WorkspaceID).Find(&users).Error; err != nil {
+			return nil, uuid.Nil
+		}
+		members = make([]models.ChannelMember, 0, len(users))
+		for _, user := range users {
+			members = append(members, models.ChannelMember{UserID: user.ID})
 		}
 	}
 
@@ -207,15 +228,15 @@ func (h *Hub) getChannelMembers(channelID string) []string {
 	for _, m := range members {
 		ids = append(ids, m.UserID.String())
 	}
-	return ids
+	return ids, channel.WorkspaceID
 }
 
 // ─── WS Message Struct ────────────────────────────────────────────────────────
 
 type WSMessage struct {
-	Type           string     `json:"type"`                    // "chat_message", "presence", "typing"
-	ChannelID      string     `json:"channel_id"`              // Target channel
-	ParentID       *uuid.UUID `json:"parent_id,omitempty"`     // Thread parent
+	Type           string     `json:"type"`                // "chat_message", "presence", "typing"
+	ChannelID      string     `json:"channel_id"`          // Target channel
+	ParentID       *uuid.UUID `json:"parent_id,omitempty"` // Thread parent
 	Author         string     `json:"author"`
 	Content        string     `json:"content"`
 	Time           string     `json:"time"`
@@ -229,9 +250,10 @@ func WebsocketHandler(c *websocket.Conn) {
 	userID, _ := c.Locals("user_id").(string)
 
 	client := &Client{
-		hub:    WSHub,
-		conn:   c,
-		userID: userID,
+		hub:         WSHub,
+		conn:        c,
+		userID:      userID,
+		workspaceID: database.ParseUUID(c.Locals("workspace_id").(string)),
 	}
 
 	client.hub.register <- client
@@ -267,13 +289,27 @@ func WebsocketHandler(c *websocket.Conn) {
 // handleChatMessage persists an inbound chat message, broadcasts it to channel
 // members, and publishes it to NATS for AI processing.
 func (client *Client) handleChatMessage(wsMsg WSMessage) {
-	if wsMsg.ChannelID == "" || wsMsg.Content == "" {
+	if wsMsg.ChannelID == "" || wsMsg.Content == "" || len(wsMsg.Content) > 10000 {
 		return
 	}
 
 	// 1. Persist to DB
 	userUUID := database.ParseUUID(client.userID)
 	channelUUID := database.ParseUUID(wsMsg.ChannelID)
+	if channelUUID == uuid.Nil || client.workspaceID == uuid.Nil {
+		return
+	}
+	var channel models.Channel
+	if err := database.DB.Where("id = ? AND workspace_id = ?", channelUUID, client.workspaceID).First(&channel).Error; err != nil {
+		return
+	}
+	if channel.Type != "PUBLIC" {
+		var member models.ChannelMember
+		if err := database.DB.Where("channel_id = ? AND user_id = ?", channelUUID, userUUID).First(&member).Error; err != nil {
+			log.Printf("[WS] rejected message from non-member %s on channel %s", client.userID, wsMsg.ChannelID)
+			return
+		}
+	}
 
 	dbMsg := models.Message{
 		ChannelID:      channelUUID,
@@ -300,14 +336,18 @@ func (client *Client) handleChatMessage(wsMsg WSMessage) {
 
 	// 4. Publish to NATS for AI Agent processing
 	if events.NatsConn != nil {
-		natsPayload, _ := json.Marshal(map[string]interface{}{
+		// The tenant comes off the persisted row (BeforeCreate derives it from
+		// the channel), which is authoritative here — a websocket frame has no
+		// request context to read it from.
+		if err := events.PublishTenantEvent("events.messages.created", dbMsg.WorkspaceID, map[string]interface{}{
 			"event":      "events.messages.created",
 			"message_id": dbMsg.ID,
 			"channel_id": dbMsg.ChannelID,
 			"content":    dbMsg.Content,
 			"sender_id":  dbMsg.SenderID,
-		})
-		events.PublishEvent("events.messages.created", natsPayload)
+		}); err != nil {
+			log.Printf("events.messages.created not published for message %s: %v", dbMsg.ID, err)
+		}
 	}
 }
 
@@ -315,6 +355,20 @@ func (client *Client) handleChatMessage(wsMsg WSMessage) {
 func (client *Client) handleTypingIndicator(wsMsg WSMessage) {
 	if wsMsg.ChannelID == "" {
 		return
+	}
+	channelID := database.ParseUUID(wsMsg.ChannelID)
+	if channelID == uuid.Nil || client.workspaceID == uuid.Nil {
+		return
+	}
+	var channel models.Channel
+	if err := database.DB.Where("id = ? AND workspace_id = ?", channelID, client.workspaceID).First(&channel).Error; err != nil {
+		return
+	}
+	if channel.Type != "PUBLIC" {
+		var member models.ChannelMember
+		if err := database.DB.Where("channel_id = ? AND user_id = ?", channelID, database.ParseUUID(client.userID)).First(&member).Error; err != nil {
+			return
+		}
 	}
 	typingMsg, _ := json.Marshal(map[string]interface{}{
 		"type":       "typing",
@@ -334,12 +388,27 @@ func WSAuthMiddleware(c *fiber.Ctx) error {
 		}
 
 		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fiber.ErrUnauthorized
+			}
 			return []byte(getJWTSecret()), nil
 		})
 
 		if err == nil && token.Valid {
 			if claims, ok := token.Claims.(jwt.MapClaims); ok {
-				c.Locals("user_id", claims["sub"])
+				userID, userOK := claims["sub"].(string)
+				workspaceID, workspaceOK := claims["workspace_id"].(string)
+				wsUUID := database.ParseUUID(workspaceID)
+				userUUID := database.ParseUUID(userID)
+				if !userOK || !workspaceOK || userUUID == uuid.Nil || wsUUID == uuid.Nil {
+					return c.Status(fiber.StatusUnauthorized).SendString("Invalid tenant claims")
+				}
+				var user models.User
+				if err := database.DB.Where("id = ? AND workspace_id = ?", userUUID, wsUUID).First(&user).Error; err != nil {
+					return c.Status(fiber.StatusUnauthorized).SendString("User is not a member of this workspace")
+				}
+				c.Locals("user_id", userID)
+				c.Locals("workspace_id", workspaceID)
 				return c.Next()
 			}
 		}

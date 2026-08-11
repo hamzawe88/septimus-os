@@ -1,54 +1,42 @@
-# Septimus OS — AI & Developer Constitutional Rules (AGENTS.md)
+# Septimus OS Project Rules
 
-> **دستور غير قابل للمساومة (CONSTITUTIONAL MANDATE)**:
-> جميع القواعد والسياسات أدناه ملزمة إلزاميّاً لأي وكيل ذكاء اصطناعي (AI Agent) أو مطور بشري يعمل على هذا المشروع. يُمنع منعاً باتاً تجاوز أو تجاهل أي من هذه القواعد تحت أي ظرف.
+## 1. MANDATORY FIRST STEP: Agent Onboarding
 
----
+**STOP AND READ:**
+Before you do ANYTHING else in this project, you MUST read the master onboarding document:
+👉 **[docs/00_AGENT_ONBOARDING.md](file:///Users/hamzwe/Desktop/LPC-BRAIN%20CORE/septimus-os/docs/00_AGENT_ONBOARDING.md)**
 
-## 1. دستور التكافؤ اللغوي المزدوج والتناظر (Bilingual Parity & RTL/LTR Symmetry Constitution)
+It contains the architecture overview, the JSONB entity pattern rules, and the strict frontend localization requirements.
 
-### التكافؤ اللغوي الإجباري (1:1 Parity)
+## 2. Bilingual Parity & RTL/LTR Symmetry Constitution
 
-- **كل تعديل في اللغة العربية يجب أن يقابله تعديل مطابق في اللغة الإنجليزية**: عند إضافة، تعديل، أو حذف أي نص أو مفتاح في واجهة المستخدم العربية (`ar.json` أو المكونات)، يجب فوراً وبشكل متزامن إضافة وإتمام التعديل ذاته في الجانب الإنجليزي (`en.json`).
-- **منع النصوص الثابتة (No Hardcoded Strings)**: يُمنع كتابة نصوص عربية أو إنجليزية ثابتة داخل مكونات React/TSX. يجب استخدام خطاف `useLocalization()` ودالة `t("key")` مع توفير الترجمة في كل من `ar.json` و `en.json`.
-- **التناظر التخطيطي (RTL/LTR Layout Symmetry)**: يجب التأكد من أن جميع عناصر التخطيط والأزرار تعمل بكفاءة تامة في كلا الاتجاهين:
-  - استخدام فئات Tailwind المنطقية مثل `start-0` و `end-0` و `me-2` و `ms-2` بدلاً من `left` / `right`.
-  - إضافة `shrink-0` و `truncate` و `gap-2.5` للقوائم الجانبية والأزرار لمنع تداخل النصوص واختفائها عند تبديل اللغة بين العربية والإنجليزية.
+- **1:1 Parity**: Every change in the Arabic UI (`ar.json` or components) MUST be immediately matched in the English UI (`en.json`).
+- **No Hardcoded Strings**: You are strictly forbidden from writing hardcoded Arabic or English text inside React/TSX components. Always use the `useLocalization()` hook and `t("key")`.
+- **RTL/LTR Layout Symmetry**: All layouts and buttons must work perfectly in both directions:
+  - Use logical Tailwind classes like `start-0`, `end-0`, `me-2`, and `ms-2` instead of `left` / `right`.
+  - Add `shrink-0`, `truncate`, and `gap-2.5` to sidebars and buttons to prevent text overlap when switching languages.
 
----
+## 3. User Approval Mandate
 
-## 2. دستور موافقة العميل قبل التعديل (User Approval Mandate)
+- **No modifications without prior permission**: Do not make any code changes or architectural shifts before presenting a clear `implementation_plan.md` and getting explicit approval from the user.
 
-- **لا تعديل بدون إذن مسبق**: يمنع إجراء أي تعديلات برمجية أو تغيير في معماريّة المشروع قبل تقديم خطة تطوير واضحة وشاملة (`implementation_plan.md`) والحصول على الضوء الأخضر والموافقة الصريحة من المستخدم.
-- **التوثيق المستمر**: أي ميزة جديدة أو نمط معماري يتم إدخاله يجب توثيقه في المراجع المعتمدة داخل مجلد `docs/` (مثل `docs/AI_DEVELOPER_CONSTITUTION.md`).
+## 4. Brand & Theme Architecture
 
----
+- **Single Source of Truth**: The theme (Company Name, Logo, Colors, Fonts) is managed exclusively by the Zustand store in `frontend/src/store/useThemeStore.ts`.
+- **Live Event Dispatch**: Updating the theme in `SettingsModal.tsx` saves to `localStorage` and dispatches a `septimus_brand_updated` event to update the `TopBar.tsx` instantly without reloading.
+- **Image Compression Rule**: Due to `localStorage` limits (~5MB), raw full-size logos MUST NOT be saved. They must pass through the programmatic compression handler (`processAndCompressLogo`) to be converted to `WEBP` (max 320x320, 85% quality).
+- **TopBar Contrast Rule**: All buttons and icons in the top header must rely on the contrast variable `color: var(--tb-text, #ffffff)` in `globals.css` to ensure visibility on both dark and light themes.
 
-## 3. دستور إدارة وحفظ الهوية والتفضيلات (Brand & Theme Architecture)
+## 5. Docker Rebuild Rule
 
-- **المصدر الوحيد للحقيقة (Single Source of Truth)**: تتم إدارة وحفظ حالة الهوية البصرية (اسم المؤسسة، الشعار، الألوان الرئيسية، والخطوط) عبر مخزن Zustand الموحد في `frontend/src/store/useThemeStore.ts`.
-- **التزامن الفوري (Live Event Dispatch)**: عند تحديث إعدادات الهوية من نافذة التفضيلات (`SettingsModal.tsx`)، يتم حفظ البيانات في `localStorage` (المفتاحين `septimus-theme-storage` و `septimus_brand`) وبث الحدث `window.dispatchEvent(new Event("septimus_brand_updated"))` لضمان استجابة الترويسة (`TopBar.tsx`) وباقي الشاشات لحظياً دون إعادة تحميل الصفحة.
-- **قيود الصور وضغط الشعار (Image Compression Rule)**: بسبب قيود حجم `localStorage` (~5MB)، يُمنع حفظ صور الشعار الخام بالحجم الكامل. يجب دائماً تمرير الصور عبر معالج الضغط البرمجي (`processAndCompressLogo`) لتحويلها إلى صيغة `WEBP` بأبعاد لا تتجاوز `320px × 320px` وجودة `85%` لضمان خفة واستقرار المخزن.
-- **تباين الألوان والأيقونات (`TopBar Contrast Rule`)**: يجب أن تعتمد كافة الأزرار والأيقونات في الترويسة العليا على متغير التباين `color: var(--tb-text, #ffffff)` في `globals.css` لضمان وضوحها التام على الخلفيات الداكنة والفاتحة.
+**MANDATORY STEP AFTER CODE MODIFICATIONS**:
+Whenever you modify frontend (`frontend/src/...`) or backend-core (`backend-core/...`) code, you MUST rebuild the corresponding Docker containers to ensure the user can see the changes.
 
----
+- Command: `docker-compose up -d --build frontend` (or `backend-core`)
+- Verify success via `docker logs`.
 
-## 4. دستور إعادة بناء حاويات Docker (Docker Rebuild Mandate)
+## 6. Obsidian Second Brain Usage
 
-- **إعادة بناء الحاوية فور كل تعديل**: عند تعديل أي ملف في الواجهة الأمامية (`frontend/src/...`) أو النواة الخلفية (`backend-core/...`)، يجب إجبارياً تنفيذ أمر بناء وتحديث الحاوية للتأكد من سلامة البناء وظهور التعديلات للمستخدم:
-
-  ```bash
-  docker-compose up -d --build frontend
-  ```
-
-- **التحقق من السجلات**: بعد البناء، يجب التحقق من عدم وجود أخطاء في التجميع (`Compiled successfully`) وجاهزية الخدمة عبر أمر `docker logs`.
-
----
-
-## 5. مرجع الملفات الأساسية للهوية والتوطين
-
-- `frontend/src/store/useThemeStore.ts`: مخزن الهوية والألوان.
-- `frontend/src/components/layout/SettingsModal.tsx`: شاشة إعدادات الهوية ومعالج رفع وضغط الشعار.
-- `frontend/src/components/layout/TopBar.tsx`: الشريط العلوي المتزامن مع حالة الشعار واسم الشركة.
-- `frontend/src/app/globals.css`: متغيرات الألوان والتصميم الأساسي.
-- `frontend/src/locales/ar.json` & `en.json`: قواميس الترجمة والتوطين المزدوج.
+- The root workspace is an Obsidian Vault.
+- Key architectural documents are located in `septimus-os/docs/`.
+- Start with `docs/00_AGENT_ONBOARDING.md` and follow the references from there.

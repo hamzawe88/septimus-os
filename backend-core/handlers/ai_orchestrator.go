@@ -64,22 +64,15 @@ func HandleOrchestratorQuery(c *fiber.Ctx) error {
 		})
 	}
 
-	// Extract or infer workspace and user claims from JWT locals if not explicitly provided
-	if req.WorkspaceID == "" {
-		if ws, ok := c.Locals("workspace_id").(string); ok && ws != "" {
-			req.WorkspaceID = ws
-		}
-	}
-	if req.UserID == "" {
-		if uid, ok := c.Locals("user_id").(string); ok && uid != "" {
-			req.UserID = uid
-		}
-	}
-	if req.UserRole == "" {
-		if role, ok := c.Locals("role").(string); ok && role != "" {
-			req.UserRole = role
-		}
-	}
+	// Identity comes from the JWT, never from the request body. These three
+	// fields decide which tenant the orchestrator reads and writes and which
+	// personas the caller may drive, so a body-supplied value was a
+	// cross-tenant access and a privilege escalation. Overwrite unconditionally
+	// and clear them when the claim is absent rather than letting the client's
+	// value stand.
+	req.WorkspaceID, _ = c.Locals("workspace_id").(string)
+	req.UserID, _ = c.Locals("user_id").(string)
+	req.UserRole, _ = c.Locals("role").(string)
 
 	return executeOrchestration(c, req)
 }

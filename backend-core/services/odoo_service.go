@@ -73,8 +73,12 @@ func PushOdooSettlement(serverURL, database, username, apiKey, reference, narrat
 	if reference == "" {
 		return 0, fmt.Errorf("settlement reference is required")
 	}
+	serverURL = strings.TrimSuffix(strings.TrimSpace(serverURL), "/")
+	if err := ValidateOutboundURL(serverURL); err != nil {
+		return 0, fmt.Errorf("Odoo server URL is not allowed: %w", err)
+	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := NewSafeHTTPClient(15 * time.Second)
 
 	// 1. Authenticate → numeric uid
 	authResult, err := odooRPC(client, serverURL, "common", "authenticate",

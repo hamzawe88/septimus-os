@@ -60,9 +60,8 @@ export default function EmployeesDirectory() {
   const fetchEmployees = async () => {
     setIsLoading(true);
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
       const res = await apiGet<{ data: any[], total_pages: number }>(
-        `/entities?workspace_id=${workspaceId}&type=hr_employee`,
+        `/employees`,
         undefined,
         { page, limit }
       );
@@ -122,7 +121,7 @@ export default function EmployeesDirectory() {
       probation:  { label: "🔍 " + t("hr.probation"),     cls: "bg-blue-100 text-blue-700" },
       terminated: { label: "❌ " + t("hr.terminated"),     cls: "bg-red-100 text-red-700" },
     };
-    const badge = map[status] || { label: status, cls: "bg-slate-100 text-slate-700" };
+    const badge = map[status] || { label: status, cls: "bg-muted text-foreground" };
     return <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${badge.cls}`}>{badge.label}</span>;
   };
 
@@ -136,31 +135,31 @@ export default function EmployeesDirectory() {
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-slate-500 text-sm">{t("hr.loadingEmployees")}</p>
+          <p className="text-muted-foreground text-sm">{t("hr.loadingEmployees")}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#f8fafc] w-full overflow-hidden">
+    <div className="flex flex-col h-full bg-background w-full overflow-hidden">
 
       {/* Header */}
-      <div className="flex-none px-8 py-6 border-b border-slate-200 bg-white">
+      <div className="flex-none px-8 py-6 border-b border-border bg-card">
         <div className="flex justify-between items-start gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">{t("hr.employeeDirectory")}</h1>
-            <p className="text-slate-500 mt-1 text-sm">{t("hr.employeeDirectoryDesc")}</p>
+            <h1 className="text-2xl font-bold text-foreground">{t("hr.employeeDirectory")}</h1>
+            <p className="text-muted-foreground mt-1 text-sm">{t("hr.employeeDirectoryDesc")}</p>
           </div>
           <div className="flex items-center gap-3 flex-wrap justify-end">
             <div className="relative">
-              <Search className="w-4 h-4 absolute end-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 placeholder={t("hr.searchEmployee")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="ps-4 pe-9 py-2 border border-slate-200 rounded-xl text-sm w-60 focus:outline-none focus:border-brand"
+                className="ps-4 pe-9 py-2 border border-border rounded-xl text-sm w-60 focus:outline-none focus:border-brand"
               />
             </div>
             <Button
@@ -180,29 +179,29 @@ export default function EmployeesDirectory() {
 
         {/* KPI Summary Row */}
         <div className="grid grid-cols-3 gap-4 mt-5">
-          <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3 border border-slate-200">
+          <div className="flex items-center gap-3 bg-muted rounded-xl p-3 border border-border">
             <Users className="w-8 h-8 text-indigo-600 bg-indigo-100 rounded-lg p-1.5" />
             <div>
-              <p className="text-xs text-slate-500 font-medium">{t("hr.totalEmployees")}</p>
-              <p className="text-xl font-black text-slate-800">{employees.length}</p>
+              <p className="text-xs text-muted-foreground font-medium">{t("hr.totalEmployees")}</p>
+              <p className="text-xl font-black text-foreground">{employees.length}</p>
             </div>
           </div>
-          <div className={`flex items-center gap-3 rounded-xl p-3 border ${alertCount > 0 ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200"}`}>
-            <AlertTriangle className={`w-8 h-8 rounded-lg p-1.5 ${alertCount > 0 ? "text-amber-700 bg-amber-100" : "text-slate-400 bg-slate-100"}`} />
+          <div className={`flex items-center gap-3 rounded-xl p-3 border ${alertCount > 0 ? "bg-amber-50 border-amber-200" : "bg-muted border-border"}`}>
+            <AlertTriangle className={`w-8 h-8 rounded-lg p-1.5 ${alertCount > 0 ? "text-amber-700 bg-amber-100" : "text-muted-foreground bg-muted"}`} />
             <div>
-              <p className="text-xs text-slate-500 font-medium">{t("hr.complianceAlerts")}</p>
-              <p className={`text-xl font-black ${alertCount > 0 ? "text-amber-700" : "text-slate-800"}`}>{alertCount}</p>
+              <p className="text-xs text-muted-foreground font-medium">{t("hr.complianceAlerts")}</p>
+              <p className={`text-xl font-black ${alertCount > 0 ? "text-amber-700" : "text-foreground"}`}>{alertCount}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3 border border-slate-200">
+          <div className="flex items-center gap-3 bg-muted rounded-xl p-3 border border-border">
             <DollarSign className="w-8 h-8 text-emerald-600 bg-emerald-100 rounded-lg p-1.5" />
             <div className="flex-1 min-w-[150px]">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-slate-500 font-medium">{t("hr.totalPayrollMonth")}</p>
+                <p className="text-xs text-muted-foreground font-medium">{t("hr.totalPayrollMonth")}</p>
                 <select
                   value={baseCurrency}
                   onChange={(e) => setBaseCurrency(e.target.value)}
-                  className="text-[10px] font-bold bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-700 hover:border-emerald-500 focus:outline-none cursor-pointer shadow-2xs"
+                  className="text-[10px] font-bold bg-card border border-border rounded px-1.5 py-0.5 text-foreground hover:border-emerald-500 focus:outline-none cursor-pointer shadow-2xs"
                   title={t("settings.baseCurrency")}
                 >
                   <option value="SAR">SAR</option>
@@ -228,7 +227,7 @@ export default function EmployeesDirectory() {
       {/* Employee Grid */}
       <div className="flex-1 overflow-y-auto p-8">
         {filteredEmployees.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-slate-400">
+          <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
             <Users className="w-12 h-12 mb-3 opacity-30" />
             <p className="text-sm font-medium">{t("hr.noEmployees")}</p>
           </div>
@@ -237,8 +236,8 @@ export default function EmployeesDirectory() {
             {filteredEmployees.map((emp) => (
               <div
                 key={emp.id}
-                className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all group relative overflow-hidden ${
-                  hasComplianceAlert(emp) ? "border-amber-300 ring-1 ring-amber-200" : "border-slate-200"
+                className={`bg-card rounded-2xl border shadow-sm hover:shadow-md transition-all group relative overflow-hidden ${
+                  hasComplianceAlert(emp) ? "border-amber-300 ring-1 ring-amber-200" : "border-border"
                 }`}
               >
                 {/* Compliance Alert Badge */}
@@ -256,24 +255,24 @@ export default function EmployeesDirectory() {
                       {emp.name.split(" ").slice(0, 2).map(n => n[0] || "").join("").toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-bold text-slate-900 truncate">{emp.name}</h3>
+                      <h3 className="text-base font-bold text-foreground truncate">{emp.name}</h3>
                       <p className="text-xs text-indigo-600 font-semibold truncate">{emp.position}</p>
-                      <p className="text-xs text-slate-400">{emp.department}</p>
+                      <p className="text-xs text-muted-foreground">{emp.department}</p>
                     </div>
                   </div>
 
                   {/* Details */}
                   <div className="space-y-2 mb-4 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-slate-400">{t("hr.joinDate")}</span>
-                      <span className="font-medium text-slate-700">{emp.joinDate}</span>
+                      <span className="text-muted-foreground">{t("hr.joinDate")}</span>
+                      <span className="font-medium text-foreground">{emp.joinDate}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400">{t("hr.baseSalary")}</span>
+                      <span className="text-muted-foreground">{t("hr.baseSalary")}</span>
                       <span className="font-mono font-semibold text-emerald-700">{formatCurrency(emp.base_salary || 0)}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400">{t("common.status")}</span>
+                      <span className="text-muted-foreground">{t("common.status")}</span>
                       {getStatusBadge(emp.status)}
                     </div>
                   </div>
@@ -288,12 +287,12 @@ export default function EmployeesDirectory() {
                       👤 Employee 360
                     </button>
                     {emp.email && (
-                      <a href={`mailto:${emp.email}`} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 border border-slate-200 rounded-xl transition-colors" title={emp.email}>
+                      <a href={`mailto:${emp.email}`} className="p-2 text-muted-foreground hover:text-blue-600 hover:bg-blue-50 border border-border rounded-xl transition-colors" title={emp.email}>
                         <Mail className="w-4 h-4" />
                       </a>
                     )}
                     {emp.phone && (
-                      <a href={`tel:${emp.phone}`} className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 border border-slate-200 rounded-xl transition-colors" title={emp.phone}>
+                      <a href={`tel:${emp.phone}`} className="p-2 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 border border-border rounded-xl transition-colors" title={emp.phone}>
                         <Phone className="w-4 h-4" />
                       </a>
                     )}
@@ -306,8 +305,8 @@ export default function EmployeesDirectory() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex justify-between items-center bg-white px-5 py-3 border border-slate-200 rounded-xl mt-6">
-            <span className="text-sm text-slate-500">{t("common.page")} {page} {t("common.of")} {totalPages}</span>
+          <div className="flex justify-between items-center bg-card px-5 py-3 border border-border rounded-xl mt-6">
+            <span className="text-sm text-muted-foreground">{t("common.page")} {page} {t("common.of")} {totalPages}</span>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>{t("common.prev")}</Button>
               <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>{t("common.next")}</Button>

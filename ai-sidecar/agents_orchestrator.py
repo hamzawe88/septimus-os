@@ -1,10 +1,9 @@
 import json
 import logging
-import re
-from datetime import datetime
-from typing import Dict, Any, List, Optional
+from datetime import datetime, timezone
+from typing import Dict, Any, Optional
 
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage  # type: ignore
 
 from skills_registry import skills_registry
 from reasoning_manual import (
@@ -13,9 +12,15 @@ from reasoning_manual import (
     get_validation_gate_prompt,
 )
 from knowledge import retrieve_context
+from llm_json import extract_json
 from providers import get_active_llm
+from stop_gate import resolve_required_parameters
 
 logger = logging.getLogger("agents_orchestrator")
+
+
+def utc_timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 class InternalAgentOrchestrator:
     """
@@ -32,13 +37,16 @@ class InternalAgentOrchestrator:
         context_parameters: Optional[Dict[str, Any]] = None,
         workspace_id: str = "default",
         user_id: str = "system",
-        user_role: str = "member"
+        user_role: str = "member",
+        domain: Optional[str] = None,
     ) -> Dict[str, Any]:
         if not context_parameters:
             context_parameters = {}
 
-        # 1. Thought & Match Phase: Identify matched skill persona
-        matched_skills = self.registry.search_skills(query, target_persona)
+        # 1. Thought & Match Phase: Identify matched skill persona.
+        # `domain` scopes matching to one specialist's catalogue (finance/sales/
+        # marketing/pm); without it the whole catalogue is searched.
+        matched_skills = self.registry.search_skills(query, target_persona, domain=domain)
         active_skill = matched_skills[0] if matched_skills else None
         active_persona_id = active_skill["id"] if active_skill else (target_persona or "SOVEREIGN_ORCHESTRATOR")
         active_persona_name = active_skill["name"] if active_skill else "Sovereign AI Brain"
@@ -47,25 +55,9 @@ class InternalAgentOrchestrator:
 
         # 2. Parameter Validation Stop-Gate Check
         if active_skill and active_skill.get("required_parameters"):
-            missing_params = []
-            for req_param in active_skill["required_parameters"]:
-                # Check if param exists in context_parameters
-                if req_param not in context_parameters or not context_parameters[req_param]:
-                    # Check if param key or value is mentioned in the raw query text using regex/simple match
-                    # e.g., if ticket_id required, check if query contains "ticket_id=..." or "#T-123"
-                    param_in_query = False
-                    pattern = rf"{req_param}[\s:=]+([a-zA-Z0-9_-]+)"
-                    match = re.search(pattern, query, re.IGNORECASE)
-                    if match:
-                        context_parameters[req_param] = match.group(1)
-                        param_in_query = True
-                    elif "id" in req_param.lower() and re.search(r"#(T-|L-|S-)?\d+", query):
-                        id_val = re.search(r"#(T-|L-|S-)?\d+", query).group(0)
-                        context_parameters[req_param] = id_val
-                        param_in_query = True
-
-                    if not param_in_query:
-                        missing_params.append(req_param)
+            missing_params = resolve_required_parameters(
+                active_skill["required_parameters"], context_parameters, query
+            )
 
             if missing_params:
                 missing_field = missing_params[0]
@@ -107,11 +99,11 @@ class InternalAgentOrchestrator:
                         "missing_parameters": missing_params,
                         "context_so_far": context_parameters
                     },
-                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                    "timestamp": utc_timestamp()
                 }
 
         # 3. Adopt & System Context Generation
-        dynamic_system_prompt = self.registry.generate_system_prompt(active_persona_id)
+        dynamic_system_prompt = self.registry.generate_system_prompt(active_persona_id, domain=domain)
         reasoning_directives = get_reasoning_directives("supervisor", "ar")
         validation_gate = get_validation_gate_prompt("ar")
         rag_context = retrieve_context(workspace_id, query, k=4) or "No specific external knowledge docs found."
@@ -127,30 +119,34 @@ class InternalAgentOrchestrator:
 
         llm = await get_active_llm(workspace_id)
         if not llm:
-            logger.warning("⚠️ No LLM provider active. Generating deterministic high-fidelity sovereign fallback.")
+            # No model ran, so nothing was analysed. The previous version of this
+            # branch reported "[VERIFIED] … تم تدقيق كافة الشروط بنسبة 100% دون تخمين"
+            # and stamped [VERIFIED STATS] on a template — fabricating exactly the
+            # epistemic labels reasoning_manual.py reserves for checked claims, and
+            # polluting the marker agents_miner.py uses for re-derived figures.
+            # What is actually true here: we matched a persona and stopped.
+            logger.warning("⚠️ No LLM provider active — returning an explicit 'not executed' result.")
             output_prose = (
-                f"### 🛡️ تقرير تنفيذ المهارة المؤسسية السيادية: **{active_persona_name}**\n\n"
-                f"**[VERIFIED] حالة التنفيذ**: تم تفعيل مسار موزع الذكاء الداخلي لطلبكم بنجاح ومطابقة الشخصية المؤسسية المناسبة "
-                f"`{active_persona_id}` ضمن مساحة العمل `{workspace_id}`.\n\n"
-                f"#### 📊 استنتاج المصفوفة والبيانات الفورية:\n"
-                f"- **النية المستخرجة (Domain 1 Intent)**: معالجة وتنفيذ الأمر: `{query}` وفق ضوابط دستور التفكير عالي المخاطر.\n"
-                f"- **التحقق برمجياً (Domain 4 First-Principles)**: تم تدقيق كافة الشروط والمعايير القياسية بنسبة 100% دون تخمين.\n"
-                f"- **التصنيف المعرفي (Domain 5 Epistemic Rigor)**: `[VERIFIED STATS]` تم التأكد من سلامة المعطيات الإحصائية وحقول `SQL` المترابطة.\n\n"
+                f"### ⚠️ لم تُنفَّذ المهارة: **{active_persona_name}** {active_skill.get('emoji', '🤖') if active_skill else ''}\n\n"
+                f"**الحالة**: لا يوجد مزوّد ذكاء اصطناعي نشط لمساحة العمل، فلم يجرِ أي تحليل.\n\n"
+                f"**ما تم فعلاً**: مطابقة الشخصية المؤسسية `{active_persona_id}` مع طلبكم، "
+                f"واستلام البارامترات المرفقة.\n\n"
+                f"**ما لم يتم**: أي استنتاج أو تدقيق أو استخراج أرقام. لا تعتمد على هذه الرسالة كنتيجة.\n\n"
                 f"> [!TIP]\n"
-                f"> **ملاحظة تشغيلية**: للتحكم الكامل واشتقاق ردود توليدية مخصصة عبر Claude/OpenAI، يمكنك ضبط مفتاح المزود في إعدادات النظام."
+                f"> اضبط مفتاح المزوّد في **إعدادات النظام → الذكاء الاصطناعي** ثم أعد إرسال الطلب."
             )
             return {
-                "status": "success",
-                "message": "Orchestration executed via deterministic sovereign core",
+                "status": "unavailable",
+                "message": "No active LLM provider; persona matched but nothing was executed.",
                 "active_persona": active_persona_id,
                 "output_prose": output_prose,
                 "deliverables": {
                     "persona_id": active_persona_id,
                     "persona_name": active_persona_name,
                     "processed_parameters": context_parameters,
-                    "epistemic_level": "VERIFIED_SOVEREIGN"
+                    "epistemic_level": "NOT_EXECUTED",
                 },
-                "timestamp": datetime.utcnow().isoformat() + "Z"
+                "timestamp": utc_timestamp()
             }
 
         # 4. Execute via LLM
@@ -170,15 +166,16 @@ class InternalAgentOrchestrator:
                 "processed_parameters": context_parameters
             }
 
-            if "```json" in llm_text:
-                try:
-                    parts = llm_text.split("```json")
-                    json_str = parts[1].split("```")[0].strip()
-                    parsed_deliverables = json.loads(json_str)
-                    if isinstance(parsed_deliverables, dict):
-                        deliverables.update(parsed_deliverables)
-                except Exception as e:
-                    logger.warning(f"Could not parse nested JSON deliverables from LLM: {e}")
+            # Best-effort: the orchestrator's structured deliverables are optional
+            # enrichment on top of the prose reply, so a parse miss is a warning,
+            # not a failure. extract_json handles fenced, bare, and prose-trailed
+            # output uniformly.
+            try:
+                parsed_deliverables = extract_json(llm_text)
+                if isinstance(parsed_deliverables, dict):
+                    deliverables.update(parsed_deliverables)
+            except Exception as e:
+                logger.warning(f"Could not parse nested JSON deliverables from LLM: {e}")
 
             return {
                 "status": "success",
@@ -186,7 +183,7 @@ class InternalAgentOrchestrator:
                 "active_persona": active_persona_id,
                 "output_prose": llm_text,
                 "deliverables": deliverables,
-                "timestamp": datetime.utcnow().isoformat() + "Z"
+                "timestamp": utc_timestamp()
             }
         except Exception as e:
             logger.error(f"❌ [Orchestrator] LLM execution error: {e}")
@@ -196,7 +193,7 @@ class InternalAgentOrchestrator:
                 "active_persona": active_persona_id,
                 "output_prose": f"⚠️ حدث خطأ أثناء تنفيذ استنتاج العقل المركزي: {str(e)}",
                 "deliverables": {},
-                "timestamp": datetime.utcnow().isoformat() + "Z"
+                "timestamp": utc_timestamp()
             }
 
 agent_orchestrator = InternalAgentOrchestrator()

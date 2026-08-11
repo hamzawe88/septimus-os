@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,38 +13,48 @@ import (
 	"github.com/septimus-os/backend-core/events"
 	"github.com/septimus-os/backend-core/models"
 	"github.com/septimus-os/backend-core/services"
-	"github.com/xeipuuv/gojsonschema"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // allowedEntityTypes is the complete list of valid entity types.
 // To add a new module, append here — no schema migration needed.
 var allowedEntityTypes = map[string]bool{
-	"task":             true,
-	"document":         true,
-	"meeting":          true,
-	"issue":            true,
-	"lead":             true,
-	"deal":             true,
-	"crm_deal":         true,
-	"invoice":          true,
-	"expense":          true,
-	"finance_invoice":  true,
-	"finance_expense":  true,
-	"ticket":           true,
-	"leave_request":    true,
-	"evaluation":       true,
-	"hr_employee":      true,
-	"hr_attendance":    true,
-	"hr_leave":         true,
-	"hr_leave_request": true,
-	"hr_job":           true,
-	"hr_policy":        true,
-	"crm_quote":        true,
+	"task":               true,
+	"document":           true,
+	"meeting":            true,
+	"issue":              true,
+	"lead":               true,
+	"deal":               true,
+	"crm_deal":           true,
+	"invoice":            true,
+	"expense":            true,
+	"finance_invoice":    true,
+	"finance_expense":    true,
+	"ticket":             true,
+	"leave_request":      true,
+	"evaluation":         true,
+	"hr_employee":        true,
+	"hr_attendance":      true,
+	"hr_leave":           true,
+	"hr_leave_request":   true,
+	"hr_job":             true,
+	"hr_policy":          true,
+	"crm_quote":          true,
 	"ai_agent":           true,
-	"schema":             true,
 	"user_orbit_task":    true,
 	"user_orbit_profile": true,
+}
+
+func isRetiredPMEntityType(entityType string) bool {
+	return entityType == "task" || entityType == "sub_task"
+}
+
+func retiredPMEntityError(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusGone).JSON(fiber.Map{
+		"error": "task and subtask records use the canonical project-management API",
+		"code":  "PM_CANONICAL_TASK_REQUIRED",
+	})
 }
 
 type CreateEntityRequest struct {
@@ -57,35 +69,66 @@ type CreateEntityRequest struct {
 // created event. Shared by the HTTP CreateEntity handler and the human-approval
 // executor so agent-proposed writes go through the same path once approved.
 func createEntityRecord(workspaceID uuid.UUID, entityType string, data map[string]interface{}) (models.Entity, error) {
+	return createEntityRecordWithDB(database.DB, workspaceID, nil, nil, entityType, data)
+}
+
+func createEntityRecordWithDB(
+	db *gorm.DB,
+	workspaceID uuid.UUID,
+	projectID *uuid.UUID,
+	actorID *uuid.UUID,
+	entityType string,
+	data map[string]interface{},
+) (models.Entity, error) {
 	if entityType == "" {
 		return models.Entity{}, fmt.Errorf("entity_type is required")
 	}
-	if !allowedEntityTypes[entityType] {
-		var schemaEntity models.Entity
-		err := database.DB.Where("workspace_id = ? AND entity_type = ? AND data->>'name' = ?", workspaceID, "schema", entityType).First(&schemaEntity).Error
-		if err != nil {
-			return models.Entity{}, fmt.Errorf("invalid entity_type: %s (schema not found)", entityType)
+	if entityType == "schema" {
+		return models.Entity{}, fmt.Errorf("schema definitions must use the schema registry API")
+	}
+	if isRetiredPMEntityType(entityType) {
+		return models.Entity{}, fmt.Errorf("PM_CANONICAL_TASK_REQUIRED: task records must use the project-management API")
+	}
+	if entityType == "crm_opportunity" {
+		principal := services.PrincipalForSystem("approved_ai")
+		if actorID != nil {
+			principal = services.PrincipalForUser(*actorID, "")
 		}
-
-		var schemaMap map[string]interface{}
-		if err := json.Unmarshal(schemaEntity.Data, &schemaMap); err == nil {
-			if schemaObj, ok := schemaMap["schema"]; ok && schemaObj != nil {
-				schemaBytes, _ := json.Marshal(schemaObj)
-				schemaLoader := gojsonschema.NewBytesLoader(schemaBytes)
-				docLoader := gojsonschema.NewGoLoader(data)
-				result, valErr := gojsonschema.Validate(schemaLoader, docLoader)
-				if valErr != nil {
-					return models.Entity{}, fmt.Errorf("schema validation check error: %v", valErr)
-				}
-				if !result.Valid() {
-					var errMsgs []string
-					for _, desc := range result.Errors() {
-						errMsgs = append(errMsgs, desc.String())
-					}
-					return models.Entity{}, fmt.Errorf("payload does not conform to schema %s: %s", entityType, strings.Join(errMsgs, "; "))
-				}
+		var opportunity models.Entity
+		err := db.Transaction(func(tx *gorm.DB) error {
+			company := strings.TrimSpace(fmt.Sprint(data["company"]))
+			if company == "" {
+				company = strings.TrimSpace(fmt.Sprint(data["title"]))
 			}
+			if company == "" {
+				return fmt.Errorf("CRM opportunity requires company or title")
+			}
+			account, err := services.CreateDynamicRecordAs(tx, workspaceID, principal, "crm_account", map[string]interface{}{
+				"name": company, "status": "prospect",
+			})
+			if err != nil {
+				return err
+			}
+			stage := normalizeCRMStage(strings.TrimSpace(fmt.Sprint(data["stage"])))
+			if _, valid := crmStageTransitions[stage]; !valid {
+				stage = "new"
+			}
+			value, _ := data["value"].(float64)
+			opportunity, err = services.CreateDynamicRecordAs(tx, workspaceID, principal, "crm_opportunity", map[string]interface{}{
+				"title": company, "account": account.ID.String(), "stage": stage,
+				"value": value, "currency": "SAR", "description": "AI-proposed record approved by a human reviewer",
+			})
+			return err
+		})
+		return opportunity, err
+	}
+
+	if !allowedEntityTypes[entityType] {
+		actor := uuid.Nil
+		if actorID != nil {
+			actor = *actorID
 		}
+		return services.CreateDynamicRecord(db, workspaceID, actor, entityType, data)
 	}
 
 	dataBytes, err := json.Marshal(data)
@@ -94,20 +137,28 @@ func createEntityRecord(workspaceID uuid.UUID, entityType string, data map[strin
 	}
 
 	entity := models.Entity{
-		WorkspaceID: workspaceID,
-		EntityType:  entityType,
-		Data:        datatypes.JSON(dataBytes),
+		WorkspaceID:   workspaceID,
+		ProjectID:     projectID,
+		DefinitionID:  nil,
+		SchemaVersion: 0,
+		RecordVersion: 1,
+		DisplayValue:  "",
+		CreatedBy:     actorID,
+		UpdatedBy:     actorID,
+		EntityType:    entityType,
+		Data:          datatypes.JSON(dataBytes),
 	}
-	if err := database.DB.Create(&entity).Error; err != nil {
+	if err := db.Create(&entity).Error; err != nil {
 		return models.Entity{}, err
 	}
 
-	eventPayload, _ := json.Marshal(map[string]interface{}{
+	if err := events.PublishTenantEvent("events.entities.created", entity.WorkspaceID, map[string]interface{}{
 		"event":     "entity.created",
 		"entity_id": entity.ID.String(),
 		"type":      entity.EntityType,
-	})
-	events.PublishEvent("events.entities.created", eventPayload)
+	}); err != nil {
+		log.Printf("events.entities.created not published for entity %s: %v", entity.ID, err)
+	}
 
 	return entity, nil
 }
@@ -119,79 +170,74 @@ func CreateEntity(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	// The frontend (like GetEntities/UpdateEntity/DeleteEntity) passes workspace_id
-	// as a query param; fall back to the body or JWT locals.
-	workspaceIDStr := c.Query("workspace_id")
-	if workspaceIDStr == "" {
-		workspaceIDStr = req.WorkspaceID
-	}
-	if workspaceIDStr == "" {
-		if ws, ok := c.Locals("workspace_id").(string); ok {
-			workspaceIDStr = ws
-		}
-	}
-	workspaceID, err := uuid.Parse(workspaceIDStr)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid Workspace ID"})
+	// Tenant comes from the session only. The frontend still sends workspace_id
+	// in the query and in the body, and this handler used to prefer both over
+	// the JWT — so the value the client typed decided which tenant the row was
+	// written into. Both are now ignored; req.WorkspaceID is accepted from the
+	// wire but never trusted.
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(403).JSON(fiber.Map{"error": "workspace context is required"})
 	}
 
-	// ✅ Validate entity_type against allowlist
 	if req.EntityType == "" && req.Type != "" {
 		req.EntityType = req.Type
 	}
 	if req.EntityType == "" {
 		return c.Status(400).JSON(fiber.Map{"error": "entity_type is required"})
 	}
-
-	isValidType := allowedEntityTypes[req.EntityType]
-	if !isValidType {
-		// Check if it's a dynamic schema created by the user
-		var schemaCount int64
-		database.GetDB(c).Model(&models.Entity{}).Where("workspace_id = ? AND entity_type = ? AND data->>'name' = ?", workspaceID, "schema", req.EntityType).Count(&schemaCount)
-		if schemaCount > 0 {
-			isValidType = true
-		}
+	if isRetiredPMEntityType(req.EntityType) {
+		return retiredPMEntityError(c)
 	}
-
-	if !isValidType {
-		return c.Status(400).JSON(fiber.Map{
-			"error":   "Invalid entity_type",
-			"allowed": []string{"task", "document", "meeting", "issue", "lead", "deal", "invoice", "expense", "leave_request", "evaluation", "ai_agent", "schema"},
+	if !allowedEntityTypes[req.EntityType] && req.EntityType != "schema" {
+		entity, err := services.CreateDynamicRecordAs(
+			database.GetDB(c), workspaceID, dynamicRecordPrincipal(c), req.EntityType, req.Data,
+		)
+		if err != nil {
+			return dynamicRecordError(c, err)
+		}
+		return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+			"message": "Entity created successfully",
+			"entity":  entity,
 		})
 	}
 
 	var projectIDPtr *uuid.UUID
 	if req.ProjectID != "" {
 		parsed, err := uuid.Parse(req.ProjectID)
-		if err == nil {
-			projectIDPtr = &parsed
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid project_id"})
 		}
+		var project models.Project
+		if err := database.GetDB(c).Select("id").Where("id = ? AND workspace_id = ?", parsed, workspaceID).First(&project).Error; err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "project does not belong to this workspace"})
+		}
+		projectIDPtr = &parsed
 	}
 
-	dataBytes, err := json.Marshal(req.Data)
+	entity, err := createEntityRecordWithDB(
+		database.GetDB(c),
+		workspaceID,
+		projectIDPtr,
+		currentUserUUID(c),
+		req.EntityType,
+		req.Data,
+	)
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid Data format"})
-	}
-
-	entity := models.Entity{
-		WorkspaceID: workspaceID,
-		ProjectID:   projectIDPtr,
-		EntityType:  req.EntityType,
-		Data:        datatypes.JSON(dataBytes),
-	}
-
-	// Save to DB
-	if result := database.GetDB(c).Create(&entity); result.Error != nil {
+		var validationErr *services.SchemaValidationError
+		if errors.As(err, &validationErr) {
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{
+				"error":   "record does not conform to the published schema",
+				"code":    "RECORD_SCHEMA_VALIDATION_FAILED",
+				"details": validationErr.Issues,
+			})
+		}
+		if strings.Contains(err.Error(), "invalid entity_type") ||
+			strings.Contains(err.Error(), "schema definitions must") {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error(), "code": "INVALID_ENTITY_TYPE"})
+		}
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to create entity"})
 	}
-
-	// Publish NATS event
-	eventPayload, _ := json.Marshal(map[string]interface{}{
-		"event":     "entity.created",
-		"entity_id": entity.ID.String(),
-		"type":      entity.EntityType,
-	})
-	events.PublishEvent("events.entities.created", eventPayload)
 
 	return c.Status(201).JSON(fiber.Map{
 		"message": "Entity created successfully",
@@ -202,27 +248,36 @@ func CreateEntity(c *fiber.Ctx) error {
 // GetEntities returns a filtered list of entities by workspace and optional type.
 // GET /api/v1/entities?workspace_id=UUID&type=task
 func GetEntities(c *fiber.Ctx) error {
-	workspaceIDStr := c.Query("workspace_id")
-	if workspaceIDStr == "" {
-		if ws, ok := c.Locals("workspace_id").(string); ok {
-			workspaceIDStr = ws
-		}
+	// Session-derived; ?workspace_id= is ignored — see CreateEntity.
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(403).JSON(fiber.Map{"error": "workspace context is required"})
 	}
 	entityType := c.Query("type")
+	if isRetiredPMEntityType(entityType) {
+		return retiredPMEntityError(c)
+	}
+	if entityType != "" && !allowedEntityTypes[entityType] {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "dynamic records must use the schema-aware data API",
+			"code":  "DYNAMIC_DATA_API_REQUIRED",
+		})
+	}
 
 	page := c.QueryInt("page", 1)
 	limit := c.QueryInt("limit", 50)
-
-	if workspaceIDStr == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "workspace_id is required"})
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 200 {
+		limit = 50
 	}
 
-	workspaceID, err := uuid.Parse(workspaceIDStr)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid workspace_id"})
-	}
-
-	query := database.GetDB(c).Model(&models.Entity{}).Where("workspace_id = ?", workspaceID)
+	// Dynamic records have field-level read policies and therefore must use the
+	// dedicated /data/:definitionKey API. Keeping them out of this legacy mixed
+	// endpoint prevents a read-policy bypass.
+	query := database.GetDB(c).Model(&models.Entity{}).
+		Where("workspace_id = ? AND definition_id IS NULL", workspaceID)
 	if entityType != "" {
 		query = query.Where("entity_type = ?", entityType)
 	}
@@ -251,33 +306,24 @@ func GetEntities(c *fiber.Ctx) error {
 
 // UpdateEntityRequest represents the expected payload for updating an entity
 type UpdateEntityRequest struct {
-	Name *string                `json:"name"`
-	Data map[string]interface{} `json:"data"`
+	Name            *string                `json:"name"`
+	Data            map[string]interface{} `json:"data"`
+	ExpectedVersion *int                   `json:"expected_version"`
 }
 
 // UpdateEntity updates an existing entity
 // PUT /api/v1/entities/:id?workspace_id=UUID
 func UpdateEntity(c *fiber.Ctx) error {
 	id := c.Params("id")
-	workspaceIDStr := c.Query("workspace_id")
-	if workspaceIDStr == "" {
-		if ws, ok := c.Locals("workspace_id").(string); ok {
-			workspaceIDStr = ws
-		}
-	}
-
-	if workspaceIDStr == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "workspace_id is required"})
+	// Session-derived; ?workspace_id= is ignored — see CreateEntity.
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(403).JSON(fiber.Map{"error": "workspace context is required"})
 	}
 
 	entityID, err := uuid.Parse(id)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid entity ID"})
-	}
-
-	workspaceID, err := uuid.Parse(workspaceIDStr)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid workspace_id"})
 	}
 
 	var req UpdateEntityRequest
@@ -288,6 +334,9 @@ func UpdateEntity(c *fiber.Ctx) error {
 	var entity models.Entity
 	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", entityID, workspaceID).First(&entity).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Entity not found"})
+	}
+	if isRetiredPMEntityType(entity.EntityType) {
+		return retiredPMEntityError(c)
 	}
 
 	if req.Data != nil {
@@ -303,8 +352,30 @@ func UpdateEntity(c *fiber.Ctx) error {
 			existingData[k] = v
 		}
 
-		dataBytes, _ := json.Marshal(existingData)
+		if entity.DefinitionID != nil {
+			if req.ExpectedVersion == nil || *req.ExpectedVersion != entity.RecordVersion {
+				return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+					"error":           "the record was changed by another editor",
+					"code":            "RECORD_VERSION_CONFLICT",
+					"current_version": entity.RecordVersion,
+				})
+			}
+			updated, updateErr := services.UpdateDynamicRecordAs(
+				database.GetDB(c), workspaceID, dynamicRecordPrincipal(c), entity.EntityType,
+				entity.ID, *req.ExpectedVersion, existingData,
+			)
+			if updateErr != nil {
+				return dynamicRecordError(c, updateErr)
+			}
+			return c.JSON(fiber.Map{"message": "Entity updated successfully", "entity": updated})
+		}
+
+		dataBytes, marshalErr := json.Marshal(existingData)
+		if marshalErr != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid Data format"})
+		}
 		entity.Data = datatypes.JSON(dataBytes)
+		entity.UpdatedBy = currentUserUUID(c)
 	}
 
 	if err := database.GetDB(c).Save(&entity).Error; err != nil {
@@ -312,12 +383,13 @@ func UpdateEntity(c *fiber.Ctx) error {
 	}
 
 	// Publish NATS event
-	eventPayload, _ := json.Marshal(map[string]interface{}{
+	if err := events.PublishTenantEvent("events.entities.updated", entity.WorkspaceID, map[string]interface{}{
 		"event":     "entity.updated",
 		"entity_id": entity.ID.String(),
 		"type":      entity.EntityType,
-	})
-	events.PublishEvent("events.entities.updated", eventPayload)
+	}); err != nil {
+		log.Printf("events.entities.updated not published for entity %s: %v", entity.ID, err)
+	}
 
 	return c.JSON(fiber.Map{
 		"message": "Entity updated successfully",
@@ -329,15 +401,10 @@ func UpdateEntity(c *fiber.Ctx) error {
 // DELETE /api/v1/entities/:id?workspace_id=UUID
 func DeleteEntity(c *fiber.Ctx) error {
 	id := c.Params("id")
-	workspaceIDStr := c.Query("workspace_id")
-	if workspaceIDStr == "" {
-		if ws, ok := c.Locals("workspace_id").(string); ok {
-			workspaceIDStr = ws
-		}
-	}
-
-	if workspaceIDStr == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "workspace_id is required"})
+	// Session-derived; ?workspace_id= is ignored — see CreateEntity.
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(403).JSON(fiber.Map{"error": "workspace context is required"})
 	}
 
 	entityID, err := uuid.Parse(id)
@@ -345,14 +412,20 @@ func DeleteEntity(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid entity ID"})
 	}
 
-	workspaceID, err := uuid.Parse(workspaceIDStr)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid workspace_id"})
-	}
-
 	var entity models.Entity
 	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", entityID, workspaceID).First(&entity).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Entity not found"})
+	}
+	if isRetiredPMEntityType(entity.EntityType) {
+		return retiredPMEntityError(c)
+	}
+	if entity.DefinitionID != nil {
+		if err := services.DeleteDynamicRecordAs(
+			database.GetDB(c), workspaceID, dynamicRecordPrincipal(c), entity.EntityType, entity.ID,
+		); err != nil {
+			return dynamicRecordError(c, err)
+		}
+		return c.JSON(fiber.Map{"message": "Entity deleted successfully"})
 	}
 
 	if err := database.GetDB(c).Delete(&entity).Error; err != nil {
@@ -365,12 +438,13 @@ func DeleteEntity(c *fiber.Ctx) error {
 	}
 
 	// Publish NATS event
-	eventPayload, _ := json.Marshal(map[string]interface{}{
+	if err := events.PublishTenantEvent("events.entities.deleted", entity.WorkspaceID, map[string]interface{}{
 		"event":     "entity.deleted",
 		"entity_id": entity.ID.String(),
 		"type":      entity.EntityType,
-	})
-	events.PublishEvent("events.entities.deleted", eventPayload)
+	}); err != nil {
+		log.Printf("events.entities.deleted not published for entity %s: %v", entity.ID, err)
+	}
 
 	return c.JSON(fiber.Map{
 		"message": "Entity deleted successfully",

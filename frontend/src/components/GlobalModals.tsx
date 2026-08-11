@@ -7,12 +7,13 @@ import DocumentUploadModal from "./shared/DocumentUploadModal";
 import NewChannelModal from "./shared/NewChannelModal";
 import NewDmModal from "./shared/NewDmModal";
 import ChatDock from "./chat/ChatDock";
-
 import CatchUpModal from "./chat/CatchUpModal";
 import GlobalSearchModal from "./chat/GlobalSearchModal";
 import CopilotLauncher from "./ai/CopilotLauncher";
 import { ToastContainer } from "./shared/ToastContainer";
 import UpgradeModal from "./billing/UpgradeModal";
+import { useMeetingStore } from "@/store/useMeetingStore";
+import HuddleWidget from "./huddles/HuddleWidget";
 
 interface TierGateDetail {
   error?: string;
@@ -22,7 +23,7 @@ interface TierGateDetail {
 }
 
 export default function GlobalModals() {
-  const { 
+  const {
     isLoggedIn,
     isDocumentModalOpen, setIsDocumentModalOpen,
     isNewChannelModalOpen, setIsNewChannelModalOpen,
@@ -31,6 +32,9 @@ export default function GlobalModals() {
   } = useAppStore();
 
   const { toast } = useToastStore();
+
+  // Meeting Store
+  const { isActive, isPiP, leaveOrEndMeeting } = useMeetingStore();
 
   const [tierGateInfo, setTierGateInfo] = useState<{
     isOpen: boolean;
@@ -80,28 +84,28 @@ export default function GlobalModals() {
   return (
     <>
       {isDocumentModalOpen && (
-        <DocumentUploadModal 
-          isOpen={isDocumentModalOpen} 
-          onClose={() => setIsDocumentModalOpen(false)} 
+        <DocumentUploadModal
+          isOpen={isDocumentModalOpen}
+          onClose={() => setIsDocumentModalOpen(false)}
         />
       )}
-      
+
       {isNewChannelModalOpen && (
-        <NewChannelModal 
-          onClose={() => setIsNewChannelModalOpen(false)} 
+        <NewChannelModal
+          onClose={() => setIsNewChannelModalOpen(false)}
         />
       )}
 
       {isNewDmModalOpen && (
-        <NewDmModal 
-          onClose={() => setIsNewDmModalOpen(false)} 
+        <NewDmModal
+          onClose={() => setIsNewDmModalOpen(false)}
         />
       )}
 
       {isCatchUpModalOpen && (
-        <CatchUpModal 
+        <CatchUpModal
           isOpen={isCatchUpModalOpen}
-          onClose={() => setIsCatchUpModalOpen(false)} 
+          onClose={() => setIsCatchUpModalOpen(false)}
         />
       )}
 
@@ -124,6 +128,15 @@ export default function GlobalModals() {
         requiredTier={tierGateInfo.requiredTier}
         currentTier={tierGateInfo.currentTier}
       />
+
+      {/* Global Meeting PiP - Always mounted when active, visually hidden when not PiP */}
+      {isActive && (
+        <div className={isPiP ? "block" : "hidden"}>
+          {/* Server-aware hang-up: `endMeeting` alone only cleaned up this tab
+              and left the room "live" for everyone else. */}
+          <HuddleWidget onClose={() => { void leaveOrEndMeeting(); }} />
+        </div>
+      )}
     </>
   );
 }

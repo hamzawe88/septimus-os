@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true, "skipLibCheck": true },
+  "include": ["src/app/meetings/**/*", "src/store/useMeetingStore.ts", "next-env.d.ts", "src/types/**/*"]
+}

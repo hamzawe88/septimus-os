@@ -10,6 +10,12 @@ from config import CENTRIFUGO_API_KEY, CENTRIFUGO_API_URL
 
 async def publish(channel: str, data: dict) -> None:
     """Publish a JSON payload to a Centrifugo channel. Never raises."""
+    if not CENTRIFUGO_API_KEY:
+        # Streaming is a side-channel; the HTTP response still carries the full
+        # reply. Skipping is correct here — publishing with a guessable key
+        # would be worse than not publishing.
+        print("[realtime] CENTRIFUGO_API_KEY is not set; skipping publish")
+        return
     try:
         async with aiohttp.ClientSession() as session:
             await session.post(

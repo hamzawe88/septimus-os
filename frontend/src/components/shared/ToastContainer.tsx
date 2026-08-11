@@ -55,7 +55,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
       </p>
       <button
         onClick={handleClose}
-        className="text-slate-400 hover:text-slate-600 transition-colors ms-1 flex-shrink-0 mt-0.5"
+        className="text-muted-foreground hover:text-muted-foreground transition-colors ms-1 flex-shrink-0 mt-0.5"
         aria-label="Dismiss notification"
       >
         <X className="w-4 h-4" />

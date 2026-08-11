@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/models"
 	"gorm.io/datatypes"
@@ -23,18 +24,18 @@ type SystemMessageRequest struct {
 
 // InjectSystemMessage allows backend services (like NATS workers) to inject a message into a channel
 func InjectSystemMessage(c *fiber.Ctx) error {
-	// Optional: verify an API key here
-	// apiKey := c.Get("X-System-Key")
-	// if apiKey != os.Getenv("SYSTEM_API_KEY") { return fiber.ErrUnauthorized }
-
 	var req SystemMessageRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 	}
 
 	channelID := database.ParseUUID(req.ChannelID)
+	workspaceID := CurrentWorkspaceID(c)
+	if workspaceID == uuid.Nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Workspace context is required"})
+	}
 	var channel models.Channel
-	if err := database.GetDB(c).Where("id = ?", channelID).First(&channel).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", channelID, workspaceID).First(&channel).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Channel not found"})
 	}
 
@@ -45,6 +46,7 @@ func InjectSystemMessage(c *fiber.Ctx) error {
 	}
 
 	dbMsg := models.Message{
+		WorkspaceID:   workspaceID,
 		ChannelID:     channelID,
 		SenderID:      senderID,
 		Content:       req.Content,
@@ -72,16 +74,16 @@ func InjectSystemMessage(c *fiber.Ctx) error {
 	// Broadcast via WebSocket Hub
 	// Build a custom payload for the frontend
 	outPayload := map[string]interface{}{
-		"ID":              dbMsg.ID,
-		"CreatedAt":       dbMsg.CreatedAt,
-		"Content":         dbMsg.Content,
-		"ChannelID":       dbMsg.ChannelID,
-		"type":            "chat_message", // WS type
-		"IsAIGenerated":   dbMsg.IsAIGenerated,
-		"AIAgentRole":     dbMsg.AIAgentRole,
-		"AIProposal":      req.AIProposal,
-		"EntityType":      req.EntityType,
-		"EntityID":        req.EntityID,
+		"ID":            dbMsg.ID,
+		"CreatedAt":     dbMsg.CreatedAt,
+		"Content":       dbMsg.Content,
+		"ChannelID":     dbMsg.ChannelID,
+		"type":          "chat_message", // WS type
+		"IsAIGenerated": dbMsg.IsAIGenerated,
+		"AIAgentRole":   dbMsg.AIAgentRole,
+		"AIProposal":    req.AIProposal,
+		"EntityType":    req.EntityType,
+		"EntityID":      req.EntityID,
 		"User": map[string]interface{}{
 			"Email": req.AIAgentRole, // Mocking author name
 		},
@@ -94,11 +96,21 @@ func InjectSystemMessage(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(dbMsg)
 }
 
-// InjectSystemMessageDirect allows internal Go functions in handlers package (like workflow_executor) to inject a message without an HTTP loopback.
-func InjectSystemMessageDirect(channelIDStr, content, aiAgentRole string, isAI bool) error {
+// InjectSystemMessageDirect allows internal Go functions in handlers package
+// (like workflow_executor) to inject a message without an HTTP loopback. The
+// caller MUST supply the tenant it is executing for: channel ids are opaque but
+// not an authorization boundary, and looking one up by id alone lets a workflow
+// in one workspace write into a channel in another workspace.
+func InjectSystemMessageDirect(workspaceID uuid.UUID, channelIDStr, content, aiAgentRole string, isAI bool) error {
+	if workspaceID == uuid.Nil {
+		return fmt.Errorf("workspace context is required")
+	}
 	channelID := database.ParseUUID(channelIDStr)
+	if channelID == uuid.Nil {
+		return fmt.Errorf("invalid channel id")
+	}
 	var channel models.Channel
-	if err := database.DB.Where("id = ?", channelID).First(&channel).Error; err != nil {
+	if err := database.DB.Where("id = ? AND workspace_id = ?", channelID, workspaceID).First(&channel).Error; err != nil {
 		return fmt.Errorf("channel not found: %w", err)
 	}
 

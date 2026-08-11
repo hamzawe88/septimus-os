@@ -1,302 +1,299 @@
-import React, { useState, useEffect } from 'react';
-import { useLocalization } from '@/contexts/LocalizationContext';
-import { 
-  Archive, 
-  Search, 
-  Filter, 
-  GitBranch, 
-  FileText, 
-  CheckCircle2, 
-  Clock, 
-  Stamp, 
-  QrCode, 
-  Eye, 
-  ShieldCheck
-} from 'lucide-react';
-import { useCorrespondenceStore, Correspondence } from '../../store/useCorrespondenceStore';
+"use client";
+
+import React, { useEffect, useState } from "react";
+import {
+  Archive,
+  CheckCircle2,
+  Clock,
+  Eye,
+  FileText,
+  Filter,
+  GitBranch,
+  QrCode,
+  Search,
+  ShieldCheck,
+  Stamp,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { Surface } from "@/components/ui/surface";
+import { Tag } from "@/components/ui/tag";
+import { useLocalization } from "@/contexts/LocalizationContext";
+import {
+  Correspondence,
+  useCorrespondenceStore,
+} from "@/store/useCorrespondenceStore";
+import { cn } from "@/lib/utils";
+
+type TagTone = "neutral" | "warning" | "success" | "brand";
 
 export const ArchiveExplorer: React.FC = () => {
-  const { isRtl } = useLocalization();
-  const { 
-    correspondences, 
-    fetchCorrespondences, 
-    setSelectedCorrespondence, 
-    setActiveTab, 
-    loading 
+  const { t } = useLocalization();
+  const {
+    correspondences,
+    fetchCorrespondences,
+    setSelectedCorrespondence,
+    setActiveTab,
+    loading,
   } = useCorrespondenceStore();
-
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedItemForTree, setSelectedItemForTree] = useState<Correspondence | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedItem, setSelectedItem] = useState<Correspondence | null>(null);
 
   useEffect(() => {
-    fetchCorrespondences({ status: statusFilter !== 'all' ? statusFilter : undefined, search: search || undefined });
-  }, [fetchCorrespondences, statusFilter, search]);
+    void fetchCorrespondences({
+      status: statusFilter !== "all" ? statusFilter : undefined,
+      search: search || undefined,
+    });
+  }, [fetchCorrespondences, search, statusFilter]);
 
-  const filtered = correspondences.filter(c => {
-    if (statusFilter !== 'all' && c.status !== statusFilter) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const matchTitle = (c.title || '').toLowerCase().includes(q);
-      const matchSerial = (c.serial_number || '').toLowerCase().includes(q);
-      const matchContent = (c.content || '').toLowerCase().includes(q);
-      return matchTitle || matchSerial || matchContent;
-    }
-    return true;
+  const filtered = correspondences.filter((item) => {
+    if (statusFilter !== "all" && item.status !== statusFilter) return false;
+    const query = search.trim().toLocaleLowerCase();
+    if (!query) return true;
+    return [item.title, item.serial_number, item.content].some((value) =>
+      (value || "").toLocaleLowerCase().includes(query),
+    );
   });
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'draft':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-            <Clock className="w-3 h-3 text-slate-500" />
-            {isRtl ? 'مسودة قيد الإعداد' : 'Draft'}
-          </span>
-        );
-      case 'pending_signature':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-            <Stamp className="w-3 h-3 text-amber-600" />
-            {isRtl ? 'بانتظار الختم والاعتماد' : 'Pending Approval'}
-          </span>
-        );
-      case 'signed':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-            {isRtl ? 'مختوم وموقع بـ QR' : 'Sealed'}
-          </span>
-        );
-      case 'archived':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300">
-            <Archive className="w-3 h-3 text-indigo-600" />
-            {isRtl ? 'مؤرشف دلالياً' : 'Archived'}
-          </span>
-        );
-      default:
-        return null;
-    }
+  const statusConfig: Record<
+    string,
+    { label: string; tone: TagTone; icon: React.ReactNode }
+  > = {
+    draft: {
+      label: t("correspondence.archive.status.draft"),
+      tone: "neutral",
+      icon: <Clock />,
+    },
+    pending_signature: {
+      label: t("correspondence.archive.status.pending"),
+      tone: "warning",
+      icon: <Stamp />,
+    },
+    signed: {
+      label: t("correspondence.archive.status.signed"),
+      tone: "success",
+      icon: <CheckCircle2 />,
+    },
+    archived: {
+      label: t("correspondence.archive.status.archived"),
+      tone: "brand",
+      icon: <Archive />,
+    },
   };
 
+  const statusTag = (status?: string) => {
+    const config = statusConfig[status || "draft"] || statusConfig.draft;
+    return (
+      <Tag tone={config.tone}>
+        {config.icon}
+        {config.label}
+      </Tag>
+    );
+  };
+
+  const filters = [
+    { key: "all", label: t("correspondence.archive.filters.all") },
+    { key: "draft", label: t("correspondence.archive.filters.draft") },
+    {
+      key: "pending_signature",
+      label: t("correspondence.archive.filters.pending"),
+    },
+    { key: "signed", label: t("correspondence.archive.filters.signed") },
+    { key: "archived", label: t("correspondence.archive.filters.archived") },
+  ];
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Top Filter & Search Bar */}
-      <div className="p-5 rounded-xl bg-white dark:bg-[#1a1d21] border border-slate-200 dark:border-slate-800/80 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+    <div data-testid="correspondence-archive" className="space-y-6">
+      <Surface className="flex flex-col items-center justify-between gap-4 md:flex-row">
         <div className="relative w-full md:w-96">
-          <Search className={`w-4 h-4 text-slate-400 absolute top-3 ${isRtl ? 'right-3.5' : 'left-3.5'}`} />
-          <input
-            type="text"
+          <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={isRtl ? 'ابحث برقم القيد، الموضوع، أو الكلمات الدلالية...' : 'Search by serial number, subject, or keywords...'}
-            className={`w-full py-2 ${isRtl ? 'pr-9 pl-3' : 'pl-9 pr-3'} rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-sm focus:outline-none focus:ring-2 focus:ring-brand`}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t("correspondence.archive.searchPlaceholder")}
+            aria-label={t("correspondence.archive.search")}
+            className="ps-9"
           />
         </div>
-
-        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 shrink-0">
-            <Filter className="w-3.5 h-3.5" /> {isRtl ? 'الحالة:' : 'Status:'}
+        <div className="flex w-full items-center gap-2 overflow-x-auto md:w-auto">
+          <span className="flex shrink-0 items-center gap-1 text-xs font-bold text-muted-foreground">
+            <Filter className="size-3.5" />
+            {t("correspondence.archive.filterLabel")}
           </span>
-          {[
-            { key: 'all', label: isRtl ? 'جميع الحالات' : 'All Statuses' },
-            { key: 'draft', label: isRtl ? 'مسودات' : 'Drafts' },
-            { key: 'pending_signature', label: isRtl ? 'بانتظار الختم' : 'Pending' },
-            { key: 'signed', label: isRtl ? 'مختوم (QR)' : 'Sealed (QR)' },
-            { key: 'archived', label: isRtl ? 'مؤرشف (RAG)' : 'Archived (RAG)' },
-          ].map((item) => (
-            <button
-              key={item.key}
-              onClick={() => setStatusFilter(item.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer ${
-                statusFilter === item.key
-                  ? 'bg-brand text-white shadow-sm'
-                  : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
+          {filters.map((filter) => (
+            <Button
+              key={filter.key}
+              type="button"
+              size="xs"
+              variant={statusFilter === filter.key ? "default" : "outline"}
+              onClick={() => setStatusFilter(filter.key)}
+              aria-pressed={statusFilter === filter.key}
             >
-              {item.label}
-            </button>
+              {filter.label}
+            </Button>
           ))}
         </div>
-      </div>
+      </Surface>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left/Middle Column: Filtered List */}
-        <div className="lg:col-span-8 space-y-4">
-          <div className="p-6 rounded-xl bg-white dark:bg-[#1a1d21] border border-slate-200 dark:border-slate-800/80 shadow-sm">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <Archive className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                <span>{isRtl ? 'مستكشف الأرشيف الذكي وشجرة الإحالات' : 'Smart Archive & Forwarding Explorer'}</span>
-                <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
-                  {filtered.length}
-                </span>
-              </h3>
-            </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <Surface className="space-y-4 lg:col-span-8">
+          <header className="flex items-center gap-2 border-b border-border pb-4">
+            <Archive className="size-5 text-brand" />
+            <h3 className="font-bold">{t("correspondence.archive.title")}</h3>
+            <Tag tone="brand">{filtered.length}</Tag>
+          </header>
 
-            {loading && filtered.length === 0 ? (
-              <div className="py-12 text-center text-slate-500 text-sm">{isRtl ? 'جاري تحميل سجلات الأرشيف...' : 'Loading archive records...'}</div>
-            ) : filtered.length === 0 ? (
-              <div className="py-12 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800">
-                <FileText className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                  {isRtl ? 'لا توجد مراسلات مطابقة في ديوان الرئاسة' : 'No matching correspondences found in Diwan'}
-                </p>
-                <p className="text-xs text-slate-400 mt-1">{isRtl ? 'حاول تعديل معايير البحث أو تصفية الحالة أعلاه.' : 'Try adjusting your search criteria or status filter above.'}</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filtered.map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => setSelectedItemForTree(item)}
-                    className={`py-4 px-3 rounded-xl cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                      selectedItemForTree?.id === item.id
-                        ? 'bg-indigo-50/80 dark:bg-indigo-900/20 border border-indigo-500/40 shadow-sm'
-                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/40 border border-transparent'
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2.5 mb-1">
-                        <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
-                          {item.serial_number || (isRtl ? 'مسودة' : 'DRAFT')}
-                        </span>
-                        {getStatusBadge(item.status || 'draft')}
-                        {item.urgent && (
-                          <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 text-[10px] font-bold uppercase tracking-wide">
-                            {isRtl ? 'عاجل' : 'Urgent'}
-                          </span>
-                        )}
-                      </div>
-                      <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">{item.title || (isRtl ? 'مستند بدون عنوان' : 'Untitled Document')}</h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">{item.content}</p>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedCorrespondence(item);
-                          setActiveTab('editor');
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
-                      >
-                        <Eye className="w-3.5 h-3.5 text-blue-500" />
-                        {isRtl ? 'عرض المستند' : 'View Document'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Administrative Routing Tree (ltree) & QR Seal Inspection */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="p-6 rounded-xl bg-white dark:bg-[#1a1d21] border border-slate-200 dark:border-slate-800/80 shadow-sm sticky top-6">
-            <h4 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2 pb-3 mb-4 border-b border-slate-100 dark:border-slate-800">
-              <GitBranch className="w-5 h-5 text-indigo-500" />
-              <span>{isRtl ? 'شجرة الإحالات الإدارية وحركة المستند' : 'Administrative Forwarding & Directive Tree'}</span>
-            </h4>
-
-            {!selectedItemForTree ? (
-              <div className="py-10 text-center text-slate-400 text-xs border border-dashed rounded-xl border-slate-200 dark:border-slate-800 p-4">
-                <GitBranch className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                {isRtl
-                  ? 'اختر أي مراسلة من القائمة يساراً لعرض سجلات الإحالة الهرمية (ltree) والختم الخارجي المشفر (QR Code).'
-                  : 'Select any correspondence record on the left to inspect its complete ltree organizational routing logs and external QR verification seal.'}
-              </div>
-            ) : (
-              <div className="space-y-6 text-xs">
-                {/* Document Brief */}
-                <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-1.5">
-                  <div className="flex items-center justify-between font-mono">
-                    <span className="font-bold text-blue-600 dark:text-blue-400">{selectedItemForTree.serial_number || (isRtl ? 'مسودة' : 'DRAFT')}</span>
-                    <span>{getStatusBadge(selectedItemForTree.status || 'draft')}</span>
-                  </div>
-                  <p className="font-bold text-slate-900 dark:text-white truncate">{selectedItemForTree.title || (isRtl ? 'بدون عنوان' : 'Untitled Document')}</p>
-                  <p className="text-slate-500 text-[11px] leading-relaxed line-clamp-2">{selectedItemForTree.content}</p>
-                </div>
-
-                {/* External QR Seal Section */}
-                {(selectedItemForTree.status === 'signed' || selectedItemForTree.status === 'archived' || selectedItemForTree.qr_code) && (
-                  <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-800/60 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded bg-white shadow-inner shrink-0">
-                        <QrCode className="w-10 h-10 text-emerald-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-extrabold text-emerald-900 dark:text-emerald-300 text-xs uppercase tracking-wide flex items-center gap-1">
-                          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                          {isRtl ? 'ختم سيادي معتمد (QR Checksum)' : 'Certified External Seal'}
-                        </p>
-                        <p className="text-[10px] text-emerald-700 dark:text-emerald-400 truncate font-mono mt-0.5">
-                          HASH: {selectedItemForTree.qr_code ? 'SEP-QR-VERIFIED-9832A' : 'VERIFIED'}
-                        </p>
-                        <p className="text-[10px] text-emerald-600 dark:text-emerald-500">
-                          {isRtl ? 'معتمد من:' : 'Sealed:'} {selectedItemForTree.signed_at || (isRtl ? 'سلطة ديوان الرئاسة' : 'By Diwan Authority')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Routing Tree / Logs */}
-                <div>
-                  <h5 className="font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">
-                    {isRtl ? 'سجل الإحالات والتوجيهات (مسار ltree)' : 'Routing & Directive History (ltree path)'}
-                  </h5>
-
-                  {!selectedItemForTree.forward_logs || selectedItemForTree.forward_logs.length === 0 ? (
-                    <div className="space-y-3">
-                      {/* Default simulated initial routing log */}
-                      <div className="relative pl-6 before:absolute before:left-2 before:top-2 before:bottom-0 before:w-0.5 before:bg-indigo-300 dark:before:bg-indigo-800">
-                        <div className="absolute left-0.5 top-1.5 w-3.5 h-3.5 rounded-full bg-indigo-600 border-2 border-white dark:border-slate-900" />
-                        <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                          <div className="flex items-center justify-between font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mb-1">
-                            <span>top.ministry.diwan.exec</span>
-                            <span>{isRtl ? 'إصدار أولي' : 'ISSUANCE'}</span>
-                          </div>
-                          <p className="font-bold text-slate-800 dark:text-slate-200">{isRtl ? 'مكتب ديوان الرئاسة المنشئ' : 'Originating Diwan Office'}</p>
-                          <p className="text-slate-500 text-[11px] mt-0.5">{isRtl ? 'تم تسجيل الخطاب ومنحه قفلاً تسلسلياً فريداً.' : 'Document registered and assigned unique serial lock.'}</p>
-                        </div>
-                      </div>
-
-                      <div className="relative pl-6">
-                        <div className="absolute left-0.5 top-1.5 w-3.5 h-3.5 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-white dark:border-slate-900" />
-                        <div className="p-3 rounded-lg bg-slate-50/50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-slate-400">
-                          <p className="font-semibold">{isRtl ? 'لم تتم أي إحالات إدارية أخرى بعد.' : 'No further forward directives executed yet.'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {selectedItemForTree.forward_logs.map((log, idx) => (
-                        <div key={log.id || idx} className="relative pl-6 before:absolute before:left-2 before:top-2 before:bottom-0 before:w-0.5 before:bg-indigo-300 dark:before:bg-indigo-800 last:before:hidden">
-                          <div className="absolute left-0.5 top-1.5 w-3.5 h-3.5 rounded-full bg-indigo-600 border-2 border-white dark:border-slate-900" />
-                          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                            <div className="flex items-center justify-between font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mb-1">
-                              <span>{log.to_node_path}</span>
-                              <span className="uppercase text-amber-600">{log.action_required || (isRtl ? 'إحالة' : 'ROUTED')}</span>
-                            </div>
-                            <p className="font-bold text-slate-800 dark:text-slate-200">{isRtl ? 'إلى:' : 'To:'} {log.to_user_id}</p>
-                            {log.note && (
-                              <p className="text-slate-500 text-[11px] mt-1 bg-white dark:bg-[#1a1d21] p-2 rounded border border-slate-100 dark:border-slate-800">
-                                &quot;{log.note}&quot;
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+          {loading && filtered.length === 0 ? (
+            <p className="py-12 text-center text-sm text-muted-foreground">
+              {t("correspondence.archive.loading")}
+            </p>
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={<FileText />}
+              title={t("correspondence.archive.empty")}
+              description={t("correspondence.archive.emptyDescription")}
+            />
+          ) : (
+            <div className="divide-y divide-border">
+              {filtered.map((item) => (
+                <article
+                  key={item.id}
+                  className={cn(
+                    "flex cursor-pointer flex-col justify-between gap-3 rounded-[var(--radius-control)] border border-transparent px-3 py-4 transition-colors sm:flex-row sm:items-center",
+                    selectedItem?.id === item.id
+                      ? "border-brand/20 bg-brand-light"
+                      : "hover:bg-muted",
                   )}
+                  onClick={() => setSelectedItem(item)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <Tag tone="info">
+                        {item.serial_number || t("correspondence.archive.draftSerial")}
+                      </Tag>
+                      {statusTag(item.status)}
+                      {item.urgent ? (
+                        <Tag tone="danger">{t("correspondence.archive.urgent")}</Tag>
+                      ) : null}
+                    </div>
+                    <h4 className="truncate text-sm font-bold">
+                      {item.title || t("correspondence.archive.untitled")}
+                    </h4>
+                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                      {item.content}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSelectedCorrespondence(item);
+                      setActiveTab("editor");
+                    }}
+                  >
+                    <Eye data-icon="inline-start" />
+                    {t("correspondence.archive.viewDocument")}
+                  </Button>
+                </article>
+              ))}
+            </div>
+          )}
+        </Surface>
+
+        <Surface className="space-y-4 self-start lg:sticky lg:top-6 lg:col-span-4">
+          <header className="flex items-center gap-2 border-b border-border pb-3">
+            <GitBranch className="size-5 text-brand" />
+            <h4 className="font-bold">{t("correspondence.archive.routingTitle")}</h4>
+          </header>
+
+          {!selectedItem ? (
+            <EmptyState
+              icon={<GitBranch />}
+              title={t("correspondence.archive.selectRecord")}
+              description={t("correspondence.archive.selectRecordDescription")}
+            />
+          ) : (
+            <div className="space-y-6 text-xs">
+              <div className="space-y-2 rounded-[var(--radius-control)] border border-border bg-muted p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-bold text-info">
+                    {selectedItem.serial_number ||
+                      t("correspondence.archive.draftSerial")}
+                  </span>
+                  {statusTag(selectedItem.status)}
                 </div>
+                <p className="truncate font-bold">
+                  {selectedItem.title || t("correspondence.archive.untitled")}
+                </p>
+                <p className="line-clamp-2 text-muted-foreground">
+                  {selectedItem.content}
+                </p>
               </div>
-            )}
-          </div>
-        </div>
+
+              {selectedItem.status === "signed" ||
+              selectedItem.status === "archived" ||
+              selectedItem.qr_code ? (
+                <div className="space-y-2 rounded-[var(--radius-control)] border border-success/20 bg-success/10 p-4">
+                  <p className="flex items-center gap-2 font-bold text-success">
+                    <QrCode className="size-5" />
+                    <ShieldCheck className="size-4" />
+                    {t("correspondence.archive.sealAvailable")}
+                  </p>
+                  <p className="text-success">
+                    {t("correspondence.archive.sealedAt")}:{" "}
+                    {selectedItem.signed_at || t("common.na")}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {t("correspondence.archive.sealDescription")}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="space-y-3">
+                <h5 className="font-bold text-foreground">
+                  {t("correspondence.archive.routingHistory")}
+                </h5>
+                {!selectedItem.forward_logs ||
+                selectedItem.forward_logs.length === 0 ? (
+                  <EmptyState
+                    title={t("correspondence.archive.noRouting")}
+                    description={t("correspondence.archive.noRoutingDescription")}
+                    className="min-h-36"
+                  />
+                ) : (
+                  selectedItem.forward_logs.map((log, index) => (
+                    <div
+                      key={log.id || index}
+                      className="relative ps-6 before:absolute before:start-2 before:bottom-0 before:top-2 before:w-0.5 before:bg-brand last:before:hidden"
+                    >
+                      <span className="absolute start-0.5 top-1.5 size-3.5 rounded-full border-2 border-background bg-brand" />
+                      <div className="space-y-1 rounded-[var(--radius-control)] border border-border bg-muted p-3">
+                        <div className="flex items-center justify-between gap-2 font-mono text-[10px] font-bold text-brand">
+                          <span className="truncate">{log.to_node_path}</span>
+                          <span>{log.action_required || t("correspondence.archive.routed")}</span>
+                        </div>
+                        <p className="font-bold">
+                          {t("correspondence.archive.to")}: {log.to_user_id}
+                        </p>
+                        {log.note ? (
+                          <p className="rounded border border-border bg-card p-2 text-muted-foreground">
+                            &quot;{log.note}&quot;
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </Surface>
       </div>
     </div>
   );

@@ -47,20 +47,20 @@ export default function SettingsLayout() {
   const isSaasView = activeTab === "saas_settings";
 
   return (
-    <div className="flex h-full w-full bg-slate-50 dark:bg-slate-900 transition-colors">
+    <div className="flex h-full w-full bg-muted dark:bg-slate-900 transition-colors">
       {/* Inner Sidebar - Hidden on SaaS View to give full width */}
       {!isSaasView && (
-        <div className={`w-72 border-e border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex flex-col shrink-0`}>
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className={`w-72 border-e border-border dark:border-slate-800 bg-card dark:bg-slate-950 flex flex-col shrink-0`}>
+          <div className="p-4 border-b border-border dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-brand/10 flex items-center justify-center text-brand">
                 <SettingsIcon className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+                <h2 className="font-bold text-foreground dark:text-slate-100 text-sm">
                   {t("settings.system_settings", isRtl ? "إعدادات النظام والساس" : "System & SaaS Settings")}
                 </h2>
-                <p className="text-[11px] text-slate-400 font-mono">Tenant Control Center</p>
+                <p className="text-[11px] text-muted-foreground font-mono">Tenant Control Center</p>
               </div>
             </div>
           </div>
@@ -76,7 +76,7 @@ export default function SettingsLayout() {
                   className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-semibold transition-all text-start ${
                     isActive 
                       ? "bg-gradient-to-r from-brand/15 via-brand/10 to-transparent text-brand border-s-4 border-brand shadow-sm" 
-                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200"
+                      : "text-muted-foreground dark:text-muted-foreground hover:bg-muted dark:hover:bg-slate-800/60 hover:text-foreground dark:hover:text-slate-200"
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -94,12 +94,12 @@ export default function SettingsLayout() {
           </div>
 
           {/* Tenant Quick Info in Settings Footer */}
-          <div className="p-4 m-3 rounded-2xl bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80 text-xs space-y-2">
-            <div className="flex items-center justify-between font-bold text-slate-700 dark:text-slate-300">
+          <div className="p-4 m-3 rounded-2xl bg-muted dark:bg-slate-900/80 border border-border dark:border-slate-800/80 text-xs space-y-2">
+            <div className="flex items-center justify-between font-bold text-foreground dark:text-slate-300">
               <span>{isRtl ? "عزل الـ RLS للمساحة" : "Tenant Isolation"}</span>
               <span className="text-emerald-500 font-mono">● ACTIVE</span>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+            <p className="text-[11px] text-muted-foreground dark:text-muted-foreground leading-tight">
               {isRtl 
                 ? "بيانات هذه المؤسسة معزولة برمجياً ولا يمكن الوصول إليها من خارج الـ WorkspaceID." 
                 : "Tenant database queries enforced strictly via PostgreSQL RLS policies."}
@@ -108,13 +108,13 @@ export default function SettingsLayout() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+      <div className="flex-1 overflow-y-auto bg-muted dark:bg-slate-900 transition-colors duration-300">
         {/* Optional back button for SaaS view */}
         {isSaasView && (
-          <div className="sticky top-0 z-10 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-3 flex items-center">
+          <div className="sticky top-0 z-10 bg-muted/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-border dark:border-slate-800 px-6 py-3 flex items-center">
             <button 
               onClick={() => setCurrentView('localization_settings')}
-              className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-brand transition-colors"
+              className="flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-brand transition-colors"
             >
               {isRtl ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
               <span>{isRtl ? "العودة لإعدادات النظام" : "Back to System Settings"}</span>

@@ -1,6 +1,27 @@
 :443 {
     tls /etc/caddy/local-cert.pem /etc/caddy/local-key.pem
-    
+
+    header {
+        -Server
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
+        Cross-Origin-Opener-Policy "same-origin"
+        Cross-Origin-Resource-Policy "same-site"
+        X-Permitted-Cross-Domain-Policies "none"
+    }
+
+    # Metadata list belongs to backend-core. Keep this exact matcher before the
+    # Drive storage wildcard, which owns upload/download object streaming.
+    handle /api/v1/drive/files {
+        reverse_proxy backend-core:4000
+    }
+
+    handle /api/v1/drive/* {
+        reverse_proxy septimus-drive:4001
+    }
+
     handle /api/* {
         reverse_proxy backend-core:4000
     }

@@ -154,9 +154,7 @@ export default function McpTab() {
   );
 
   const copySessionToken = () => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("septimus_token") : null;
-    if (!token) return;
-    handleCopy(`Bearer ${token}`, "token");
+    window.alert(t("plugins.mcp.tokenUnavailable", "Browser sessions are HttpOnly. Create a scoped API key for MCP instead."));
   };
 
   const activeTool = tools.find(tl => tl.name === selectedTool);
@@ -174,14 +172,14 @@ export default function McpTab() {
           <h2 className="text-2xl md:text-3xl font-black">{t("plugins.mcp.title", "MCP Server for External AI Agents")}</h2>
           <p className="text-slate-300 text-sm leading-relaxed">{t("plugins.mcp.description")}</p>
           {server?.serverInfo?.name && (
-            <p className="text-xs text-slate-400 font-mono">
+            <p className="text-xs text-muted-foreground font-mono">
               {server.serverInfo.name} v{server.serverInfo.version}
             </p>
           )}
         </div>
         <div className="flex flex-col gap-2 shrink-0 bg-white/10 backdrop-blur px-5 py-4 rounded-xl border border-white/15">
           <span className="text-xs text-slate-300 font-medium">{t("plugins.mcp.endpointLabel", "JSON-RPC Endpoint")}</span>
-          <code className="text-xs font-mono text-emerald-300 font-bold break-all" dir="ltr">{endpointUrl}</code>
+          <code className="text-xs font-mono text-brand font-bold break-all" dir="ltr">{endpointUrl}</code>
         </div>
       </div>
 
@@ -189,19 +187,19 @@ export default function McpTab() {
         {/* ── Catalogue: whatever tools/list returned ── */}
         <div className="lg:col-span-5 space-y-4">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-slate-800 dark:text-white font-black text-lg">
+            <div className="flex items-center gap-2 text-foreground dark:text-white font-black text-lg">
               <Layers className="w-5 h-5 text-brand" />
               <h3>{t("plugins.mcp.toolsTitle", "Exposed MCP Tools")}</h3>
             </div>
             {!toolsLoading && !toolsError && (
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              <span className="text-xs font-bold text-muted-foreground dark:text-muted-foreground">
                 {tools.length} {t("plugins.mcp.toolsCount", "tools")}
               </span>
             )}
           </div>
 
           {toolsLoading && (
-            <div className="flex items-center gap-2 p-6 text-sm text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground dark:text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" />
               {t("plugins.mcp.toolsLoading", "Loading tools from the server…")}
             </div>
@@ -218,7 +216,7 @@ export default function McpTab() {
           )}
 
           {!toolsLoading && !toolsError && tools.length === 0 && (
-            <p className="p-6 text-sm italic text-slate-500 dark:text-slate-400">
+            <p className="p-6 text-sm italic text-muted-foreground dark:text-muted-foreground">
               {t("plugins.mcp.toolsEmpty", "This server exposes no MCP tools.")}
             </p>
           )}
@@ -236,39 +234,39 @@ export default function McpTab() {
                   className={`w-full text-start p-4 rounded-xl border transition-all ${
                     isSelected
                       ? "bg-brand/10 dark:bg-brand/20 border-brand shadow-md ring-2 ring-brand/30"
-                      : "bg-white dark:bg-[#1e2227] border-slate-200 dark:border-slate-800 hover:border-brand/40 dark:hover:border-brand/40"
+                      : "bg-card dark:bg-[#1e2227] border-border dark:border-slate-800 hover:border-brand/40 dark:hover:border-brand/40"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <span className="font-mono text-sm font-bold text-brand break-all" dir="ltr">{tool.name}</span>
-                    <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold shrink-0">
+                    <span className="text-[10px] bg-brand/10 dark:bg-brand/20 text-brand px-2 py-0.5 rounded-full font-bold shrink-0">
                       {t("plugins.mcp.statusActive", "ACTIVE")}
                     </span>
                   </div>
                   {tool.description && (
-                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{tool.description}</p>
+                    <p className="text-xs text-muted-foreground dark:text-muted-foreground leading-relaxed">{tool.description}</p>
                   )}
 
                   {/* Input schema, rendered from the server's own JSON Schema */}
-                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1.5">
+                  <div className="mt-3 pt-3 border-t border-border dark:border-slate-800">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground mb-1.5">
                       {t("plugins.mcp.schemaLabel", "Input schema")}
                     </p>
                     {props.length === 0 ? (
-                      <p className="text-xs italic text-slate-400 dark:text-slate-500">{t("plugins.mcp.noParams", "No parameters")}</p>
+                      <p className="text-xs italic text-muted-foreground dark:text-muted-foreground">{t("plugins.mcp.noParams", "No parameters")}</p>
                     ) : (
                       <ul className="space-y-1">
                         {props.map(([key, schema]) => (
                           <li key={key} className="text-xs flex flex-wrap items-baseline gap-x-2">
-                            <code className="font-mono font-bold text-slate-700 dark:text-slate-200" dir="ltr">{key}</code>
-                            <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{schema?.type ?? "any"}</span>
+                            <code className="font-mono font-bold text-foreground dark:text-slate-200" dir="ltr">{key}</code>
+                            <span className="text-[10px] font-mono text-muted-foreground dark:text-muted-foreground">{schema?.type ?? "any"}</span>
                             {required.includes(key) && (
                               <span className="text-[9px] font-bold uppercase text-amber-600 dark:text-amber-400">
                                 {t("plugins.mcp.required", "required")}
                               </span>
                             )}
                             {schema?.description && (
-                              <span className="text-slate-500 dark:text-slate-400 basis-full">{schema.description}</span>
+                              <span className="text-muted-foreground dark:text-muted-foreground basis-full">{schema.description}</span>
                             )}
                           </li>
                         ))}
@@ -283,23 +281,23 @@ export default function McpTab() {
 
         {/* ── Playground + client config ── */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-white dark:bg-[#1e2227] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-slate-800 dark:text-white font-black text-md">
-                <Play className="w-4 h-4 text-emerald-500" />
+          <div className="bg-card dark:bg-[#1e2227] border border-border dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between gap-2 border-b border-border dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-foreground dark:text-white font-black text-md">
+                <Play className="w-4 h-4 text-brand" />
                 <h4>{t("plugins.mcp.playgroundTitle", "Live Tool Playground")}</h4>
               </div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-mono" dir="ltr">{selectedTool}</span>
+              <span className="text-xs text-muted-foreground dark:text-muted-foreground font-mono" dir="ltr">{selectedTool}</span>
             </div>
 
             {!activeTool ? (
-              <p className="text-sm italic text-slate-500 dark:text-slate-400 py-4">
+              <p className="text-sm italic text-muted-foreground dark:text-muted-foreground py-4">
                 {t("plugins.mcp.selectToolHint", "Select a tool to try it.")}
               </p>
             ) : (
               <>
                 <div className="space-y-2">
-                  <label htmlFor="mcp-args" className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                  <label htmlFor="mcp-args" className="text-xs font-bold text-muted-foreground dark:text-muted-foreground">
                     {t("plugins.mcp.argsLabel", "Tool arguments (JSON)")}
                   </label>
                   <textarea
@@ -308,7 +306,7 @@ export default function McpTab() {
                     onChange={(e) => setTestPayload(e.target.value)}
                     rows={3}
                     dir="ltr"
-                    className="w-full font-mono text-xs p-3 rounded-lg bg-slate-900 text-emerald-400 border border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
+                    className="w-full font-mono text-xs p-3 rounded-lg bg-slate-900 text-brand border border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
                   />
                 </div>
 
@@ -325,11 +323,11 @@ export default function McpTab() {
 
             {testResult && (
               <div className="mt-4 space-y-2">
-                <label className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                <label className="text-xs font-bold text-muted-foreground dark:text-muted-foreground flex items-center gap-1">
                   <Terminal className="w-3.5 h-3.5 text-brand" />
                   {t("plugins.mcp.outputLabel", "JSON-RPC response")}
                 </label>
-                <pre dir="ltr" className="p-3 bg-slate-950 text-emerald-300 font-mono text-xs rounded-xl overflow-x-auto border border-slate-800 max-h-60">
+                <pre dir="ltr" className="p-3 bg-slate-950 text-brand font-mono text-xs rounded-xl overflow-x-auto border border-slate-800 max-h-60">
                   {testResult}
                 </pre>
               </div>
@@ -337,8 +335,8 @@ export default function McpTab() {
           </div>
 
           {/* ── Claude Desktop ── */}
-          <div className="bg-white dark:bg-[#1e2227] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 text-slate-800 dark:text-white font-black text-md">
+          <div className="bg-card dark:bg-[#1e2227] border border-border dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 text-foreground dark:text-white font-black text-md">
               <Code2 className="w-4 h-4 text-brand" />
               <h4>{t("plugins.mcp.claudeTitle", "Connect Claude Desktop")}</h4>
             </div>
@@ -352,14 +350,14 @@ export default function McpTab() {
               </p>
             </div>
 
-            <ol className="space-y-2 ps-5 list-decimal text-xs text-slate-600 dark:text-slate-400 leading-relaxed marker:text-brand marker:font-bold">
+            <ol className="space-y-2 ps-5 list-decimal text-xs text-muted-foreground dark:text-muted-foreground leading-relaxed marker:text-brand marker:font-bold">
               <li>{t("plugins.mcp.step1")}</li>
               <li>
                 {t("plugins.mcp.step2")}
-                <code className="mx-1 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-mono text-[11px] text-slate-700 dark:text-slate-300 break-all" dir="ltr">
+                <code className="mx-1 px-1.5 py-0.5 rounded bg-muted dark:bg-slate-800 font-mono text-[11px] text-foreground dark:text-slate-300 break-all" dir="ltr">
                   ~/Library/Application Support/Claude/claude_desktop_config.json
                 </code>
-                <span className="text-slate-400 dark:text-slate-500">
+                <span className="text-muted-foreground dark:text-muted-foreground">
                   {" · "}
                   <code className="font-mono text-[11px]" dir="ltr">%APPDATA%\Claude\claude_desktop_config.json</code>
                 </span>
@@ -369,32 +367,32 @@ export default function McpTab() {
             </ol>
 
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+              <span className="text-xs font-bold text-muted-foreground dark:text-muted-foreground">
                 {t("plugins.mcp.configLabel", "claude_desktop_config.json")}
               </span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={copySessionToken}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted dark:bg-slate-800 text-xs font-bold text-foreground dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                 >
-                  {copied === "token" ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <KeyRound className="w-3.5 h-3.5" />}
+                  {copied === "token" ? <Check className="w-3.5 h-3.5 text-brand" /> : <KeyRound className="w-3.5 h-3.5" />}
                   {copied === "token" ? t("plugins.mcp.copied", "Copied!") : t("plugins.mcp.copyToken", "Copy my token")}
                 </button>
                 <button
                   onClick={() => handleCopy(claudeDesktopConfig, "config")}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted dark:bg-slate-800 text-xs font-bold text-foreground dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                 >
-                  {copied === "config" ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied === "config" ? <Check className="w-3.5 h-3.5 text-brand" /> : <Copy className="w-3.5 h-3.5" />}
                   {copied === "config" ? t("plugins.mcp.copied", "Copied!") : t("plugins.mcp.copyConfig", "Copy config")}
                 </button>
               </div>
             </div>
 
-            <pre dir="ltr" className="p-4 bg-slate-950 text-emerald-300 font-mono text-xs rounded-xl overflow-x-auto border border-slate-800">
+            <pre dir="ltr" className="p-4 bg-slate-950 text-brand font-mono text-xs rounded-xl overflow-x-auto border border-slate-800">
               {claudeDesktopConfig}
             </pre>
 
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            <p className="text-[11px] text-muted-foreground dark:text-muted-foreground leading-relaxed">
               {t("plugins.mcp.tokenNote")}
             </p>
           </div>

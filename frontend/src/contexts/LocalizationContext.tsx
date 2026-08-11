@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useCallback, useContext, useState, useEffect } from "react";
 import {
   Language,
   translate,
@@ -105,14 +105,26 @@ export function LocalizationProvider({ children }: { children: React.ReactNode }
   }, [language]);
 
   // Thin closures binding the pure i18n helpers to the current provider state.
-  const t = (keyPath: string, fallback?: string) => translate(language, keyPath, fallback);
+  const t = useCallback(
+    (keyPath: string, fallback?: string) => translate(language, keyPath, fallback),
+    [language],
+  );
 
-  const formatCurrency = (amount: number, useSecondary: boolean = false) =>
-    formatCurrencyValue(amount, useSecondary ? secondaryCurrency : baseCurrency, numberFormat);
+  const formatCurrency = useCallback(
+    (amount: number, useSecondary: boolean = false) =>
+      formatCurrencyValue(amount, useSecondary ? secondaryCurrency : baseCurrency, numberFormat),
+    [baseCurrency, numberFormat, secondaryCurrency],
+  );
 
-  const formatNumber = (amount: number) => formatNumberValue(amount, numberFormat);
+  const formatNumber = useCallback(
+    (amount: number) => formatNumberValue(amount, numberFormat),
+    [numberFormat],
+  );
 
-  const formatDate = (date: Date | string) => formatDateValue(date, dateFormat);
+  const formatDate = useCallback(
+    (date: Date | string) => formatDateValue(date, dateFormat),
+    [dateFormat],
+  );
 
   return (
     <LocalizationContext.Provider

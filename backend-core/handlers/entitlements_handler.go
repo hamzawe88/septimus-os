@@ -50,11 +50,12 @@ func GetEntitlements(c *fiber.Ctx) error {
 	features, limits := services.ResolveEntitlements(&ws)
 
 	db := database.GetDB(c)
-	var users, projects, integrations, workflows, aiTokens int64
+	var users, projects, integrations, workflows, schemas, aiTokens int64
 	db.Model(&models.User{}).Where("workspace_id = ?", ws.ID).Count(&users)
 	db.Model(&models.Project{}).Where("workspace_id = ?", ws.ID).Count(&projects)
 	db.Model(&models.WorkspaceIntegration{}).Where("workspace_id = ?", ws.ID).Count(&integrations)
 	db.Model(&models.Workflow{}).Where("workspace_id = ?", ws.ID).Count(&workflows)
+	db.Model(&models.EntityDefinition{}).Where("workspace_id = ?", ws.ID).Count(&schemas)
 
 	now := time.Now().UTC()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
@@ -67,6 +68,7 @@ func GetEntitlements(c *fiber.Ctx) error {
 		services.LimProjects:      projects,
 		services.LimIntegrations:  integrations,
 		services.LimWorkflows:     workflows,
+		services.LimDataSchemas:   schemas,
 		services.LimAITokensMonth: aiTokens,
 	}
 

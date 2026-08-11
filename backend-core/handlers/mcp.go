@@ -201,10 +201,11 @@ func runMCPTool(workspaceID uuid.UUID, name string, args map[string]interface{})
 			return "", fmt.Errorf("title is required")
 		}
 		payloadBytes, _ := json.Marshal(approvalPayload{
-			Action:      "create_entity",
+			Action:      "create_pm_task",
 			WorkspaceID: workspaceID.String(),
 			EntityType:  "task",
-			Data:        map[string]interface{}{"title": title, "description": argStr("description"), "status": "Todo", "priority": 1, "points": 0},
+			Data:        map[string]interface{}{"title": title, "description": argStr("description"), "priority": 1, "story_points": 0},
+			UseInbox:    true,
 		})
 		pending := models.PendingApproval{
 			WorkspaceID: workspaceID,

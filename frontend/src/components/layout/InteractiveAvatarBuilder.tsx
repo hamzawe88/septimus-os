@@ -144,20 +144,20 @@ export default function InteractiveAvatarBuilder({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 dark:bg-purple-950/40 backdrop-blur-md p-4 animate-in fade-in duration-200">
       <div
-        className="bg-white dark:bg-slate-800 border border-brand/30 dark:border-primary/30 rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh]"
+        className="bg-card dark:bg-slate-800 border border-brand/30 dark:border-primary/30 rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header - Strictly Isolated by Language */}
-        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-brand/10 via-brand/5 to-transparent border-b border-slate-200 dark:border-slate-700/80">
+        <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-brand/10 via-brand/5 to-transparent border-b border-border dark:border-slate-700/80">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-brand/15 flex items-center justify-center text-brand">
               <Sparkles className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-slate-800 dark:text-slate-100">
+              <h3 className="font-bold text-base text-foreground dark:text-slate-100">
                 {isRtl ? "استوديو صانع الأفتار المؤسسي السيادي ✨" : "Sovereign Corporate Avatar Studio ✨"}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                 {isRtl
                   ? "رسومات متجهات محلية فائقة الدقة متوافقة بالكامل مع دستور الألوان المؤسسية."
                   : "100% local high-precision vector rendering fully aligned with corporate brand constitution."}
@@ -166,7 +166,7 @@ export default function InteractiveAvatarBuilder({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            className="p-2 rounded-xl hover:bg-muted dark:hover:bg-slate-700 text-muted-foreground hover:text-muted-foreground dark:hover:text-slate-200 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -178,7 +178,7 @@ export default function InteractiveAvatarBuilder({
           <div className="md:col-span-7 space-y-6 pr-1">
             {/* 1. Skin Complexion */}
             <div className="space-y-2.5">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+              <label className="flex items-center gap-2 text-xs font-bold text-foreground dark:text-slate-200">
                 <User className="w-4 h-4 text-brand" />
                 <span>{isRtl ? "1. لون البشرة الطبيعية:" : "1. Skin Complexion:"}</span>
               </label>
@@ -191,11 +191,11 @@ export default function InteractiveAvatarBuilder({
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
                       skinColor === skin.hex
                         ? "border-brand bg-brand/15 text-brand shadow-sm scale-105"
-                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300"
+                        : "border-border dark:border-slate-700 text-muted-foreground dark:text-slate-300 hover:border-border"
                     }`}
                   >
                     <span
-                      className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 shadow-inner"
+                      className="w-4 h-4 rounded-full border border-border dark:border-slate-600 shadow-inner"
                       style={{ backgroundColor: `#${skin.hex}` }}
                     />
                     <span>{isRtl ? skin.label : skin.labelEn}</span>
@@ -206,7 +206,7 @@ export default function InteractiveAvatarBuilder({
 
             {/* 2. Hair & Headwear */}
             <div className="space-y-2.5">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+              <label className="flex items-center gap-2 text-xs font-bold text-foreground dark:text-slate-200">
                 <User className="w-4 h-4 text-brand" />
                 <span>{isRtl ? "2. تسريحة الشعر أو الحجاب المهني:" : "2. Hairstyle & Headwear:"}</span>
               </label>
@@ -219,7 +219,7 @@ export default function InteractiveAvatarBuilder({
                     className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
                       hairStyle === style.id
                         ? "border-brand bg-brand/15 text-brand shadow-sm scale-105"
-                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300"
+                        : "border-border dark:border-slate-700 text-muted-foreground dark:text-slate-300 hover:border-border"
                     }`}
                   >
                     {isRtl ? style.label : style.labelEn}
@@ -244,11 +244,11 @@ export default function InteractiveAvatarBuilder({
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
                         hijabColor === color.id
                           ? "border-brand bg-brand/15 text-brand shadow-sm scale-105"
-                          : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300"
+                          : "border-border dark:border-slate-700 text-muted-foreground dark:text-slate-300 hover:border-border"
                       }`}
                     >
                       <span
-                        className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 shadow-inner"
+                        className="w-4 h-4 rounded-full border border-border dark:border-slate-600 shadow-inner"
                         style={{ backgroundColor: color.bgStyle }}
                       />
                       <span>{isRtl ? color.label : color.labelEn}</span>
@@ -258,7 +258,7 @@ export default function InteractiveAvatarBuilder({
               </div>
             ) : hairStyle !== "noHair" ? (
               <div className="space-y-2.5">
-                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+                <label className="flex items-center gap-2 text-xs font-bold text-foreground dark:text-slate-200">
                   <Palette className="w-4 h-4 text-brand" />
                   <span>{isRtl ? "3. لون الشعر:" : "3. Hair Color:"}</span>
                 </label>
@@ -271,11 +271,11 @@ export default function InteractiveAvatarBuilder({
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
                         hairColor === color.id
                           ? "border-brand bg-brand/15 text-brand shadow-sm scale-105"
-                          : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300"
+                          : "border-border dark:border-slate-700 text-muted-foreground dark:text-slate-300 hover:border-border"
                       }`}
                     >
                       <span
-                        className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 shadow-inner"
+                        className="w-4 h-4 rounded-full border border-border dark:border-slate-600 shadow-inner"
                         style={{ backgroundColor: color.bgStyle }}
                       />
                       <span>{isRtl ? color.label : color.labelEn}</span>
@@ -287,7 +287,7 @@ export default function InteractiveAvatarBuilder({
 
             {/* 4. Expression & Accessories */}
             <div className="space-y-2.5">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+              <label className="flex items-center gap-2 text-xs font-bold text-foreground dark:text-slate-200">
                 <Smile className="w-4 h-4 text-brand" />
                 <span>{isRtl ? "4. التعبير الوجهي والنظارات:" : "4. Expression & Accessories:"}</span>
               </label>
@@ -300,7 +300,7 @@ export default function InteractiveAvatarBuilder({
                     className={`flex items-center justify-between px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all ${
                       expression === exp.id
                         ? "border-brand bg-brand/15 text-brand shadow-sm"
-                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300"
+                        : "border-border dark:border-slate-700 text-muted-foreground dark:text-slate-300 hover:border-border"
                     }`}
                   >
                     <span>{isRtl ? exp.label : exp.labelEn}</span>
@@ -312,7 +312,7 @@ export default function InteractiveAvatarBuilder({
 
             {/* 5. Professional Outfit */}
             <div className="space-y-2.5">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+              <label className="flex items-center gap-2 text-xs font-bold text-foreground dark:text-slate-200">
                 <Shirt className="w-4 h-4 text-brand" />
                 <span>{isRtl ? "5. الملابس الإدارية الرسمية:" : "5. Professional Attire:"}</span>
               </label>
@@ -325,7 +325,7 @@ export default function InteractiveAvatarBuilder({
                     className={`flex items-center justify-between px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all ${
                       clothing === cloth.id
                         ? "border-brand bg-brand/15 text-brand shadow-sm"
-                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300"
+                        : "border-border dark:border-slate-700 text-muted-foreground dark:text-slate-300 hover:border-border"
                     }`}
                   >
                     <span>{isRtl ? cloth.label : cloth.labelEn}</span>
@@ -337,7 +337,7 @@ export default function InteractiveAvatarBuilder({
 
             {/* 6. Outfit Color */}
             <div className="space-y-2.5">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+              <label className="flex items-center gap-2 text-xs font-bold text-foreground dark:text-slate-200">
                 <Palette className="w-4 h-4 text-brand" />
                 <span>{isRtl ? "6. لون الملابس الإدارية:" : "6. Attire Color:"}</span>
               </label>
@@ -350,11 +350,11 @@ export default function InteractiveAvatarBuilder({
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
                       clothingColor === color.id
                         ? "border-brand bg-brand/15 text-brand shadow-sm scale-105"
-                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300"
+                        : "border-border dark:border-slate-700 text-muted-foreground dark:text-slate-300 hover:border-border"
                     }`}
                   >
                     <span
-                      className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 shadow-inner"
+                      className="w-4 h-4 rounded-full border border-border dark:border-slate-600 shadow-inner"
                       style={{ backgroundColor: color.bgStyle }}
                     />
                     <span>{isRtl ? color.label : color.labelEn}</span>
@@ -365,7 +365,7 @@ export default function InteractiveAvatarBuilder({
 
             {/* 7. Background Color */}
             <div className="space-y-2.5">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+              <label className="flex items-center gap-2 text-xs font-bold text-foreground dark:text-slate-200">
                 <Palette className="w-4 h-4 text-brand" />
                 <span>{isRtl ? "7. تدرج خلفية الأفتار المتوافق مع الهوية:" : "7. Sovereign Brand Background:"}</span>
               </label>
@@ -378,11 +378,11 @@ export default function InteractiveAvatarBuilder({
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
                       backgroundColor === bg.id
                         ? "border-brand bg-brand/15 text-brand shadow-sm scale-105"
-                        : "border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300"
+                        : "border-border dark:border-slate-700 text-muted-foreground dark:text-slate-300 hover:border-border"
                     }`}
                   >
                     <span
-                      className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 shadow-inner"
+                      className="w-4 h-4 rounded-full border border-border dark:border-slate-600 shadow-inner"
                       style={{ backgroundColor: bg.bgStyle }}
                     />
                     <span>{isRtl ? bg.label : bg.labelEn}</span>
@@ -398,7 +398,7 @@ export default function InteractiveAvatarBuilder({
               <span className="text-[11px] font-bold text-brand uppercase tracking-wider bg-brand/10 px-3 py-1 rounded-full">
                 {isRtl ? "المعاينة اللحظية الحية (INSTANT VECTOR)" : "INSTANT LIVE VECTOR PREVIEW"}
               </span>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                 {isRtl
                   ? "يتم رسم المتجه مباشرة في المتصفح بـ 0 مللي ثانية بدون أي اتصال بخوادم خارجية"
                   : "Rendered locally in browser in 0ms without external servers"}
@@ -407,7 +407,7 @@ export default function InteractiveAvatarBuilder({
 
             {/* Avatar Circle Display */}
             <div className="relative my-6 group">
-              <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-3xl overflow-hidden shadow-2xl border-4 border-white dark:border-slate-700 bg-white flex items-center justify-center relative transition-transform duration-300 group-hover:scale-[1.02]">
+              <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-3xl overflow-hidden shadow-2xl border-4 border-white dark:border-slate-700 bg-card flex items-center justify-center relative transition-transform duration-300 group-hover:scale-[1.02]">
                 <img
                   src={liveAvatarUrl}
                   alt="Live Custom Sovereign Avatar"
@@ -441,7 +441,7 @@ export default function InteractiveAvatarBuilder({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full text-center text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 py-1 font-medium"
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground dark:hover:text-slate-300 py-1 font-medium"
               >
                 {isRtl ? "إلغاء والعودة للإعدادات" : "Cancel & Return to Settings"}
               </button>

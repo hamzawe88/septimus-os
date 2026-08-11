@@ -14,15 +14,18 @@ import (
 	"github.com/robfig/cron/v3"
 
 	"github.com/septimus-os/backend-core/database"
+	"github.com/septimus-os/backend-core/events"
 	"github.com/septimus-os/backend-core/models"
 )
 
 // ProactiveAlert dedups stuck-task alerts — at most one alert per task per
 // stuck episode (a new episode begins when the task is updated again).
 type ProactiveAlert struct {
-	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	TaskID    uuid.UUID `gorm:"type:uuid;index"`
-	AlertedAt time.Time `gorm:"autoCreateTime"`
+	ID        uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	TaskID    *uuid.UUID `gorm:"type:uuid;index"`
+	EntityID  *uuid.UUID `gorm:"type:uuid;index"`
+	AlertType string     `gorm:"type:varchar(50);index"`
+	AlertedAt time.Time  `gorm:"autoCreateTime"`
 }
 
 const proactiveAuditorRole = "مدقّق المشاريع"
@@ -100,14 +103,208 @@ func RunProactiveAudit() int {
 		if postAuditorMessage(wsID, channelID, buildStuckMessage(wsTasks)) {
 			posted++
 			for _, t := range wsTasks {
-				database.DB.Create(&ProactiveAlert{TaskID: t.ID})
+				taskID := t.ID
+				database.DB.Create(&ProactiveAlert{TaskID: &taskID, AlertType: "stuck_task"})
 			}
 		}
 	}
+
+	// Anomaly Scanning (JSONB Entities)
+	posted += scanEntityAnomalies()
+
+	// HR document expiry (Iqama / insurance) — 60/30/7-day proactive alerts.
+	posted += scanExpiringDocuments()
+
 	if posted > 0 {
-		log.Printf("[Auditor] posted %d stuck-task alert(s)", posted)
+		log.Printf("[Auditor] posted %d proactive alert(s)", posted)
 	}
 	return posted
+}
+
+func scanEntityAnomalies() int {
+	posted := 0
+
+	// Find all workspaces
+	var workspaces []models.Workspace
+	if err := database.DB.Find(&workspaces).Error; err != nil {
+		return 0
+	}
+
+	for _, ws := range workspaces {
+		channelID := generalChannelID(ws.ID)
+		if channelID == uuid.Nil {
+			continue
+		}
+
+		// 1. Unpaid Invoices older than 30 days
+		var invoices []models.Entity
+		// We'll just fetch all invoices and filter in memory to avoid complex jsonb date queries across DBs
+		database.DB.Where("workspace_id = ? AND entity_type = ?", ws.ID, "invoice").Find(&invoices)
+
+		var anomalousInvoices []models.Entity
+		for _, inv := range invoices {
+			if alreadyAlertedEntity(inv.ID, "unpaid_invoice") {
+				continue
+			}
+			var data map[string]interface{}
+			if err := json.Unmarshal(inv.Data, &data); err == nil {
+				if status, ok := data["status"].(string); ok && status != "paid" {
+					if dueDateStr, ok := data["due_date"].(string); ok {
+						if dueDate, err := time.Parse(time.RFC3339, dueDateStr); err == nil {
+							if time.Since(dueDate).Hours() > 30*24 {
+								anomalousInvoices = append(anomalousInvoices, inv)
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if len(anomalousInvoices) > 0 {
+			msg := buildAnomalousInvoiceMessage(anomalousInvoices)
+			if postAuditorMessage(ws.ID, channelID, msg) {
+				posted++
+				for _, inv := range anomalousInvoices {
+					entityID := inv.ID
+					database.DB.Create(&ProactiveAlert{EntityID: &entityID, AlertType: "unpaid_invoice"})
+				}
+			}
+		}
+	}
+
+	return posted
+}
+
+func buildAnomalousInvoiceMessage(invoices []models.Entity) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("⚠️ **تنبيه مالي** — لديك %d فاتورة غير مدفوعة ومتأخرة لأكثر من 30 يوماً:\n\n", len(invoices)))
+	for i, inv := range invoices {
+		if i >= 5 {
+			b.WriteString(fmt.Sprintf("• …و%d فواتير أخرى متأخرة.\n", len(invoices)-5))
+			break
+		}
+		var data map[string]interface{}
+		json.Unmarshal(inv.Data, &data)
+		amount := "غير محدد"
+		if amt, ok := data["total_amount"]; ok {
+			amount = fmt.Sprintf("%v", amt)
+		}
+		b.WriteString(fmt.Sprintf("• فاتورة متأخرة (قيمة: %s)\n", amount))
+	}
+	b.WriteString("\n💡 يُنصح بمتابعة التحصيل مع العملاء.")
+	return b.String()
+}
+
+// expiringDocAlert pairs an employee document with how close it is to expiry.
+type expiringDocAlert struct {
+	employee  models.Employee
+	label     string
+	alertType string
+	expiry    time.Time
+	days      int
+}
+
+// expiryBand returns the tightest 60/30/7-day threshold a document currently
+// sits in (7 also covers already-expired), or 0 when it is not yet near expiry.
+func expiryBand(days int) int {
+	switch {
+	case days <= 7:
+		return 7
+	case days <= 30:
+		return 30
+	case days <= 60:
+		return 60
+	default:
+		return 0
+	}
+}
+
+// scanExpiringDocuments raises one grouped alert per workspace for employee
+// Iqama / insurance documents crossing the 60, 30, or 7-day thresholds. Each
+// (employee, document, band) fires once — de-duped through ProactiveAlert — so a
+// document re-alerts as it enters each tighter band, matching the 60/30/7 cadence.
+func scanExpiringDocuments() int {
+	posted := 0
+	var workspaces []models.Workspace
+	if err := database.DB.Find(&workspaces).Error; err != nil {
+		return 0
+	}
+	now := time.Now()
+	for _, ws := range workspaces {
+		channelID := generalChannelID(ws.ID)
+		if channelID == uuid.Nil {
+			continue
+		}
+		var employees []models.Employee
+		database.DB.Where(
+			"workspace_id = ? AND status <> ? AND (iqama_expiry IS NOT NULL OR insurance_expiry IS NOT NULL)",
+			ws.ID, "terminated",
+		).Find(&employees)
+
+		var alerts []expiringDocAlert
+		for _, e := range employees {
+			docs := []struct {
+				key   string
+				label string
+				date  *time.Time
+			}{
+				{"iqama", "الإقامة (Iqama)", e.IqamaExpiry},
+				{"insurance", "التأمين الطبي (Insurance)", e.InsuranceExpiry},
+			}
+			for _, d := range docs {
+				if d.date == nil {
+					continue
+				}
+				days := int(d.date.Sub(now).Hours() / 24)
+				band := expiryBand(days)
+				if band == 0 {
+					continue
+				}
+				alertType := fmt.Sprintf("%s_expiry_%d", d.key, band)
+				if alreadyAlertedEntity(e.ID, alertType) {
+					continue
+				}
+				alerts = append(alerts, expiringDocAlert{e, d.label, alertType, *d.date, days})
+			}
+		}
+		if len(alerts) == 0 {
+			continue
+		}
+		if postAuditorMessage(ws.ID, channelID, buildExpiryMessage(alerts)) {
+			posted++
+			for _, a := range alerts {
+				eid := a.employee.ID
+				database.DB.Create(&ProactiveAlert{EntityID: &eid, AlertType: a.alertType})
+			}
+		}
+	}
+	return posted
+}
+
+func buildExpiryMessage(alerts []expiringDocAlert) string {
+	var b strings.Builder
+	b.WriteString("🛂 تنبيه انتهاء وثائق الموظفين\n\n")
+	for _, a := range alerts {
+		var status string
+		switch {
+		case a.days < 0:
+			status = fmt.Sprintf("⛔ منتهية منذ %d يوم", -a.days)
+		case a.days == 0:
+			status = "⚠️ تنتهي اليوم"
+		default:
+			status = fmt.Sprintf("تنتهي خلال %d يوم", a.days)
+		}
+		b.WriteString(fmt.Sprintf("• %s — %s (%s): %s\n", a.employee.FullName, a.label, a.expiry.Format("2006-01-02"), status))
+	}
+	b.WriteString("\nيرجى تجديد الوثائق قبل انتهائها.")
+	return b.String()
+}
+
+func alreadyAlertedEntity(entityID uuid.UUID, alertType string) bool {
+	var alert ProactiveAlert
+	err := database.DB.Where("entity_id = ? AND alert_type = ?", entityID, alertType).
+		Order("alerted_at desc").First(&alert).Error
+	return err == nil
 }
 
 // alreadyAlerted is true when this task was alerted since its last update.
@@ -201,6 +398,7 @@ func TriggerProactiveAudit(c *fiber.Ctx) error {
 // ─── Morning Brief Proactive Digest ──────────────────────────────────────────
 
 const morningBriefRole = "المساعد الصباحي"
+
 var morningCron *cron.Cron
 
 // StartMorningBriefCron initializes the daily Morning Brief cron job
@@ -211,7 +409,7 @@ func StartMorningBriefCron() {
 	morningCron = cron.New()
 	schedule := os.Getenv("MORNING_BRIEF_CRON")
 	if schedule == "" {
-		schedule = "0 8 * * *" // 8:00 AM daily
+		schedule = "0 7 * * *" // 07:00 AM daily
 	}
 	_, err := morningCron.AddFunc(schedule, func() {
 		log.Println("[MorningBrief] Running scheduled morning brief...")
@@ -225,7 +423,7 @@ func StartMorningBriefCron() {
 	}
 }
 
-// RunMorningBrief runs the digest for every workspace and returns how many were posted
+// RunMorningBrief runs the digest for every workspace via cron
 func RunMorningBrief() int {
 	var workspaces []models.Workspace
 	if err := database.DB.Find(&workspaces).Error; err != nil {
@@ -235,135 +433,81 @@ func RunMorningBrief() int {
 
 	posted := 0
 	for _, ws := range workspaces {
-		channelID := generalChannelID(ws.ID)
-		if channelID == uuid.Nil {
+		err := triggerMorningBriefForWorkspace(ws.ID, "system")
+		if err != nil {
+			log.Printf("[MorningBrief] Failed to trigger AI for ws %s: %v", ws.ID, err)
 			continue
 		}
-		brief := buildMorningBriefMessage(ws.ID)
-		if postMorningBriefMessage(ws.ID, channelID, brief) {
-			posted++
-		}
-	}
-	if posted > 0 {
-		log.Printf("[MorningBrief] posted %d morning brief(s)", posted)
+		posted++
 	}
 	return posted
 }
 
-func buildMorningBriefMessage(wsID uuid.UUID) string {
-	var projects []models.Project
-	database.DB.Where("workspace_id = ?", wsID).Find(&projects)
-	var projIDs []uuid.UUID
-	for _, p := range projects {
-		projIDs = append(projIDs, p.ID)
-	}
-
-	var recentTasks []models.Task
-	var stuckTasks []models.Task
-	if len(projIDs) > 0 {
-		cutoff24 := time.Now().Add(-24 * time.Hour)
-		database.DB.Where("project_id IN ? AND updated_at >= ?", projIDs, cutoff24).Find(&recentTasks)
-		stuckCutoff := time.Now().AddDate(0, 0, -stuckTaskDays())
-		database.DB.Where("project_id IN ? AND status IN ? AND updated_at < ?", projIDs, stuckStatuses, stuckCutoff).Find(&stuckTasks)
-	}
-
-	var users []models.User
-	database.DB.Where("workspace_id = ?", wsID).Find(&users)
-	var userIDs []uuid.UUID
-	for _, u := range users {
-		userIDs = append(userIDs, u.ID)
-	}
-
-	var attendanceLogs []models.AttendanceLog
-	if len(userIDs) > 0 {
-		cutoff24 := time.Now().Add(-24 * time.Hour)
-		database.DB.Where("user_id IN ? AND check_in_time >= ?", userIDs, cutoff24).Find(&attendanceLogs)
-	}
-
-	var entities []models.Entity
-	database.DB.Where("workspace_id = ? AND entity_type IN (?, ?)", wsID, "deal", "CRM_DEAL").Find(&entities)
-
-	completedCount := 0
-	inProgressCount := 0
-	for _, t := range recentTasks {
-		if t.Status == "done" {
-			completedCount++
-		} else if t.Status == "in_progress" {
-			inProgressCount++
-		}
-	}
-
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("☀️ **الملخص الصباحي المخصص اليومي** (%s)\n\n", time.Now().Format("2006-01-02")))
-
-	b.WriteString("📋 **ملخص حركة المهام (آخر 24 ساعة):**\n")
-	b.WriteString(fmt.Sprintf("• المنجزة حديثاً: **%d** مهمة\n", completedCount))
-	b.WriteString(fmt.Sprintf("• قيد التنفيذ: **%d** مهمة\n", inProgressCount))
-	if len(stuckTasks) > 0 {
-		b.WriteString(fmt.Sprintf("• ⚠️ مهام راكدة (> %d أيام): **%d** مهمة\n", stuckTaskDays(), len(stuckTasks)))
-	} else {
-		b.WriteString("• ✅ لا توجد مهام راكدة حالياً.\n")
-	}
-
-	if len(entities) > 0 {
-		b.WriteString(fmt.Sprintf("\n💼 **ملخص الصفقات والمتابعات:**\n• إجمالي الصفقات النشطة/المسجلة: **%d**\n", len(entities)))
-	}
-
-	b.WriteString("\n⏰ **تقرير الحضور والموارد البشرية:**\n")
-	if len(attendanceLogs) > 0 {
-		presentCount := 0
-		lateCount := 0
-		for _, a := range attendanceLogs {
-			if a.Status == "late" {
-				lateCount++
-			} else {
-				presentCount++
-			}
-		}
-		b.WriteString(fmt.Sprintf("• الحضور اليومي المسجل: **%d** (منهم %d تأخير)\n", len(attendanceLogs), lateCount))
-	} else {
-		b.WriteString("• لم يتم تسجيل حركات حضور جديدة في آخر 24 ساعة.\n")
-	}
-
-	b.WriteString("\n🚀 _تمنياتنا لكم بيوم عمل مثمر وإنجازات متواصلة!_")
-	return b.String()
-}
-
-func postMorningBriefMessage(workspaceID, channelID uuid.UUID, content string) bool {
-	senderID, err := aiSystemUserID(workspaceID)
-	if err != nil {
-		log.Printf("[MorningBrief] cannot resolve AI sender user: %v", err)
-		return false
-	}
-
-	msg := models.Message{
-		SenderID:      senderID,
-		ChannelID:     channelID,
-		Content:       content,
-		IsAIGenerated: true,
-		AIAgentRole:   morningBriefRole,
-	}
-	if err := database.DB.Create(&msg).Error; err != nil {
-		log.Printf("[MorningBrief] failed to post message: %v", err)
-		return false
-	}
-
-	out, _ := json.Marshal(map[string]interface{}{
-		"ID":            msg.ID,
-		"CreatedAt":     msg.CreatedAt,
-		"Content":       msg.Content,
-		"ChannelID":     msg.ChannelID,
-		"type":          "chat_message",
-		"IsAIGenerated": true,
-		"AIAgentRole":   morningBriefRole,
-		"User":          map[string]interface{}{"Email": morningBriefRole},
-	})
-	WSHub.BroadcastToChannel(channelID.String(), out)
-	return true
-}
-
-// TriggerMorningBrief allows operators to trigger the digest via API
+// TriggerMorningBrief allows users to trigger their personalized digest via API
 func TriggerMorningBrief(c *fiber.Ctx) error {
-	posted := RunMorningBrief()
-	return c.JSON(fiber.Map{"message": "Morning brief run complete", "briefs_posted": posted})
+	workspaceIDStr, _ := c.Locals("workspace_id").(string)
+	userIDStr, _ := c.Locals("user_id").(string)
+
+	wsID := database.ParseUUID(workspaceIDStr)
+
+	err := triggerMorningBriefForWorkspace(wsID, userIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "Failed to trigger morning brief"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Morning brief triggered and being processed by AI",
+	})
+}
+
+func triggerMorningBriefForWorkspace(wsID uuid.UUID, userIDStr string) error {
+	var entities []models.Entity
+	var tasks []models.Task
+
+	// Relational PM is the only task source. JSONB entities remain for finance
+	// and schema-backed CRM records only.
+	cutoff24 := time.Now().Add(-24 * time.Hour)
+	if err := database.DB.Where("workspace_id = ? AND status <> 'done' AND due_date IS NOT NULL AND due_date < ?", wsID, time.Now()).
+		Order("due_date ASC").Limit(100).Find(&tasks).Error; err != nil {
+		return fmt.Errorf("failed to gather PM tasks: %w", err)
+	}
+	err := database.DB.Where("workspace_id = ?", wsID).
+		Where("(entity_type = 'finance_invoice' AND data->>'status' = 'overdue') OR "+
+			"(entity_type = 'crm_opportunity' AND definition_id IS NOT NULL AND created_at >= ?)",
+			cutoff24).
+		Find(&entities).Error
+
+	if err != nil {
+		return fmt.Errorf("failed to gather entities: %w", err)
+	}
+
+	// We also need the CEO ID (or fallback to an admin) to direct the WebSocket message properly
+	var users []models.User
+	database.DB.Where("workspace_id = ? AND role IN ('admin', 'owner', 'ceo')", wsID).Limit(1).Find(&users)
+	targetUserID := userIDStr
+	if targetUserID == "" || targetUserID == "system" {
+		if len(users) > 0 {
+			targetUserID = users[0].ID.String()
+		}
+	}
+
+	payloadData := map[string]interface{}{
+		"workspace_id": wsID.String(),
+		"user_id":      targetUserID, // The CEO/Admin to receive the message
+		"entities":     entities,
+		"tasks":        tasks,
+	}
+
+	payloadBytes, err := json.Marshal(payloadData)
+	if err != nil {
+		return err
+	}
+
+	if events.NatsConn == nil {
+		return fmt.Errorf("NATS connection not initialized")
+	}
+
+	// Publish directly to NATS. The AI Sidecar will handle generation and Centrifugo publishing.
+	subject := fmt.Sprintf("ai.auditor.morning_brief.%s", wsID.String())
+	return events.NatsConn.Publish(subject, payloadBytes)
 }

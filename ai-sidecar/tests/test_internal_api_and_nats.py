@@ -10,7 +10,8 @@ import os
 import sys
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient  # type: ignore
+from starlette.requests import Request  # type: ignore
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -20,23 +21,28 @@ import nats_events
 
 
 class TestVerifyInternalToken(unittest.TestCase):
+    @staticmethod
+    def request():
+        return Request({"type": "http", "method": "GET", "path": "/", "headers": []})
+
     def test_token_verification_success_and_failure(self):
         # When INTERNAL_API_TOKEN is set
         with patch("main.INTERNAL_API_TOKEN", "secret-internal-token-123"):
             # Valid token header
-            verify_internal_token(x_internal_token="secret-internal-token-123")
+            verify_internal_token(self.request(), x_internal_token="secret-internal-token-123")
             
             # Invalid token header raises 401
-            from fastapi import HTTPException
+            from fastapi import HTTPException  # type: ignore
             with self.assertRaises(HTTPException) as cm:
-                verify_internal_token(x_internal_token="wrong-token")
+                verify_internal_token(self.request(), x_internal_token="wrong-token")
             assert cm.exception.status_code == 401
 
-    def test_token_verification_dev_mode(self):
-        # When INTERNAL_API_TOKEN is empty string (dev mode)
+    def test_token_verification_fails_closed_without_configuration(self):
         with patch("main.INTERNAL_API_TOKEN", ""):
-            # Should not raise any exception even if header is empty or wrong
-            verify_internal_token(x_internal_token="")
+            from fastapi import HTTPException  # type: ignore
+            with self.assertRaises(HTTPException) as cm:
+                verify_internal_token(self.request(), x_internal_token="")
+            assert cm.exception.status_code == 503
 
 
 class TestHTTPEndpoints(unittest.TestCase):
@@ -76,7 +82,7 @@ class TestHTTPEndpoints(unittest.TestCase):
             "message": "قم بتوزيع المهام على الفريق",
             "context": {"lang": "ar", "workspace_id": "ws-1"}
         }
-        resp = self.client.post("/api/v1/ai/chat", json=payload)
+        resp = self.client.post("/api/v1/ai/chat", json=payload, headers={"X-Workspace-Id": "ws-1"})
         assert resp.status_code == 200
         assert resp.json()["reply"] == "تم تنفيذ المهمة المطلوبة بنجاح."
 
@@ -91,7 +97,7 @@ class TestHTTPEndpoints(unittest.TestCase):
                 {"ID": "TASK-3", "Priority": 1, "StoryPoints": 8}
             ]
         }
-        resp = self.client.post("/api/v1/ai/plan-sprint", json=payload)
+        resp = self.client.post("/api/v1/ai/plan-sprint", json=payload, headers={"X-Workspace-Id": "ws-1"})
         assert resp.status_code == 200
         # Should pick TASK-1 (5 pts) + TASK-2 (3 pts) = 8 <= 10 capacity
         assert resp.json()["selected_task_ids"] == ["TASK-1", "TASK-2"]
@@ -108,7 +114,7 @@ class TestHTTPEndpoints(unittest.TestCase):
     def test_generate_subtasks_fallback(self, mock_llm_getter):
         mock_llm_getter.return_value = None
         payload = {"title": "تطوير واجهة الإشعارات", "description": "بناء نظام إشعارات في الوقت الفعلي", "lang": "ar"}
-        resp = self.client.post("/api/v1/ai/generate-subtasks", json=payload)
+        resp = self.client.post("/api/v1/ai/generate-subtasks", json=payload, headers={"X-Workspace-Id": "ws-1"})
         assert resp.status_code == 200
         assert len(resp.json()["subtasks"]) == 4
         assert "تفكيك معماري لـ: تطوير واجهة الإشعارات" in resp.json()["subtasks"][0]
@@ -128,7 +134,7 @@ class TestNATSEventsHandlers(unittest.IsolatedAsyncioTestCase):
     async def test_on_task_created_estimates_points(self, mock_get, mock_llm_getter):
         # Mocking task with 0 story points
         mock_msg = MagicMock()
-        mock_msg.data = json.dumps({"task_id": "t-99", "title": "مهمة برمجية جديدة", "story_points": 0}).encode()
+        mock_msg.data = json.dumps({"task_id": "t-99", "title": "مهمة برمجية جديدة", "story_points": 0, "workspace_id": "ws-1"}).encode()
         mock_msg.ack = AsyncMock()
 
         mock_llm = AsyncMock()

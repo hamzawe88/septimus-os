@@ -17,14 +17,14 @@ type WebhookPayload struct {
 	Type string `json:"type"`
 	Data struct {
 		Object struct {
-			ID                 string `json:"id"`
-			Customer           string `json:"customer"`
-			Subscription       string `json:"subscription"`
-			ClientReferenceID  string `json:"client_reference_id"`
-			Metadata           map[string]string `json:"metadata"`
-			AmountTotal        int64  `json:"amount_total"`
-			Status             string `json:"status"`
-			HostedInvoiceUrl   string `json:"hosted_invoice_url"`
+			ID                string            `json:"id"`
+			Customer          string            `json:"customer"`
+			Subscription      string            `json:"subscription"`
+			ClientReferenceID string            `json:"client_reference_id"`
+			Metadata          map[string]string `json:"metadata"`
+			AmountTotal       int64             `json:"amount_total"`
+			Status            string            `json:"status"`
+			HostedInvoiceUrl  string            `json:"hosted_invoice_url"`
 		} `json:"object"`
 	} `json:"data"`
 	// For simulation shortcuts
@@ -96,7 +96,7 @@ func StripeWebhook(c *fiber.Ctx) error {
 				cusID = "cus_" + wsIDStr[:8]
 			}
 			sub.StripeCustomerID = &cusID
-			
+
 			subID := payload.Data.Object.Subscription
 			if subID == "" {
 				subID = "sub_" + wsIDStr[:8]

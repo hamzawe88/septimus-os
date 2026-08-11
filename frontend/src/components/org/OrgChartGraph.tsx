@@ -93,8 +93,8 @@ const OrgChartGraph: React.FC<OrgChartGraphProps> = ({ data, onNodeClick }) => {
   }, []);
 
   return (
-    <div ref={containerRef} className="w-full h-full min-h-[500px] bg-slate-50 rounded-xl overflow-hidden border border-[var(--border-strong)] relative">
-      <div className="absolute top-4 end-4 z-10 flex gap-4 bg-white p-2 rounded-lg border border-[var(--border-strong)] shadow-sm">
+    <div ref={containerRef} className="w-full h-full min-h-[500px] bg-muted rounded-xl overflow-hidden border border-[var(--border-strong)] relative">
+      <div className="absolute top-4 end-4 z-10 flex gap-4 bg-card p-2 rounded-lg border border-[var(--border-strong)] shadow-sm">
          <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)]">
             <span 
               className="w-3 h-3 rounded-full block bg-[var(--primary-hex,#1164A3)]" 
@@ -118,7 +118,7 @@ const OrgChartGraph: React.FC<OrgChartGraphProps> = ({ data, onNodeClick }) => {
         linkDirectionalParticles={2}
         linkDirectionalParticleSpeed={(d: unknown) => (d as RenderLink).type === 'reports_to' ? 0.005 : 0.01}
         d3VelocityDecay={0.3}
-        backgroundColor="#f8fafc" // bg-slate-50
+        backgroundColor="#f8fafc" // bg-muted
       />
     </div>
   );

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Shield, Users, Plus, Edit2, Trash2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fetchWithAuth, API_BASE_URL } from '@/lib/apiClient';
 import { useLocalization } from "@/contexts/LocalizationContext";
 
@@ -142,7 +142,7 @@ export default function RolesSettings() {
   };
 
   return (
-    <div className="w-full h-full p-8 overflow-y-auto bg-slate-50 dark:bg-slate-900 transition-colors" dir={isRtl ? "rtl" : "ltr"}>
+    <div className="w-full h-full p-8 overflow-y-auto bg-muted dark:bg-slate-900 transition-colors" dir={isRtl ? "rtl" : "ltr"}>
       <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Header Card - Premium Glassmorphism */}
@@ -151,11 +151,11 @@ export default function RolesSettings() {
           
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
             <div className="space-y-2">
-              <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-3 text-slate-900 dark:text-white">
+              <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-3 text-foreground dark:text-white">
                 <Shield className="w-8 h-8 text-brand" />
                 {isRtl ? "الأدوار والصلاحيات" : "Roles & Permissions"}
               </h1>
-              <p className="text-slate-500 dark:text-slate-400 max-w-2xl text-sm font-medium">
+              <p className="text-muted-foreground dark:text-muted-foreground max-w-2xl text-sm font-medium">
                 {isRtl 
                   ? "إدارة صلاحيات الوصول وتحديد أدوار مخصصة لمساحة العمل الخاصة بك بأمان واحترافية." 
                   : "Manage access control and define custom roles for your workspace securely and professionally."}
@@ -164,10 +164,10 @@ export default function RolesSettings() {
           </div>
         </div>
 
-        <div className="bg-white/80 dark:bg-[#222529] backdrop-blur-xl rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
-          <div className="p-6 md:p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-              <Users className="w-5 h-5 text-slate-400 dark:text-slate-500" /> 
+        <div className="bg-white/80 dark:bg-[#222529] backdrop-blur-xl rounded-[2rem] border border-border dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
+          <div className="p-6 md:p-8 border-b border-border dark:border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <h2 className="text-xl font-bold text-foreground dark:text-slate-100 flex items-center gap-2">
+              <Users className="w-5 h-5 text-muted-foreground dark:text-muted-foreground" /> 
               {isRtl ? "مستخدمو النظام" : "System Users"}
             </h2>
             <Button onClick={() => setIsAddModalOpen(true)} className="bg-brand hover:bg-brand/90 text-white border-0 rounded-xl h-11 px-6 font-bold shadow-md shadow-brand/20 transition-all">
@@ -181,12 +181,12 @@ export default function RolesSettings() {
               <div className="w-8 h-8 border-4 border-brand/30 border-t-brand rounded-full animate-spin" />
             </div>
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="divide-y divide-border dark:divide-slate-800">
               {users.map(u => (
-                <div key={u.ID} className="p-6 md:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors gap-4">
+                <div key={u.ID} className="p-6 md:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:bg-muted dark:hover:bg-slate-800/50 transition-colors gap-4">
                   <div>
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-lg">{u.Email}</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-3">
+                    <h3 className="font-bold text-foreground dark:text-slate-100 text-lg">{u.Email}</h3>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-2 flex items-center gap-3">
                       <span className="px-3 py-1 bg-brand/10 text-brand rounded-full text-xs font-bold shadow-sm">
                         {u.RoleRef?.Name || u.Role || 'User'}
                       </span>
@@ -206,7 +206,7 @@ export default function RolesSettings() {
                         });
                         setIsEditModalOpen(true);
                       }}
-                      className="flex-1 sm:flex-none rounded-xl h-10 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className="flex-1 sm:flex-none rounded-xl h-10 border-border dark:border-slate-700 text-muted-foreground dark:text-slate-300 hover:bg-muted dark:hover:bg-slate-800"
                     >
                       <Edit2 className="w-4 h-4 sm:me-2" />
                       <span className="hidden sm:inline">{isRtl ? "تعديل" : "Edit"}</span>
@@ -223,7 +223,7 @@ export default function RolesSettings() {
                 </div>
               ))}
               {users.length === 0 && !isLoading && (
-                <div className="p-16 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                <div className="p-16 flex flex-col items-center justify-center text-muted-foreground dark:text-muted-foreground">
                   <Users className="w-12 h-12 mb-4 opacity-50" />
                   <p className="text-lg font-medium">{isRtl ? "لا يوجد مستخدمين" : "No users found"}</p>
                 </div>
@@ -235,15 +235,15 @@ export default function RolesSettings() {
 
       {/* Add User Modal */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 shadow-2xl rounded-[2rem]" dir={isRtl ? "rtl" : "ltr"}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-card dark:bg-slate-950 border-border dark:border-slate-800 shadow-2xl rounded-[2rem]" dir={isRtl ? "rtl" : "ltr"}>
           <DialogHeader className="p-6 pb-0 md:p-8 md:pb-0">
-            <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white">
+            <DialogTitle className="text-2xl font-black text-foreground dark:text-white">
               {isRtl ? "إضافة مستخدم جديد" : "Add New User"}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAddUser} className="p-6 md:p-8 space-y-5">
             <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+              <label className="block text-sm font-bold text-foreground dark:text-slate-300 mb-2 uppercase tracking-wide">
                 {isRtl ? "البريد الإلكتروني" : "Email"}
               </label>
               <input 
@@ -253,11 +253,11 @@ export default function RolesSettings() {
                 required 
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full px-4 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all"
+                className="w-full px-4 h-12 bg-muted dark:bg-slate-900 border border-border dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all"
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+              <label className="block text-sm font-bold text-foreground dark:text-slate-300 mb-2 uppercase tracking-wide">
                 {isRtl ? "كلمة المرور" : "Password"}
               </label>
               <input 
@@ -267,21 +267,21 @@ export default function RolesSettings() {
                 required 
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full px-4 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all"
+                className="w-full px-4 h-12 bg-muted dark:bg-slate-900 border border-border dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all"
               />
-              <p className="text-xs text-slate-500 mt-2 font-medium">
+              <p className="text-xs text-muted-foreground mt-2 font-medium">
                 {isRtl ? "قم بتزويد المستخدم بهذه الكلمة ليتمكن من الدخول." : "Provide this password to the new user so they can login."}
               </p>
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+              <label className="block text-sm font-bold text-foreground dark:text-slate-300 mb-2 uppercase tracking-wide">
                 {isRtl ? "الدور والصلاحية" : "Role"}
               </label>
               <select 
                 title="Role"
                 value={roleName}
                 onChange={e => setRoleName(e.target.value)}
-                className="w-full px-4 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all cursor-pointer"
+                className="w-full px-4 h-12 bg-muted dark:bg-slate-900 border border-border dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all cursor-pointer"
               >
                 {availableRoles.map(r => (
                   <option key={r.ID} value={r.Name}>{r.Name}</option>
@@ -296,8 +296,8 @@ export default function RolesSettings() {
                 )}
               </select>
             </div>
-            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 mt-4">
-              <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)} className="rounded-xl font-bold hover:bg-slate-100 dark:hover:bg-slate-800">
+            <div className="pt-6 border-t border-border dark:border-slate-800 flex justify-end gap-3 mt-4">
+              <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)} className="rounded-xl font-bold hover:bg-muted dark:hover:bg-slate-800">
                 {isRtl ? "إلغاء" : "Cancel"}
               </Button>
               <Button type="submit" className="bg-brand hover:bg-brand/90 text-white rounded-xl font-bold shadow-md shadow-brand/20">
@@ -310,16 +310,16 @@ export default function RolesSettings() {
 
       {/* Edit Role Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 shadow-2xl rounded-[2rem]" dir={isRtl ? "rtl" : "ltr"}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-card dark:bg-slate-950 border-border dark:border-slate-800 shadow-2xl rounded-[2rem]" dir={isRtl ? "rtl" : "ltr"}>
           <DialogHeader className="p-6 pb-0 md:p-8 md:pb-0">
-            <DialogTitle className="text-2xl font-black text-slate-900 dark:text-white">
+            <DialogTitle className="text-2xl font-black text-foreground dark:text-white">
               {isRtl ? "تعديل صلاحيات المستخدم" : "Edit User Role"}
             </DialogTitle>
           </DialogHeader>
           {editUser && (
             <form onSubmit={handleEditRole} className="p-6 md:p-8 space-y-5">
               <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+                <label className="block text-sm font-bold text-foreground dark:text-slate-300 mb-2 uppercase tracking-wide">
                   {isRtl ? "البريد الإلكتروني" : "User Email"}
                 </label>
                 <input 
@@ -328,18 +328,18 @@ export default function RolesSettings() {
                   placeholder="User Email"
                   disabled 
                   value={editUser.Email}
-                  className="w-full px-4 h-12 bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 text-slate-500 rounded-xl font-medium"
+                  className="w-full px-4 h-12 bg-muted dark:bg-slate-900/50 border border-border dark:border-slate-800 text-muted-foreground rounded-xl font-medium"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">
+                <label className="block text-sm font-bold text-foreground dark:text-slate-300 mb-2 uppercase tracking-wide">
                   {isRtl ? "الدور والصلاحية" : "Role"}
                 </label>
                 <select 
                   title="Role"
                   value={editUser.Role}
                   onChange={e => setEditUser({...editUser, Role: e.target.value})}
-                  className="w-full px-4 h-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all cursor-pointer"
+                  className="w-full px-4 h-12 bg-muted dark:bg-slate-900 border border-border dark:border-slate-800 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-transparent outline-none transition-all cursor-pointer"
                 >
                   {availableRoles.map(r => (
                     <option key={r.ID} value={r.Name}>{r.Name}</option>
@@ -354,8 +354,8 @@ export default function RolesSettings() {
                   )}
                 </select>
               </div>
-              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 mt-4">
-                <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)} className="rounded-xl font-bold hover:bg-slate-100 dark:hover:bg-slate-800">
+              <div className="pt-6 border-t border-border dark:border-slate-800 flex justify-end gap-3 mt-4">
+                <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)} className="rounded-xl font-bold hover:bg-muted dark:hover:bg-slate-800">
                   {isRtl ? "إلغاء" : "Cancel"}
                 </Button>
                 <Button type="submit" className="bg-brand hover:bg-brand/90 text-white rounded-xl font-bold shadow-md shadow-brand/20">

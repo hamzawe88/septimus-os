@@ -18,8 +18,15 @@
 # (POST /api/v1/workspaces/:workspace_id/webhooks).
 
 services:
+  backend-core:
+    environment:
+      # Only the optional overlay supplies the in-network n8n endpoint.
+      - N8N_WEBHOOK_BASE_URL=http://n8n:5678/webhook
+
   n8n:
-    image: docker.n8n.io/n8nio/n8n
+    # Pin the runtime: pulling `latest` can introduce a breaking migration on
+    # every rebuild. Upgrade this version deliberately after testing backups.
+    image: docker.n8n.io/n8nio/n8n:2.27.4
     restart: always
     # Loopback-only, same rule as the data stores in the main compose.
     ports:
@@ -32,15 +39,65 @@ services:
       - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678/}
       # Libya HQ — scheduled workflows fire against the company's clock.
       - GENERIC_TIMEZONE=${N8N_TIMEZONE:-Africa/Tripoli}
-      # Encrypts stored credentials. Set it before the first boot and never
-      # rotate it: n8n auto-generates one into the volume otherwise, and a later
-      # change leaves every saved credential undecryptable.
-      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-dev-n8n-encryption-key-change-me}
+      # Pass through only when explicitly configured. If it is absent, n8n
+      # reuses (or creates on first boot) the key in /home/node/.n8n/config.
+      # Never provide a static fallback: it can conflict with a persisted key
+      # and make every stored credential unavailable.
+      - N8N_ENCRYPTION_KEY
       # n8n owns its own auth (owner account on first visit). The old
       # N8N_BASIC_AUTH_* variables are deprecated and deliberately unused.
       - N8N_DIAGNOSTICS_ENABLED=${N8N_DIAGNOSTICS_ENABLED:-false}
+      # Code nodes execute only in the isolated, version-matched sidecar below.
+      # The broker remains private to the Compose network.
+      - N8N_RUNNERS_MODE=external
+      - N8N_RUNNERS_BROKER_LISTEN_ADDRESS=0.0.0.0
+      - N8N_RUNNERS_AUTH_TOKEN=${N8N_RUNNERS_AUTH_TOKEN:?N8N_RUNNERS_AUTH_TOKEN is required for the n8n overlay}
+      - N8N_NATIVE_PYTHON_RUNNER=true
     volumes:
       - n8n_data:/home/node/.n8n
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:5678/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  n8n-task-runners:
+    # Runner protocol versions must match n8n exactly. This official sidecar
+    # contains both the JavaScript and native Python runners.
+    image: n8nio/runners:2.27.4
+    restart: always
+    environment:
+      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n:5679
+      - N8N_RUNNERS_AUTH_TOKEN=${N8N_RUNNERS_AUTH_TOKEN:?N8N_RUNNERS_AUTH_TOKEN is required for the n8n overlay}
+      - N8N_RUNNERS_AUTO_SHUTDOWN_TIMEOUT=15
+      - N8N_RUNNERS_LAUNCHER_LOG_LEVEL=info
+      - PYTHONDONTWRITEBYTECODE=1
+    depends_on:
+      n8n:
+        condition: service_healthy
+    # Code nodes are untrusted by definition. Keep the runner unprivileged and
+    # remove every Linux capability; it receives no host mounts or host ports.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: 1g
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5680/healthz', timeout=3).read()"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   n8n_data:

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { useFinanceStore } from "@/store/useFinanceStore";
 import FinanceDashboard from "@/components/finance/FinanceDashboard";
 import InvoicesTable from "@/components/finance/InvoicesTable";
 import ExpensesList from "@/components/finance/ExpensesList";
@@ -27,8 +28,8 @@ interface RawExpenseEntity {
 }
 
 export default function FinancePage() {
-  const { t, isRtl } = useLocalization();
-  const [activeTab, setActiveTab] = useState<"dashboard" | "invoices" | "expenses" | "vat">("dashboard");
+  const { t } = useLocalization();
+  const { activeTab, setActiveTab } = useFinanceStore();
   const [isAgentOpen, setIsAgentOpen] = useState(false);
   const [invoices, setInvoices] = useState<InvoiceEntity[]>([]);
   const [expenses, setExpenses] = useState<RawExpenseEntity[]>([]);
@@ -82,9 +83,9 @@ export default function FinancePage() {
   ];
 
   return (
-    <div className="flex flex-col w-full h-full bg-[#f8fafc]" dir={isRtl ? "rtl" : "ltr"}>
+    <div data-testid="finance-page" className="flex h-full w-full flex-col bg-background">
       {/* Sub-navigation Tabs */}
-      <div className="flex-none px-8 py-4 border-b border-slate-200 bg-white flex items-center gap-6">
+      <div className="flex-none px-8 py-4 border-b border-border bg-card flex items-center gap-6">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -92,9 +93,9 @@ export default function FinancePage() {
             className={`flex items-center gap-2 pb-4 -mb-4 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === tab.id
                 ? tab.id === "vat"
-                  ? "border-emerald-600 text-emerald-700"
+                  ? "border-success/20 text-success"
                   : "border-brand text-brand"
-                : "border-transparent text-slate-500 hover:text-slate-800"
+                : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
             {tab.icon}
@@ -118,7 +119,7 @@ export default function FinancePage() {
       {/* Floating Action Button for AI Assistant */}
       <button
         onClick={() => setIsAgentOpen(true)}
-        className="fixed bottom-8 end-8 w-14 h-14 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group z-30"
+        className="fixed bottom-8 end-8 w-14 h-14 bg-success hover:bg-success text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group z-30"
         title={t("finance.aiAssistant")}
         aria-label={t("finance.aiAssistant")}
       >

@@ -12,7 +12,7 @@ interface PropertiesPanelProps {
 }
 
 export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClose }: PropertiesPanelProps) {
-  const { isRtl } = useLocalization();
+  const { isRtl, t } = useLocalization();
   const [newHeaderKey, setNewHeaderKey] = useState('');
   const [newHeaderValue, setNewHeaderValue] = useState('');
 
@@ -39,20 +39,20 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
   };
 
   return (
-    <aside className="w-full flex flex-col h-full bg-white dark:bg-slate-900 z-10" dir={isRtl ? "rtl" : "ltr"}>
-      <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+    <aside className="w-full flex flex-col h-full bg-card dark:bg-slate-900 z-10" dir={isRtl ? "rtl" : "ltr"}>
+      <div className="p-5 border-b border-border dark:border-slate-800 flex justify-between items-center bg-muted dark:bg-slate-800/50">
         <div>
-          <h3 className="font-bold text-slate-800 dark:text-white">{isRtl ? "خصائص العقدة" : "Node Properties"}</h3>
-          <p className="text-xs text-slate-500 uppercase">{selectedNode.type}</p>
+          <h3 className="font-bold text-foreground dark:text-white">{isRtl ? "خصائص العقدة" : "Node Properties"}</h3>
+          <p className="text-xs text-muted-foreground uppercase">{selectedNode.type}</p>
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose} className="h-8 px-2 text-slate-400 hover:text-slate-700">
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-8 px-2 text-muted-foreground hover:text-foreground">
           {isRtl ? "إغلاق" : "Close"}
         </Button>
       </div>
 
       <div className="p-4 flex flex-col gap-4 overflow-y-auto">
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "التسمية" : "Label"}</label>
+          <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "التسمية" : "Label"}</label>
           <Input 
             value={selectedNode.data.label || ''} 
             onChange={(e) => handleDataChange('label', e.target.value)} 
@@ -62,7 +62,7 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
         </div>
         
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "الوصف" : "Description"}</label>
+          <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "الوصف" : "Description"}</label>
           <Input 
             value={selectedNode.data.description || ''} 
             onChange={(e) => handleDataChange('description', e.target.value)} 
@@ -75,9 +75,9 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
         {selectedNode.type === 'trigger' && (
           <div className="space-y-3 mt-2 border-t pt-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "حدث التشغيل" : "Trigger Event"}</label>
+              <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "حدث التشغيل" : "Trigger Event"}</label>
               <select 
-                className="w-full h-8 px-2 border border-slate-200 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
+                className="w-full h-8 px-2 border border-border dark:border-slate-700 rounded-md text-sm bg-card dark:bg-slate-800 text-foreground dark:text-white"
                 value={selectedNode.data.triggerEvent as string || ''}
                 onChange={(e) => handleDataChange('triggerEvent', e.target.value)}
                 title={isRtl ? "اختر الحدث" : "Select Trigger Event"}
@@ -88,6 +88,12 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
                 <option value="task.transitioned">{isRtl ? "تغيّر حالة مهمة" : "Task Transitioned"}</option>
                 <option value="document.uploaded">{isRtl ? "رفع مستند" : "Document Uploaded"}</option>
                 <option value="message.created">{isRtl ? "إنشاء رسالة" : "Message Created"}</option>
+                <option value="data.record.created">{t("schemaBuilder.workflowEvents.recordCreated")}</option>
+                <option value="data.record.updated">{t("schemaBuilder.workflowEvents.recordUpdated")}</option>
+                <option value="data.record.deleted">{t("schemaBuilder.workflowEvents.recordDeleted")}</option>
+                <option value="data.record.migrated">{t("schemaBuilder.workflowEvents.recordMigrated")}</option>
+                <option value="data.schema.published">{t("schemaBuilder.workflowEvents.schemaPublished")}</option>
+                <option value="data.schema.migration.completed">{t("schemaBuilder.workflowEvents.schemaMigrationCompleted")}</option>
                 <option value="cron">{isRtl ? "مجدول زمني (Cron)" : "Scheduled Run (Cron)"}</option>
               </select>
             </div>
@@ -130,7 +136,7 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
         {selectedNode.type === 'condition' && (
           <div className="space-y-3 mt-2 border-t pt-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "الحقل" : "Field"}</label>
+              <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "الحقل" : "Field"}</label>
               <Input 
                 value={selectedNode.data.field || ''} 
                 onChange={(e) => handleDataChange('field', e.target.value)} 
@@ -139,9 +145,9 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "العملية" : "Operator"}</label>
+              <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "العملية" : "Operator"}</label>
               <select 
-                className="w-full h-8 px-2 border border-slate-200 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
+                className="w-full h-8 px-2 border border-border dark:border-slate-700 rounded-md text-sm bg-card dark:bg-slate-800 text-foreground dark:text-white"
                 value={selectedNode.data.operator as string || ''}
                 onChange={(e) => handleDataChange('operator', e.target.value)}
                 title={isRtl ? "اختر العملية" : "Select Operator"}
@@ -156,7 +162,7 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "القيمة" : "Value"}</label>
+              <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "القيمة" : "Value"}</label>
               <Input 
                 value={selectedNode.data.value || ''} 
                 onChange={(e) => handleDataChange('value', e.target.value)} 
@@ -171,9 +177,9 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
         {selectedNode.type === 'action' && (
           <div className="space-y-3 mt-2 border-t pt-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "نوع الإجراء" : "Action Type"}</label>
+              <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "نوع الإجراء" : "Action Type"}</label>
               <select 
-                className="w-full h-8 px-2 border border-slate-200 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
+                className="w-full h-8 px-2 border border-border dark:border-slate-700 rounded-md text-sm bg-card dark:bg-slate-800 text-foreground dark:text-white"
                 value={selectedNode.data.actionType as string || ''}
                 onChange={(e) => handleDataChange('actionType', e.target.value)}
                 title={isRtl ? "اختر نوع الإجراء" : "Select Action Type"}
@@ -193,7 +199,7 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
             {selectedNode.data.actionType === 'send_chat' && (
               <>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "القناة / المجموعة (المعرّف)" : "Channel / Group (ID)"}</label>
+                  <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "القناة / المجموعة (المعرّف)" : "Channel / Group (ID)"}</label>
                   <Input 
                     value={selectedNode.data.channelId || ''} 
                     onChange={(e) => handleDataChange('channelId', e.target.value)} 
@@ -203,12 +209,12 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "محتوى الرسالة" : "Message Content"}</label>
+                  <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "محتوى الرسالة" : "Message Content"}</label>
                   <textarea 
                     value={selectedNode.data.messageText || ''} 
                     onChange={(e) => handleDataChange('messageText', e.target.value)} 
                     placeholder={isRtl ? "مرحباً {{title}}" : "Hello {{title}}"} 
-                    className="w-full h-24 p-2 border border-slate-200 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
+                    className="w-full h-24 p-2 border border-border dark:border-slate-700 rounded-md text-sm bg-card dark:bg-slate-800 text-foreground dark:text-white"
                   />
                 </div>
               </>
@@ -217,9 +223,9 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
             {/* Update Task Status */}
             {selectedNode.data.actionType === 'update_task_status' && (
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "الحالة الجديدة" : "New Status"}</label>
+                <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "الحالة الجديدة" : "New Status"}</label>
                 <select 
-                  className="w-full h-8 px-2 border border-slate-200 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
+                  className="w-full h-8 px-2 border border-border dark:border-slate-700 rounded-md text-sm bg-card dark:bg-slate-800 text-foreground dark:text-white"
                   value={selectedNode.data.newStatus as string || ''}
                   onChange={(e) => handleDataChange('newStatus', e.target.value)}
                   title={isRtl ? "اختر الحالة" : "Select New Status"}
@@ -238,7 +244,7 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
             {selectedNode.data.actionType === 'send_email' && (
               <>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "البريد الإلكتروني" : "Email Address"}</label>
+                  <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "البريد الإلكتروني" : "Email Address"}</label>
                   <Input 
                     value={selectedNode.data.emailAddress || ''} 
                     onChange={(e) => handleDataChange('emailAddress', e.target.value)} 
@@ -248,7 +254,7 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "الموضوع" : "Subject"}</label>
+                  <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "الموضوع" : "Subject"}</label>
                   <Input 
                     value={selectedNode.data.emailSubject || ''} 
                     onChange={(e) => handleDataChange('emailSubject', e.target.value)} 
@@ -263,7 +269,7 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
             {selectedNode.data.actionType === 'send_slack' && (
               <>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "رابط Webhook في Slack" : "Slack Webhook URL"}</label>
+                  <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "رابط Webhook في Slack" : "Slack Webhook URL"}</label>
                   <Input 
                     value={selectedNode.data.slackWebhookUrl || ''} 
                     onChange={(e) => handleDataChange('slackWebhookUrl', e.target.value)} 
@@ -273,12 +279,12 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "نص الرسالة" : "Message Text"}</label>
+                  <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "نص الرسالة" : "Message Text"}</label>
                   <textarea 
                     value={selectedNode.data.messageText || ''} 
                     onChange={(e) => handleDataChange('messageText', e.target.value)} 
                     placeholder={isRtl ? "تنبيه: تم إنشاء مهمة {{title}}" : "Alert: Task created {{title}}"} 
-                    className="w-full h-24 p-2 border border-slate-200 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
+                    className="w-full h-24 p-2 border border-border dark:border-slate-700 rounded-md text-sm bg-card dark:bg-slate-800 text-foreground dark:text-white"
                   />
                 </div>
               </>
@@ -290,7 +296,7 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-orange-700 dark:text-orange-300">{isRtl ? "طريقة الإرسال" : "HTTP Method"}</label>
                   <select 
-                    className="w-full h-8 px-2 border border-orange-200 dark:border-orange-700 rounded-md text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
+                    className="w-full h-8 px-2 border border-orange-200 dark:border-orange-700 rounded-md text-sm bg-card dark:bg-slate-800 text-foreground dark:text-white"
                     value={selectedNode.data.actionMethod as string || 'POST'}
                     onChange={(e) => handleDataChange('actionMethod', e.target.value)}
                     title={isRtl ? "طريقة الإرسال" : "HTTP Method"}
@@ -319,7 +325,7 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
                     value={selectedNode.data.actionBody || ''} 
                     onChange={(e) => handleDataChange('actionBody', e.target.value)} 
                     placeholder={'{"status": "{{status}}", "title": "{{title}}"}'}
-                    className="w-full h-24 p-2 border border-orange-200 dark:border-orange-700 rounded-md text-sm font-mono bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
+                    className="w-full h-24 p-2 border border-orange-200 dark:border-orange-700 rounded-md text-sm font-mono bg-card dark:bg-slate-800 text-foreground dark:text-white"
                     dir="ltr"
                   />
                 </div>
@@ -328,10 +334,10 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-orange-700 dark:text-orange-300">{isRtl ? "ترويسات مخصصة" : "Custom Headers"}</label>
                   {Object.entries(headers).map(([key, val]) => (
-                    <div key={key} className="flex items-center gap-1.5 bg-white dark:bg-slate-800 rounded-lg p-1.5 border border-orange-100 dark:border-orange-900/30">
-                      <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300 truncate flex-1">{key}</span>
-                      <span className="text-[10px] text-slate-400">:</span>
-                      <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate flex-1">{val}</span>
+                    <div key={key} className="flex items-center gap-1.5 bg-card dark:bg-slate-800 rounded-lg p-1.5 border border-orange-100 dark:border-orange-900/30">
+                      <span className="text-[11px] font-mono font-bold text-foreground dark:text-slate-300 truncate flex-1">{key}</span>
+                      <span className="text-[10px] text-muted-foreground">:</span>
+                      <span className="text-[11px] font-mono text-muted-foreground dark:text-muted-foreground truncate flex-1">{val}</span>
                       <button onClick={() => removeHeader(key)} className="text-rose-400 hover:text-rose-600 p-0.5" aria-label={isRtl ? "حذف ترويسة" : "Remove header"}>
                         <Trash2 size={12} />
                       </button>
@@ -367,9 +373,9 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
             {selectedNode.data.actionType === 'trigger_ai_agent' && (
               <>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "نوع الوكيل" : "Agent Type"}</label>
+                  <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "نوع الوكيل" : "Agent Type"}</label>
                   <select 
-                    className="w-full h-8 px-2 border border-slate-200 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
+                    className="w-full h-8 px-2 border border-border dark:border-slate-700 rounded-md text-sm bg-card dark:bg-slate-800 text-foreground dark:text-white"
                     value={selectedNode.data.agentType as string || ''}
                     onChange={(e) => handleDataChange('agentType', e.target.value)}
                     title={isRtl ? "اختر نوع الوكيل" : "Select Agent Type"}
@@ -385,16 +391,16 @@ export default function PropertiesPanel({ selectedNode, onUpdateNodeData, onClos
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "أمر المهمة" : "Task Prompt"}</label>
+                  <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "أمر المهمة" : "Task Prompt"}</label>
                   <textarea 
                     value={selectedNode.data.agentPrompt || ''} 
                     onChange={(e) => handleDataChange('agentPrompt', e.target.value)} 
                     placeholder={isRtl ? "حلّل التالي: {{task_data}}" : "Analyze the following: {{task_data}}"} 
-                    className="w-full h-24 p-2 border border-slate-200 dark:border-slate-700 rounded-md text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-white"
+                    className="w-full h-24 p-2 border border-border dark:border-slate-700 rounded-md text-sm bg-card dark:bg-slate-800 text-foreground dark:text-white"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">{isRtl ? "إرسال الرد إلى قناة (اختياري)" : "Send Reply to Channel (Optional)"}</label>
+                  <label className="text-xs font-semibold text-muted-foreground dark:text-muted-foreground">{isRtl ? "إرسال الرد إلى قناة (اختياري)" : "Send Reply to Channel (Optional)"}</label>
                   <Input 
                     value={selectedNode.data.channelId || ''} 
                     onChange={(e) => handleDataChange('channelId', e.target.value)} 

@@ -20,17 +20,16 @@ function humanizeKey(lastKey: string): string {
 export function translate(language: Language, keyPath: string, fallback?: string): string {
   const dictionary = language === "ar" ? ar : en;
   const keys = keyPath.split(".");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let value: any = dictionary;
+  let value: unknown = dictionary;
   for (const key of keys) {
-    if (!value || value[key] === undefined) {
+    if (typeof value !== "object" || value === null || !(key in value)) {
       if (language === "en" && fallback && /[\u0600-\u06FF]/.test(fallback)) {
         // Constitutional Safeguard: In English mode, NEVER return an Arabic fallback!
         return humanizeKey(keys[keys.length - 1]);
       }
       return fallback || keyPath;
     }
-    value = value[key];
+    value = (value as Record<string, unknown>)[key];
   }
   if (typeof value !== "string" && typeof value !== "number") {
     if (language === "en" && fallback && /[\u0600-\u06FF]/.test(fallback)) {

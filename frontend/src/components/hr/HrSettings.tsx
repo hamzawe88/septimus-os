@@ -5,6 +5,7 @@ import { Settings, Save, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiGet, apiPost, apiPut } from "@/lib/apiClient";
 import { useLocalization } from "@/contexts/LocalizationContext";
+import { PageHeader } from "@/components/ui/page-header";
 
 interface HrPolicyEntity {
   id: string;
@@ -97,28 +98,24 @@ export default function HrSettings() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center p-8 text-slate-500">{t("common.loading")}</div>;
+    return <div className="flex items-center justify-center p-8 text-muted-foreground">{t("common.loading")}</div>;
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#f8fafc] w-full overflow-y-auto">
-      <div className="flex-none px-8 py-6 border-b border-slate-200 bg-white">
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Settings className="w-6 h-6 text-brand" />
-          {t("hr.hrSettings")}
-        </h1>
-        <p className="text-slate-500 mt-1">
-          {t("hr.hrSettingsDesc")}
-        </p>
-      </div>
+    <div className="flex flex-col h-full bg-background w-full overflow-y-auto">
+      <PageHeader
+        icon={<Settings className="w-6 h-6 text-brand" />}
+        title={t("hr.hrSettings")}
+        description={t("hr.hrSettingsDesc")}
+      />
 
       <div className="p-8 max-w-3xl">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="p-6 space-y-6">
             
             {/* Setting 1 */}
             <div className="flex flex-col gap-2">
-              <label htmlFor="maxUsersOnLeavePerDept" className="text-sm font-semibold text-slate-900">
+              <label htmlFor="maxUsersOnLeavePerDept" className="text-sm font-semibold text-foreground">
                 {t("hr.maxLeavePerDept")}
               </label>
               <div className="flex items-center gap-4">
@@ -128,23 +125,23 @@ export default function HrSettings() {
                   aria-label={t("hr.maxLeavePerDept")}
                   type="number"
                   min="1"
-                  className="w-24 px-3 py-2 border border-slate-200 rounded-md focus:border-brand focus:outline-none"
+                  className="w-24 px-3 py-2 border border-border rounded-md focus:border-brand focus:outline-none"
                   value={settings.maxUsersOnLeavePerDept}
                   onChange={(e) => setSettings({ ...settings, maxUsersOnLeavePerDept: parseInt(e.target.value) || 1 })}
                 />
-                <span className="text-sm text-slate-500">{t("hr.employees")}</span>
+                <span className="text-sm text-muted-foreground">{t("hr.employees")}</span>
               </div>
-              <p className="text-xs text-slate-500 flex items-center gap-1">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <AlertCircle className="w-3 h-3" />
                 {t("hr.maxLeavePerDeptDesc")}
               </p>
             </div>
 
-            <hr className="border-slate-100" />
+            <hr className="border-border" />
 
             {/* Setting 2 */}
             <div className="flex flex-col gap-2">
-              <label htmlFor="maxConsecutiveLeaveDays" className="text-sm font-semibold text-slate-900">
+              <label htmlFor="maxConsecutiveLeaveDays" className="text-sm font-semibold text-foreground">
                 {t("hr.maxConsecutiveDays")}
               </label>
               <div className="flex items-center gap-4">
@@ -154,21 +151,21 @@ export default function HrSettings() {
                   aria-label={t("hr.maxConsecutiveDays")}
                   type="number"
                   min="1"
-                  className="w-24 px-3 py-2 border border-slate-200 rounded-md focus:border-brand focus:outline-none"
+                  className="w-24 px-3 py-2 border border-border rounded-md focus:border-brand focus:outline-none"
                   value={settings.maxConsecutiveLeaveDays}
                   onChange={(e) => setSettings({ ...settings, maxConsecutiveLeaveDays: parseInt(e.target.value) || 1 })}
                 />
-                <span className="text-sm text-slate-500">{t("hr.days")}</span>
+                <span className="text-sm text-muted-foreground">{t("hr.days")}</span>
               </div>
             </div>
 
-            <hr className="border-slate-100" />
+            <hr className="border-border" />
 
             {/* Setting 3 */}
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-sm font-semibold text-slate-900">{t("hr.managerApproval")}</h4>
-                <p className="text-xs text-slate-500 mt-1">{t("hr.managerApprovalDesc")}</p>
+                <h4 className="text-sm font-semibold text-foreground">{t("hr.managerApproval")}</h4>
+                <p className="text-xs text-muted-foreground mt-1">{t("hr.managerApprovalDesc")}</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <span className="sr-only">{t("hr.managerApproval")}</span>
@@ -180,17 +177,17 @@ export default function HrSettings() {
                   checked={settings.requireManagerApproval}
                   onChange={(e) => setSettings({ ...settings, requireManagerApproval: e.target.checked })}
                 />
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-card after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
               </label>
             </div>
 
-            <hr className="border-slate-100" />
+            <hr className="border-border" />
 
             {/* Setting 4 */}
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-sm font-semibold text-slate-900">{t("hr.autoApproveSick")}</h4>
-                <p className="text-xs text-slate-500 mt-1">{t("hr.autoApproveSickDesc")}</p>
+                <h4 className="text-sm font-semibold text-foreground">{t("hr.autoApproveSick")}</h4>
+                <p className="text-xs text-muted-foreground mt-1">{t("hr.autoApproveSickDesc")}</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <span className="sr-only">{t("hr.autoApproveSick")}</span>
@@ -202,13 +199,13 @@ export default function HrSettings() {
                   checked={settings.autoApproveSickLeave}
                   onChange={(e) => setSettings({ ...settings, autoApproveSickLeave: e.target.checked })}
                 />
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-card after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
               </label>
             </div>
 
           </div>
           
-          <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end">
+          <div className="bg-muted p-4 border-t border-border flex justify-end">
             <Button onClick={handleSave} disabled={isSaving} className="bg-brand hover:bg-brand/90 gap-2">
               <Save className="w-4 h-4" />
               {isSaving ? t("common.saving") : t("common.saveChanges")}

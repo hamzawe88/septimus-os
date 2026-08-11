@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 import { AuthSlice, createAuthSlice } from './slices/authSlice';
 import { UiSlice, createUiSlice } from './slices/uiSlice';
@@ -12,10 +13,23 @@ import { NotificationsSlice, createNotificationsSlice } from './slices/notificat
 // threads list also clears the active thread) stay type-safe.
 export type AppState = AuthSlice & UiSlice & ChatSlice & PmSlice & NotificationsSlice;
 
-export const useAppStore = create<AppState>()((...args) => ({
-  ...createAuthSlice(...args),
-  ...createUiSlice(...args),
-  ...createChatSlice(...args),
-  ...createPmSlice(...args),
-  ...createNotificationsSlice(...args),
-}));
+export const useAppStore = create<AppState>()(
+  persist(
+    (...args) => ({
+      ...createAuthSlice(...args),
+      ...createUiSlice(...args),
+      ...createChatSlice(...args),
+      ...createPmSlice(...args),
+      ...createNotificationsSlice(...args),
+    }),
+    {
+      name: 'septimus-app-session',
+      storage: createJSONStorage(() => typeof window !== 'undefined' ? localStorage : ({} as Storage)),
+      partialize: (state) => ({
+        currentView: state.currentView,
+        activeChannelId: state.activeChannelId,
+        activeDmId: state.activeDmId,
+      }),
+    }
+  )
+);

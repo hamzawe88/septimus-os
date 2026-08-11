@@ -10,7 +10,7 @@ export default function ChatDock() {
   const offsetClass = (activeThread || isRagSidebarOpen) ? "start-[350px]" : "start-[290px]";
 
   return (
-    <div className={`fixed bottom-6 ${offsetClass} z-[9998] flex gap-4 transition-all duration-300 ease-in-out`} dir="ltr">
+    <div className={`fixed bottom-6 ${offsetClass} z-[9998] flex gap-4 transition-all duration-300 ease-in-out`}>
       {floatingChats.map(chat => (
         <div key={chat.id} className="transition-transform duration-300 ease-out animate-in slide-in-from-bottom-10">
           <ChatWindow 

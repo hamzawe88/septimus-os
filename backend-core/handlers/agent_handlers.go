@@ -71,7 +71,8 @@ func PublishAgentApproval(workspaceID uuid.UUID, pending *models.PendingApproval
 
 func GetAgents(c *fiber.Ctx) error {
 	var agents []models.AgentState
-	if err := database.GetDB(c).Find(&agents).Error; err != nil {
+	workspaceID := getWorkspaceID(c)
+	if err := database.GetDB(c).Where("workspace_id = ?", workspaceID).Find(&agents).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to fetch agents"})
 	}
 	return c.JSON(agents)
@@ -164,7 +165,8 @@ func UpdateAgentStatus(c *fiber.Ctx) error {
 	}
 
 	var agent models.AgentState
-	if err := database.GetDB(c).First(&agent, "id = ?", id).Error; err != nil {
+	workspaceID := getWorkspaceID(c)
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", id, workspaceID).First(&agent).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "agent not found"})
 	}
 

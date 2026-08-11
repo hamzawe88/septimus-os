@@ -1,7 +1,10 @@
-import React from 'react';
-import { LayoutGrid, Sparkles, Plus, Search, Filter, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useLocalization } from '@/contexts/LocalizationContext';
+import React from "react";
+import { Filter, LayoutGrid, Plus, Search, Sparkles, X } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tag } from "@/components/ui/tag";
+import { useLocalization } from "@/contexts/LocalizationContext";
 
 interface User {
   id: string;
@@ -18,10 +21,13 @@ interface BacklogHeaderProps {
   filterAssignee: string | null;
   setFilterAssignee: (assigneeId: string | null) => void;
   users: User[];
-  priorities: { label: string, value: number, badge: string }[];
+  priorities: { label: string; value: number; badge?: string }[];
   onAutoPlan: () => void;
   onCreateSprint: () => void;
 }
+
+const selectClassName =
+  "h-8 rounded-[var(--radius-control)] border border-input bg-background px-2.5 text-xs font-medium text-foreground outline-none focus:border-ring focus:ring-2 focus:ring-ring/30";
 
 export function BacklogHeader({
   isLoading,
@@ -34,96 +40,131 @@ export function BacklogHeader({
   users,
   priorities,
   onAutoPlan,
-  onCreateSprint
+  onCreateSprint,
 }: BacklogHeaderProps) {
-  const { isRtl } = useLocalization();
+  const { t } = useLocalization();
+  const hasFilters =
+    Boolean(searchQuery) ||
+    filterPriority !== null ||
+    filterAssignee !== null;
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterPriority(null);
+    setFilterAssignee(null);
+  };
+
   return (
-    <div className="flex flex-col border-b border-slate-200 bg-white/90 backdrop-blur-md z-20 shadow-sm">
-      <div className="flex justify-between items-center p-4 lg:px-6">
+    <header className="z-20 flex flex-col border-b border-border bg-background/90 shadow-sm backdrop-blur-md">
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 lg:px-6">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl text-white shadow-md">
-            <LayoutGrid className="w-6 h-6" />
+          <div className="rounded-[var(--radius-control)] bg-brand-light p-2.5 text-brand">
+            <LayoutGrid className="size-6" aria-hidden />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">{isRtl ? "المهام المتراكمة والسبرنتات" : "Backlog & Sprints"}</h2>
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-brand-light text-brand rounded-full">{isRtl ? "مركز أجايل" : "Agile Super-Hub"}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-black tracking-tight">
+                {t("pm.backlog.title")}
+              </h2>
+              <Tag tone="brand">{t("pm.backlog.hub")}</Tag>
             </div>
-            <p className="text-xs font-medium text-slate-500">{isRtl ? "اسحب المهام وأفلتها، راقب السعة لحظياً، وخطّط دورات العمل" : "Drag and drop tasks, monitor real-time capacity, and plan work cycles"}</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              {t("pm.backlog.description")}
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="shadow-sm border-brand-light text-brand hover:bg-brand-light font-bold text-xs" onClick={onAutoPlan} disabled={isLoading} title={isRtl ? "تخطيط السبرنت بالذكاء الاصطناعي" : "AI Auto-Plan Sprint"} aria-label={isRtl ? "تخطيط السبرنت بالذكاء الاصطناعي" : "AI Auto-Plan Sprint"}>
-            <Sparkles className="w-4 h-4 me-1.5 text-brand animate-pulse" /> {isRtl ? "تخطيط ذكي" : "AI Auto-Plan"}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={onAutoPlan}
+            disabled={isLoading}
+            title={t("pm.backlog.autoPlan")}
+          >
+            <Sparkles />
+            {t("pm.backlog.autoPlan")}
           </Button>
-          <Button onClick={onCreateSprint} className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-md font-semibold text-xs" disabled={isLoading} title={isRtl ? "إنشاء سبرنت جديد" : "Create New Sprint"} aria-label={isRtl ? "إنشاء سبرنت جديد" : "Create New Sprint"}>
-            <Plus className="w-4 h-4 me-1.5" /> {isRtl ? "سبرنت جديد" : "New Sprint"}
+          <Button
+            onClick={onCreateSprint}
+            disabled={isLoading}
+            title={t("pm.backlog.newSprint")}
+          >
+            <Plus />
+            {t("pm.backlog.newSprint")}
           </Button>
         </div>
       </div>
 
-      {/* Search & Filter Bar */}
-      <div className="flex items-center justify-between px-6 py-2.5 bg-slate-50/80 border-t border-slate-100 text-xs gap-4">
-        <div className="flex items-center gap-2 flex-1 max-w-md">
-          <div className="relative w-full">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              title={isRtl ? "بحث المهام" : "Search tasks"}
-              aria-label={isRtl ? "بحث المهام" : "Search tasks"}
-              placeholder={isRtl ? "ابحث في المهام بالعنوان..." : "Search backlog tasks by title..."}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full ps-9 pe-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand shadow-sm"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery("")} title={isRtl ? "مسح البحث" : "Clear search"} aria-label={isRtl ? "مسح البحث" : "Clear search"} className="absolute end-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-slate-400 font-semibold flex items-center gap-1"><Filter className="w-3.5 h-3.5"/> {isRtl ? "تصفية حسب:" : "Filter by:"}</span>
-          
-          <select
-            title={isRtl ? "تصفية حسب الأولوية" : "Filter by Priority"}
-            aria-label={isRtl ? "تصفية حسب الأولوية" : "Filter by Priority"}
-            value={filterPriority === null ? "" : filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value === "" ? null : Number(e.target.value))}
-            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-700 cursor-pointer focus:outline-none shadow-sm"
-          >
-            <option value="">{isRtl ? "كل الأولويات" : "All Priorities"}</option>
-            {priorities.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-
-          <select
-            title={isRtl ? "تصفية حسب المُسند إليه" : "Filter by Assignee"}
-            aria-label={isRtl ? "تصفية حسب المُسند إليه" : "Filter by Assignee"}
-            value={filterAssignee || ""}
-            onChange={(e) => setFilterAssignee(e.target.value === "" ? null : e.target.value)}
-            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-medium text-slate-700 cursor-pointer focus:outline-none shadow-sm"
-          >
-            <option value="">{isRtl ? "كل المُسندين" : "All Assignees"}</option>
-            {users.map(u => <option key={u.id} value={u.id}>{u.email.split('@')[0]}</option>)}
-          </select>
-
-          {(searchQuery || filterPriority !== null || filterAssignee !== null) && (
-            <button 
-              onClick={() => {
-                setSearchQuery("");
-                setFilterPriority(null);
-                setFilterAssignee(null);
-              }}
-              className="text-slate-400 hover:text-slate-700 underline underline-offset-2 transition-colors ms-1"
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-surface-subtle px-6 py-2.5 text-xs">
+        <div className="relative w-full max-w-md flex-1">
+          <Search className="absolute start-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            type="search"
+            aria-label={t("pm.backlog.search")}
+            placeholder={t("pm.backlog.searchPlaceholder")}
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            className="h-8 ps-9 pe-9"
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              title={t("pm.backlog.clearSearch")}
+              aria-label={t("pm.backlog.clearSearch")}
+              className="absolute end-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
-              {isRtl ? "مسح" : "Clear"}
+              <X className="size-3.5" />
             </button>
-          )}
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1 font-semibold text-muted-foreground">
+            <Filter className="size-3.5" aria-hidden />
+            {t("pm.backlog.filterBy")}
+          </span>
+          <select
+            aria-label={t("pm.backlog.filterPriority")}
+            value={filterPriority === null ? "" : filterPriority}
+            onChange={(event) =>
+              setFilterPriority(
+                event.target.value === "" ? null : Number(event.target.value),
+              )
+            }
+            className={selectClassName}
+          >
+            <option value="">{t("pm.backlog.allPriorities")}</option>
+            {priorities.map((priority) => (
+              <option key={priority.value} value={priority.value}>
+                {priority.label}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label={t("pm.backlog.filterAssignee")}
+            value={filterAssignee || ""}
+            onChange={(event) =>
+              setFilterAssignee(
+                event.target.value === "" ? null : event.target.value,
+              )
+            }
+            className={selectClassName}
+          >
+            <option value="">{t("pm.backlog.allAssignees")}</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.email.split("@")[0]}
+              </option>
+            ))}
+          </select>
+          {hasFilters ? (
+            <Button type="button" variant="ghost" size="xs" onClick={clearFilters}>
+              {t("pm.backlog.clearFilters")}
+            </Button>
+          ) : null}
         </div>
       </div>
-    </div>
+    </header>
   );
 }

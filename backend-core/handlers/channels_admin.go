@@ -1,29 +1,34 @@
 package handlers
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/models"
 )
 
 type UpdateChannelRequest struct {
-	Name      string `json:"name"`
-	Type      string `json:"type"`
-	IsArchived *bool `json:"is_archived"`
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	IsArchived *bool  `json:"is_archived"`
 }
 
 // UpdateChannel allows channel owners or admins to modify channel settings
 func UpdateChannel(c *fiber.Ctx) error {
 	channelID := c.Params("id")
 	userID, _ := c.Locals("user_id").(string)
+	wsRole, _ := c.Locals("role").(string)
+	isAdmin := strings.ToUpper(wsRole) == "ADMIN" || strings.ToUpper(wsRole) == "OWNER"
 
 	// Check permissions
 	var member models.ChannelMember
-	if err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error; err != nil {
+	err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error
+	if err != nil && !isAdmin {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You are not a member of this channel"})
 	}
 
-	if member.Role != "OWNER" && member.Role != "ADMIN" {
+	if !isAdmin && member.Role != "OWNER" && member.Role != "ADMIN" {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only admins can modify this channel"})
 	}
 
@@ -60,6 +65,8 @@ func UpdateChannel(c *fiber.Ctx) error {
 func DeleteChannel(c *fiber.Ctx) error {
 	channelID := c.Params("id")
 	userID, _ := c.Locals("user_id").(string)
+	wsRole, _ := c.Locals("role").(string)
+	isAdmin := strings.ToUpper(wsRole) == "ADMIN" || strings.ToUpper(wsRole) == "OWNER"
 
 	var channel models.Channel
 	if err := database.GetDB(c).First(&channel, "id = ?", channelID).Error; err != nil {
@@ -71,13 +78,14 @@ func DeleteChannel(c *fiber.Ctx) error {
 	}
 
 	var member models.ChannelMember
-	if err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error; err != nil {
+	err := database.GetDB(c).Where("channel_id = ? AND user_id = ?", channelID, userID).First(&member).Error
+	if err != nil && !isAdmin {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "You are not a member of this channel"})
 	}
 
 	// Only owners can delete (unless it is a DM, where any member can delete/close it)
-	if member.Role != "OWNER" && channel.Type != "DM" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only the channel owner can delete it"})
+	if !isAdmin && member.Role != "OWNER" && channel.Type != "DM" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Only the channel owner or workspace admin can delete it"})
 	}
 
 	// The request already runs inside TenantEnforcer's transaction, so a nested

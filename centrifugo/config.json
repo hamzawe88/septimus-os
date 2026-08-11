@@ -1,4 +1,5 @@
 {
+  "health": true,
   "proxy_subscribe_endpoint": "http://backend-core:4000/centrifugo/subscribe",
   "proxy_subscribe": true,
   "namespaces": [

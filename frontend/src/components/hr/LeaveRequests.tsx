@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { Search, Plus, Calendar, Check, X, Clock, BrainCircuit } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { apiGet, apiPut, apiPost, AI_BASE_URL } from "@/lib/apiClient";
+import { apiGet, apiPost, AI_BASE_URL } from "@/lib/apiClient";
 import AddLeaveRequestModal from "./AddLeaveRequestModal";
 import { useLocalization } from "@/contexts/LocalizationContext";
 
@@ -33,19 +33,18 @@ export default function LeaveRequests() {
   const fetchLeaveRequests = async () => {
     try {
       setIsLoading(true);
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
-      const res = await apiGet<{data: any[]}>(`/entities?workspace_id=${workspaceId}&type=hr_leave`);
+      const res = await apiGet<{data: any[]}>(`/leave-requests`);
       if (res.data) {
-        const mapped: LeaveRequest[] = res.data.map((entity: any) => ({
-          id: entity.id,
-          employeeName: entity.data?.employeeName || entity.data?.employee_name || t("common.unspecified"),
-          type: entity.data?.type || "annual",
-          startDate: entity.data?.startDate || t("common.unspecified"),
-          endDate: entity.data?.endDate || t("common.unspecified"),
-          days: parseInt(entity.data?.days || "0", 10),
-          status: entity.data?.status || "pending",
-          createdAt: new Date(entity.created_at).toLocaleDateString('en-CA'),
-          _originalEntity: entity
+        const mapped: LeaveRequest[] = res.data.map((r: any) => ({
+          id: r.id,
+          employeeName: r.employee_name || t("common.unspecified"),
+          type: r.leave_type || "annual",
+          startDate: r.start_date || t("common.unspecified"),
+          endDate: r.end_date || t("common.unspecified"),
+          days: Number(r.days || 0),
+          status: r.status || "pending",
+          createdAt: new Date(r.created_at).toLocaleDateString('en-CA'),
+          _originalEntity: r
         }));
         setRequests(mapped);
       }
@@ -65,28 +64,24 @@ export default function LeaveRequests() {
   const updateStatus = async (reqId: string, newStatus: string) => {
     const reqToUpdate = requests.find(r => r.id === reqId);
     if (!reqToUpdate) return;
+    const previousStatus = reqToUpdate.status;
 
     // Optimistic update
     setRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: newStatus } : r));
 
     try {
-      const workspaceId = localStorage.getItem("currentWorkspaceId") || "";
-      const entity = reqToUpdate._originalEntity;
-      if (entity) {
-        const updatedData = { ...(entity.data as any), status: newStatus };
-        await apiPut(`/entities/${reqId}?workspace_id=${workspaceId}`, {
-          name: entity.name,
-          type: entity.type,
-          data: updatedData
-        });
-      }
+      // Approval/rejection deducts or credits the employee's leave balance
+      // atomically on the server.
+      await apiPost(`/leave-requests/${reqId}/decision`, { decision: newStatus });
     } catch (err) {
       console.error("Failed to update status", err);
+      // Roll back the optimistic change if the server rejected it.
+      setRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: previousStatus } : r));
     }
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-full text-slate-500">{t("hr.loadingLeaveRequests")}</div>;
+    return <div className="flex items-center justify-center h-full text-muted-foreground">{t("hr.loadingLeaveRequests")}</div>;
   }
 
   const handleAIReview = async (req: LeaveRequest) => {
@@ -121,7 +116,7 @@ export default function LeaveRequests() {
       case "pending": return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 flex items-center gap-1"><Clock className="w-3 h-3"/> {t("hr.pending")}</span>;
       case "approved": return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 flex items-center gap-1"><Check className="w-3 h-3"/> {t("hr.approved")}</span>;
       case "rejected": return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-700 flex items-center gap-1"><X className="w-3 h-3"/> {t("hr.rejected")}</span>;
-      default: return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 flex items-center gap-1">{status}</span>;
+      default: return <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-foreground flex items-center gap-1">{status}</span>;
     }
   };
 
@@ -129,32 +124,32 @@ export default function LeaveRequests() {
     switch (type?.toLowerCase()) {
       case "annual": return <span className="text-blue-600 font-medium bg-blue-50 px-2 py-0.5 rounded text-sm">{t("hr.annual")}</span>;
       case "sick": return <span className="text-orange-600 font-medium bg-orange-50 px-2 py-0.5 rounded text-sm">{t("hr.sick")}</span>;
-      case "unpaid": return <span className="text-slate-600 font-medium bg-slate-50 px-2 py-0.5 rounded text-sm">{t("hr.unpaid")}</span>;
-      default: return <span className="text-slate-600 font-medium bg-slate-50 px-2 py-0.5 rounded text-sm">{type}</span>;
+      case "unpaid": return <span className="text-muted-foreground font-medium bg-muted px-2 py-0.5 rounded text-sm">{t("hr.unpaid")}</span>;
+      default: return <span className="text-muted-foreground font-medium bg-muted px-2 py-0.5 rounded text-sm">{type}</span>;
     }
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#f8fafc] w-full overflow-hidden">
+    <div className="flex flex-col h-full bg-background w-full overflow-hidden">
       {/* Header */}
-      <div className="flex-none px-8 py-6 border-b border-slate-200 bg-white">
+      <div className="flex-none px-8 py-6 border-b border-border bg-card">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Calendar className="w-6 h-6 text-brand" />
               {t("hr.leaveRequests")}
             </h1>
-            <p className="text-slate-500 mt-1">
+            <p className="text-muted-foreground mt-1">
               {t("hr.leaveRequestsDesc")}
             </p>
           </div>
           <div className="flex gap-3">
             <div className="relative">
-              <Search className="w-4 h-4 absolute end-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input 
                 type="text" 
                 placeholder={t("hr.searchRequestNo")}
-                className="ps-4 pe-9 py-2 border border-slate-200 rounded-md text-sm w-64 focus:outline-none focus:border-brand"
+                className="ps-4 pe-9 py-2 border border-border rounded-md text-sm w-64 focus:outline-none focus:border-brand"
               />
             </div>
             <Button onClick={() => setIsAddModalOpen(true)} className="bg-brand hover:bg-brand/90 gap-2">
@@ -167,9 +162,9 @@ export default function LeaveRequests() {
 
       {/* Table */}
       <div className="flex-1 overflow-y-auto p-8">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           <table className="w-full text-sm text-end">
-            <thead className="bg-[#f8fafc] text-slate-500 border-b border-slate-200">
+            <thead className="bg-background text-muted-foreground border-b border-border">
               <tr>
                 <th className="px-6 py-4 font-medium">{t("hr.requestNo")}</th>
                 <th className="px-6 py-4 font-medium">{t("hr.employee")}</th>
@@ -181,21 +176,21 @@ export default function LeaveRequests() {
                 <th className="px-6 py-4 font-medium text-start">{t("common.actions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 text-slate-700">
+            <tbody className="divide-y divide-border text-foreground">
               {requests.map((req) => (
-                <tr key={req.id} className="hover:bg-[#f8fafc] transition-colors group">
-                  <td className="px-6 py-4 font-bold text-slate-600">{req.id.substring(0, 8)}</td>
-                  <td className="px-6 py-4 font-medium text-slate-900">{req.employeeName}</td>
+                <tr key={req.id} className="hover:bg-background transition-colors group">
+                  <td className="px-6 py-4 font-bold text-muted-foreground">{req.id.substring(0, 8)}</td>
+                  <td className="px-6 py-4 font-medium text-foreground">{req.employeeName}</td>
                   <td className="px-6 py-4">{getTypeBadge(req.type)}</td>
-                  <td className="px-6 py-4 text-slate-600">
+                  <td className="px-6 py-4 text-muted-foreground">
                     <div className="flex flex-col gap-1">
-                      <span className="text-xs text-slate-400">{t("common.from")} {req.startDate}</span>
-                      <span className="text-xs text-slate-400">{t("common.to")} {req.endDate}</span>
+                      <span className="text-xs text-muted-foreground">{t("common.from")} {req.startDate}</span>
+                      <span className="text-xs text-muted-foreground">{t("common.to")} {req.endDate}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-bold text-slate-700">{req.days} {t("hr.days")}</td>
+                  <td className="px-6 py-4 font-bold text-foreground">{req.days} {t("hr.days")}</td>
                   <td className="px-6 py-4">{getStatusBadge(req.status)}</td>
-                  <td className="px-6 py-4 text-slate-500">{req.createdAt}</td>
+                  <td className="px-6 py-4 text-muted-foreground">{req.createdAt}</td>
                   <td className="px-6 py-4 text-start">
                     {req.status === "pending" ? (
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -223,14 +218,14 @@ export default function LeaveRequests() {
                         </button>
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">{t("hr.processed")}</span>
+                      <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{t("hr.processed")}</span>
                     )}
                   </td>
                 </tr>
               ))}
               {requests.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">
                     {t("hr.noLeaveRequests")}
                   </td>
                 </tr>
@@ -252,36 +247,36 @@ export default function LeaveRequests() {
         {/* AI Review Modal */}
         {reviewingReq && (
           <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-brand/5">
-                <h3 className="font-bold text-slate-900 flex items-center gap-2">
+            <div className="bg-card rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-brand/5">
+                <h3 className="font-bold text-foreground flex items-center gap-2">
                   <BrainCircuit className="w-5 h-5 text-brand" />
                   {t("hr.aiReviewTitle")}
                 </h3>
-                <button onClick={() => setReviewingReq(null)} className="text-slate-400 hover:bg-slate-100 p-1 rounded-full" title={t("common.close")}>
+                <button onClick={() => setReviewingReq(null)} className="text-muted-foreground hover:bg-muted p-1 rounded-full" title={t("common.close")}>
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="p-6">
                 <div className="mb-4">
-                  <p className="text-sm font-medium text-slate-700">{t("hr.employeeRequest")} {reviewingReq.employeeName}</p>
-                  <p className="text-xs text-slate-500">{t("common.from")} {reviewingReq.startDate} {t("common.to")} {reviewingReq.endDate}</p>
+                  <p className="text-sm font-medium text-foreground">{t("hr.employeeRequest")} {reviewingReq.employeeName}</p>
+                  <p className="text-xs text-muted-foreground">{t("common.from")} {reviewingReq.startDate} {t("common.to")} {reviewingReq.endDate}</p>
                 </div>
                 
-                <div className="bg-slate-50 rounded-xl p-4 min-h-[100px] border border-slate-100">
+                <div className="bg-muted rounded-xl p-4 min-h-[100px] border border-border">
                   {isReviewing ? (
                     <div className="flex flex-col items-center justify-center h-full text-brand space-y-3">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
                       <p className="text-sm font-medium animate-pulse">{t("hr.aiEvaluating")}</p>
                     </div>
                   ) : (
-                    <div className="text-slate-700 text-sm whitespace-pre-wrap leading-relaxed">
+                    <div className="text-foreground text-sm whitespace-pre-wrap leading-relaxed">
                       {reviewResult}
                     </div>
                   )}
                 </div>
               </div>
-              <div className="p-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">
+              <div className="p-4 border-t border-border flex justify-end gap-3 bg-muted">
                 <Button variant="outline" onClick={() => setReviewingReq(null)}>
                   {t("common.close")}
                 </Button>

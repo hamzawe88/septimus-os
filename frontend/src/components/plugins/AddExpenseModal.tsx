@@ -87,7 +87,7 @@ export default function AddExpenseModal({ onClose, onSuccess }: AddExpenseModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white text-slate-900 w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-card text-foreground w-full max-w-lg rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-slate-900 to-rose-900 text-white border-b border-slate-700">
@@ -100,7 +100,7 @@ export default function AddExpenseModal({ onClose, onSuccess }: AddExpenseModalP
               <p className="text-xs text-slate-300">{t("ref")}: {expenseRef}</p>
             </div>
           </div>
-          <button type="button" aria-label={t("close_modal")} onClick={onClose} className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors">
+          <button type="button" aria-label={t("close_modal")} onClick={onClose} className="p-2 text-white/70 hover:text-white rounded-lg hover:bg-white/10 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -122,30 +122,30 @@ export default function AddExpenseModal({ onClose, onSuccess }: AddExpenseModalP
           <form id="expense-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="col-span-2">
-                <label htmlFor="supplier_name" className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t("supplier_name")} *</label>
+                <label htmlFor="supplier_name" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">{t("supplier_name")} *</label>
                 <div className="relative">
-                  <Building2 className={`absolute ${isRtl ? 'end-3' : 'start-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400`} />
-                  <input id="supplier_name" required type="text" value={supplierName} onChange={e => setSupplierName(e.target.value)} className={`w-full bg-white border border-slate-300 rounded-lg ${isRtl ? 'pe-9 ps-3' : 'ps-9 pe-3'} py-2.5 text-sm text-slate-900 focus:border-rose-500 outline-none`} placeholder={t("supplier_name_placeholder")} />
+                  <Building2 className={`absolute ${isRtl ? 'end-3' : 'start-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground`} />
+                  <input id="supplier_name" required type="text" value={supplierName} onChange={e => setSupplierName(e.target.value)} className={`w-full bg-card border border-border rounded-lg ${isRtl ? 'pe-9 ps-3' : 'ps-9 pe-3'} py-2.5 text-sm text-foreground focus:border-rose-500 outline-none`} placeholder={t("supplier_name_placeholder")} />
                 </div>
               </div>
               <div>
-                <label htmlFor="supplier_vat_no" className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t("supplier_vat_no")}</label>
+                <label htmlFor="supplier_vat_no" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">{t("supplier_vat_no")}</label>
                 <div className="relative">
-                  <ShieldCheck className={`absolute ${isRtl ? 'end-3' : 'start-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400`} />
-                  <input id="supplier_vat_no" type="text" value={supplierVatNo} onChange={e => setSupplierVatNo(e.target.value)} className={`w-full bg-white border border-slate-300 rounded-lg ${isRtl ? 'pe-9 ps-3' : 'ps-9 pe-3'} py-2.5 text-sm font-mono text-slate-900 focus:border-rose-500 outline-none`} placeholder="3XXXXXXXXXXXXXXX3" />
+                  <ShieldCheck className={`absolute ${isRtl ? 'end-3' : 'start-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground`} />
+                  <input id="supplier_vat_no" type="text" value={supplierVatNo} onChange={e => setSupplierVatNo(e.target.value)} className={`w-full bg-card border border-border rounded-lg ${isRtl ? 'pe-9 ps-3' : 'ps-9 pe-3'} py-2.5 text-sm font-mono text-foreground focus:border-rose-500 outline-none`} placeholder="3XXXXXXXXXXXXXXX3" />
                 </div>
               </div>
               <div>
-                <label htmlFor="invoice_number" className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t("invoice_number")}</label>
-                <input id="invoice_number" type="text" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm font-mono text-slate-900 focus:border-rose-500 outline-none" placeholder="INV-001" />
+                <label htmlFor="invoice_number" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">{t("invoice_number")}</label>
+                <input id="invoice_number" type="text" value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} className="w-full bg-card border border-border rounded-lg px-3 py-2.5 text-sm font-mono text-foreground focus:border-rose-500 outline-none" placeholder="INV-001" />
               </div>
               <div>
-                <label htmlFor="invoice_date" className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t("invoice_date")}</label>
-                <input id="invoice_date" type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:border-rose-500 outline-none" />
+                <label htmlFor="invoice_date" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">{t("invoice_date")}</label>
+                <input id="invoice_date" type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} className="w-full bg-card border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:border-rose-500 outline-none" />
               </div>
               <div>
-                <label htmlFor="category" className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t("expense_category")}</label>
-                <select id="category" value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:border-rose-500 outline-none">
+                <label htmlFor="category" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">{t("expense_category")}</label>
+                <select id="category" value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-card border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:border-rose-500 outline-none">
                   <option value="general">{t("cat_general")}</option>
                   <option value="office_supplies">{t("cat_office_supplies")}</option>
                   <option value="utilities">{t("cat_utilities")}</option>
@@ -159,13 +159,13 @@ export default function AddExpenseModal({ onClose, onSuccess }: AddExpenseModalP
             </div>
 
             {/* Amount Inputs */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+            <div className="bg-muted border border-border rounded-xl p-4 space-y-3">
               <div>
-                <label htmlFor="subtotal" className="block text-xs font-semibold text-slate-500 uppercase mb-1">
+                <label htmlFor="subtotal" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
                   {t("subtotal_before_vat")} *
                 </label>
                 <div className="relative">
-                  <DollarSign className={`absolute ${isRtl ? 'end-3' : 'start-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400`} />
+                  <DollarSign className={`absolute ${isRtl ? 'end-3' : 'start-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground`} />
                   <input
                     id="subtotal"
                     required
@@ -174,31 +174,31 @@ export default function AddExpenseModal({ onClose, onSuccess }: AddExpenseModalP
                     step="0.01"
                     value={subtotal || ""}
                     onChange={e => setSubtotal(Number(e.target.value))}
-                    className={`w-full bg-white border border-slate-300 rounded-lg ${isRtl ? 'pe-9 ps-3' : 'ps-9 pe-3'} py-2.5 text-sm font-mono text-slate-900 focus:border-rose-500 outline-none`}
+                    className={`w-full bg-card border border-border rounded-lg ${isRtl ? 'pe-9 ps-3' : 'ps-9 pe-3'} py-2.5 text-sm font-mono text-foreground focus:border-rose-500 outline-none`}
                     placeholder="0.00"
                   />
                 </div>
               </div>
-              <div className="flex justify-between text-sm text-slate-600">
+              <div className="flex justify-between text-sm text-muted-foreground">
                 <span>{t("vat_amount")}:</span>
                 <span className="font-mono font-semibold text-rose-600">{formatCurrency(vatAmount)}</span>
               </div>
-              <div className="pt-2 border-t border-slate-200 flex justify-between font-bold">
-                <span className="text-slate-800">{t("total_including_vat")}:</span>
-                <span className="font-mono text-lg text-slate-900">{formatCurrency(totalAmount)}</span>
+              <div className="pt-2 border-t border-border flex justify-between font-bold">
+                <span className="text-foreground">{t("total_including_vat")}:</span>
+                <span className="font-mono text-lg text-foreground">{formatCurrency(totalAmount)}</span>
               </div>
             </div>
 
             <div>
-              <label htmlFor="expense_notes" className="block text-xs font-semibold text-slate-500 uppercase mb-1">{t("notes")}</label>
-              <textarea id="expense_notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:border-rose-500 outline-none resize-none" placeholder={t("notes_placeholder")} />
+              <label htmlFor="expense_notes" className="block text-xs font-semibold text-muted-foreground uppercase mb-1">{t("notes")}</label>
+              <textarea id="expense_notes" rows={2} value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-rose-500 outline-none resize-none" placeholder={t("notes_placeholder")} />
             </div>
           </form>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50">
-          <button type="button" onClick={onClose} disabled={loading} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-100 transition-colors">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted">
+          <button type="button" onClick={onClose} disabled={loading} className="px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-xl hover:bg-muted transition-colors">
             {t("cancel")}
           </button>
           <button

@@ -1,20 +1,32 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
-  Sparkles, Zap, ArrowRight, Activity, CheckCircle2,
-  AlertTriangle, Brain, X, Send, ShieldAlert
+  Activity,
+  AlertTriangle,
+  Brain,
+  CheckCircle2,
+  Send,
+  ShieldAlert,
+  Sparkles,
+  X,
+  Zap,
 } from "lucide-react";
+
 import { useLocalization } from "@/contexts/LocalizationContext";
 import { apiPost } from "@/lib/apiClient";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ProvenanceBadge } from "@/components/ui/provenance";
+import { Tag } from "@/components/ui/tag";
 
-/* ─── Types matching backend OrchestratorResponse ─── */
 interface RequiredInput {
   title: string;
   description: string;
   required_field: string;
   field_label: string;
-  input_type: string; // "text" | "number"
+  input_type: string;
   target_persona: string;
   original_query: string;
 }
@@ -32,289 +44,341 @@ interface OrchestratorResponse {
   timestamp?: string;
 }
 
-/* ─── Persona display config ─── */
-const PERSONA_MAP: Record<string, { label: string; emoji: string; color: string }> = {
-  account_strategist: { label: "استراتيجي الحسابات", emoji: "📊", color: "from-blue-600 to-indigo-600" },
-  diwan_legal_auditor: { label: "مدقق الديوان", emoji: "⚖️", color: "from-amber-600 to-orange-600" },
-  pm_workflow_steward: { label: "مشرف المشاريع", emoji: "🎯", color: "from-emerald-600 to-teal-600" },
-  sovereign_analytics_tracker: { label: "محلل البيانات", emoji: "📈", color: "from-purple-600 to-violet-600" },
-};
+const PERSONAS = [
+  {
+    id: "ACCOUNT_STRATEGIST",
+    key: "accountStrategist",
+    promptKey: "prompt1",
+    symbol: "📊",
+  },
+  {
+    id: "DIWAN_LEGAL_AUDITOR",
+    key: "diwanAuditor",
+    promptKey: "prompt2",
+    symbol: "⚖️",
+  },
+  {
+    id: "PM_WORKFLOW_STEWARD",
+    key: "projectSteward",
+    promptKey: "prompt3",
+    symbol: "🎯",
+  },
+  {
+    id: "SOVEREIGN_ANALYTICS_TRACKER",
+    key: "analyticsTracker",
+    promptKey: "prompt4",
+    symbol: "📈",
+  },
+] as const;
 
 export default function AIOrchestratorWidget() {
-  const { t, isRtl } = useLocalization();
-
+  const { t } = useLocalization();
   const [promptInput, setPromptInput] = useState("");
-  const [selectedPersona, setSelectedPersona] = useState<string>("");
+  const [selectedPersona, setSelectedPersona] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [response, setResponse] = useState<OrchestratorResponse | null>(null);
-
-  // Stop-Gate Modal state
   const [showParamModal, setShowParamModal] = useState(false);
   const [modalSpec, setModalSpec] = useState<RequiredInput | null>(null);
   const [modalInput, setModalInput] = useState("");
   const [pendingParams, setPendingParams] = useState<Record<string, string>>({});
 
-  const executeQuery = useCallback(async (
-    query: string,
-    persona: string,
-    params: Record<string, string> = {}
-  ) => {
-    setIsProcessing(true);
-    setResponse(null);
-    try {
-      const res = await apiPost<OrchestratorResponse>("/ai/orchestrator/query", {
-        query,
-        target_persona: persona || undefined,
-        context_parameters: params,
-      });
+  const executeQuery = useCallback(
+    async (
+      query: string,
+      persona: string,
+      params: Record<string, string> = {},
+    ) => {
+      setIsProcessing(true);
+      setResponse(null);
+      try {
+        const result = await apiPost<OrchestratorResponse>(
+          "/ai/orchestrator/query",
+          {
+            query,
+            target_persona: persona || undefined,
+            context_parameters: params,
+          },
+        );
 
-      if (res.status === "missing_parameters" && res.required_input) {
-        // Stop-Gate fired → show interactive modal
-        setModalSpec(res.required_input);
-        setPendingParams(params);
-        setShowParamModal(true);
-        setResponse(res);
-      } else {
-        setResponse(res);
-        setShowParamModal(false);
-        setModalSpec(null);
+        if (result.status === "missing_parameters" && result.required_input) {
+          setModalSpec(result.required_input);
+          setPendingParams(params);
+          setShowParamModal(true);
+        } else {
+          setShowParamModal(false);
+          setModalSpec(null);
+        }
+        setResponse(result);
+      } catch (error) {
+        setResponse({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : t("dashboard.ai.requestFailed"),
+          output_prose: t("dashboard.ai.connectionError"),
+        });
+      } finally {
+        setIsProcessing(false);
       }
-    } catch (err) {
-      setResponse({
-        status: "error",
-        message: err instanceof Error ? err.message : "Orchestrator request failed",
-        output_prose: "⚠️ حدث خطأ في الاتصال بالعقل المركزي. تأكد من تشغيل الخدمات.",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  }, []);
+    },
+    [t],
+  );
 
-  const handleRunCommand = (text?: string) => {
-    const cmd = text || promptInput;
-    if (!cmd.trim()) return;
-    executeQuery(cmd, selectedPersona, {});
+  const runCommand = (text?: string, persona?: string) => {
+    const command = text || promptInput;
+    if (!command.trim()) return;
+    executeQuery(command, persona ?? selectedPersona);
     if (!text) setPromptInput("");
   };
 
-  const handleModalSubmit = () => {
+  const submitRequiredParameter = () => {
     if (!modalSpec || !modalInput.trim()) return;
-    const updatedParams = { ...pendingParams, [modalSpec.required_field]: modalInput };
+    const updatedParams = {
+      ...pendingParams,
+      [modalSpec.required_field]: modalInput,
+    };
     setPendingParams(updatedParams);
     setShowParamModal(false);
     setModalInput("");
-    // Re-execute with the supplied parameter
-    executeQuery(modalSpec.original_query, modalSpec.target_persona, updatedParams);
+    executeQuery(
+      modalSpec.original_query,
+      modalSpec.target_persona,
+      updatedParams,
+    );
   };
 
-  const personaInfo = response?.active_persona
-    ? PERSONA_MAP[response.active_persona] || { label: response.active_persona, emoji: "🤖", color: "from-slate-600 to-slate-700" }
-    : null;
-
-  const quickPrompts = [
-    { text: t("dashboard.ai.prompt1", "حلل مخاطر حساب العميل"), persona: "ACCOUNT_STRATEGIST" },
-    { text: t("dashboard.ai.prompt2", "دقق الخطاب الرسمي الأخير"), persona: "DIWAN_LEGAL_AUDITOR" },
-    { text: t("dashboard.ai.prompt3", "راجع تقدم السبرنت الحالي"), persona: "PM_WORKFLOW_STEWARD" },
-    { text: t("dashboard.ai.prompt4", "تقرير تحليلي شامل"), persona: "SOVEREIGN_ANALYTICS_TRACKER" },
-  ];
+  const activePersona = response?.active_persona
+    ? PERSONAS.find(
+        (persona) =>
+          persona.id.toLowerCase() === response.active_persona?.toLowerCase(),
+      )
+    : undefined;
 
   return (
-    <div className="flex flex-col justify-between h-full space-y-3">
-      {/* ── Header with Neural Mesh Status ── */}
-      <div className="flex items-center justify-between p-3 rounded-2xl glass-card bg-indigo-500/5 dark:bg-indigo-500/10 border-indigo-500/20 dark:border-indigo-500/30">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-            <Brain className="w-5 h-5" />
+    <div
+      data-testid="ai-orchestrator-widget"
+      className="flex h-full flex-col justify-between gap-3"
+    >
+      <div className="flex items-center justify-between rounded-[var(--radius-surface)] border border-brand/20 bg-brand-light p-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-brand text-brand-foreground shadow-[var(--shadow-raised)]">
+            <Brain className="size-5" aria-hidden />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wider">
-                {t("dashboard.ai.sidecar", "Sovereign AI Brain")}
+              <span className="truncate text-xs font-bold">
+                {t("dashboard.ai.sidecar")}
               </span>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="size-2 shrink-0 animate-pulse rounded-full bg-success" />
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-              {t("dashboard.ai.status", "العقل المركزي • 4 شخصيات مؤسسية نشطة")}
+            <p className="truncate text-xs text-muted-foreground">
+              {t("dashboard.ai.status")}
             </p>
           </div>
         </div>
-        <div className="text-end">
-          <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800">
-            {t("dashboard.ai.latency", "ReAct Engine")}
-          </span>
-        </div>
+        <Tag tone="brand">{t("dashboard.ai.latency")}</Tag>
       </div>
 
-      {/* ── Persona Selector Chips ── */}
-      <div className="flex flex-col gap-2">
-        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          {t("dashboard.ai.quickCommands", "الشخصيات المؤسسية السيادية:")}
+      <div className="space-y-2">
+        <span className="flex items-center gap-1 text-xs font-bold text-muted-foreground">
+          <Sparkles className="size-3.5 text-warning" aria-hidden />
+          {t("dashboard.ai.quickCommands")}
         </span>
         <div className="flex flex-wrap gap-1.5">
-          {quickPrompts.map((p, idx) => {
-            const pKey = p.persona.toLowerCase();
-            const meta = PERSONA_MAP[pKey] || { emoji: "🤖", label: p.persona };
-            const isActive = selectedPersona === p.persona;
+          {PERSONAS.map((persona) => {
+            const isActive = selectedPersona === persona.id;
             return (
-              <button
-                key={idx}
-                onClick={() => {
-                  setSelectedPersona(isActive ? "" : p.persona);
-                  handleRunCommand(p.text);
-                }}
+              <Button
+                key={persona.id}
+                type="button"
+                variant={isActive ? "default" : "secondary"}
+                size="xs"
+                aria-pressed={isActive}
                 disabled={isProcessing}
-                className={`text-[11px] font-semibold px-2.5 py-1.5 rounded-xl border transition flex items-center gap-1.5 ${
-                  isActive
-                    ? "bg-indigo-100 dark:bg-indigo-950/50 border-indigo-400 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300"
-                    : "glass-card bg-white/40 dark:bg-slate-800/40 hover:bg-white/60 dark:hover:bg-slate-800/60 hover:border-indigo-400 dark:hover:border-indigo-500 border-slate-200/50 dark:border-slate-700/50 text-slate-700 dark:text-slate-300"
-                }`}
+                onClick={() => {
+                  const nextPersona = isActive ? "" : persona.id;
+                  setSelectedPersona(nextPersona);
+                  runCommand(
+                    t(`dashboard.ai.${persona.promptKey}`),
+                    nextPersona,
+                  );
+                }}
+                className="h-auto min-h-7 whitespace-normal"
               >
-                <span>{meta.emoji}</span>
-                <span>{p.text}</span>
-                <ArrowRight className="w-3 h-3 opacity-60" />
-              </button>
+                <span aria-hidden>{persona.symbol}</span>
+                {t(`dashboard.ai.personas.${persona.key}`)}
+              </Button>
             );
           })}
         </div>
       </div>
 
-      {/* ── Input Box ── */}
       <div className="relative">
-        <input
-          type="text"
+        <Input
           value={promptInput}
-          onChange={(e) => setPromptInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleRunCommand()}
-          placeholder={t("dashboard.ai.placeholder", "اسأل العقل المركزي أو اختر شخصية مؤسسية...")}
-          className="w-full ltr:pl-3.5 ltr:pr-24 rtl:pr-3.5 rtl:pl-24 py-2.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md border border-slate-200/50 dark:border-slate-700/50 rounded-xl text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition font-medium shadow-inner"
+          onChange={(event) => setPromptInput(event.target.value)}
+          onKeyDown={(event) => event.key === "Enter" && runCommand()}
+          placeholder={t("dashboard.ai.placeholder")}
+          className="pe-24"
+          aria-label={t("dashboard.ai.placeholder")}
         />
-        <button
-          onClick={() => handleRunCommand()}
+        <Button
+          type="button"
+          size="sm"
           disabled={isProcessing || !promptInput.trim()}
-          className={`absolute ${isRtl ? "left-1.5" : "right-1.5"} top-1/2 -translate-y-1/2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm`}
+          onClick={() => runCommand()}
+          className="absolute end-1 top-1/2 -translate-y-1/2"
         >
-          {isProcessing ? <Activity className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-          <span>{t("dashboard.ai.run", "تنفيذ")}</span>
-        </button>
+          {isProcessing ? (
+            <Activity className="animate-spin" />
+          ) : (
+            <Zap />
+          )}
+          {t("dashboard.ai.run")}
+        </Button>
       </div>
 
-      {/* ── Response Display ── */}
-      {response && (
-        <div className={`p-3 rounded-xl border text-xs font-medium flex flex-col gap-2 animate-in fade-in duration-200 ${
-          response.status === "success"
-            ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300"
-            : response.status === "missing_parameters"
-            ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-300"
-            : "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/60 text-red-800 dark:text-red-300"
-        }`}>
-          {/* Active Persona Badge */}
-          {personaInfo && (
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-r ${personaInfo.color} text-white text-[10px] font-bold`}>
-                <span>{personaInfo.emoji}</span>
-                <span>{personaInfo.label}</span>
-              </span>
-              {response.status === "success" && (
-                <span className="flex items-center gap-0.5 text-[10px] text-emerald-600 dark:text-emerald-400">
-                  <CheckCircle2 className="w-3 h-3" /> تم التنفيذ
-                </span>
-              )}
-              {response.status === "missing_parameters" && (
-                <span className="flex items-center gap-0.5 text-[10px] text-amber-600 dark:text-amber-400">
-                  <ShieldAlert className="w-3 h-3" /> Stop-Gate
-                </span>
+      {response ? (
+        response.status === "error" ? (
+          <Alert tone="danger" className="grid-cols-[auto_1fr]">
+            <AlertTriangle />
+            <span>{response.output_prose || response.message}</span>
+          </Alert>
+        ) : (
+          <section className="space-y-2 rounded-[var(--radius-surface)] border border-border bg-muted/35 p-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              {activePersona ? (
+                <Tag tone="brand">
+                  <span aria-hidden>{activePersona.symbol}</span>
+                  {t(`dashboard.ai.personas.${activePersona.key}`)}
+                </Tag>
+              ) : null}
+              <ProvenanceBadge
+                level={
+                  response.status === "missing_parameters"
+                    ? "assumption"
+                    : "confident-recall"
+                }
+              />
+              {response.status === "success" ? (
+                <Tag tone="success">
+                  <CheckCircle2 />
+                  {t("dashboard.ai.executed")}
+                </Tag>
+              ) : (
+                <Tag tone="warning">
+                  <ShieldAlert />
+                  {t("dashboard.ai.stopGate")}
+                </Tag>
               )}
             </div>
-          )}
-          {/* Prose Output */}
-          <div className="whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto text-[11px]">
-            {response.output_prose}
-          </div>
-        </div>
-      )}
+            <p className="max-h-40 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+              {response.output_prose || response.message}
+            </p>
+          </section>
+        )
+      ) : null}
 
-      {/* ── Stop-Gate Parameter Modal ── */}
-      {showParamModal && modalSpec && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-            {/* Modal Header */}
-            <div className="p-4 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 border-b border-amber-200/50 dark:border-amber-800/50 flex items-center justify-between">
+      {showParamModal && modalSpec ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/55 p-4 backdrop-blur-sm">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stop-gate-title"
+            className="w-full max-w-md overflow-hidden rounded-[var(--radius-surface)] border border-border bg-popover text-popover-foreground shadow-[var(--shadow-overlay)]"
+          >
+            <header className="flex items-center justify-between border-b border-border bg-warning/10 p-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-md">
-                  <AlertTriangle className="w-5 h-5" />
+                <div className="flex size-9 items-center justify-center rounded-[var(--radius-control)] bg-warning text-brand-foreground">
+                  <AlertTriangle className="size-5" aria-hidden />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-800 dark:text-white">
+                  <h3 id="stop-gate-title" className="text-sm font-bold">
                     {modalSpec.title}
                   </h3>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                    Sovereign Stop-Gate Guardrail
+                  <p className="text-xs text-muted-foreground">
+                    {t("dashboard.ai.stopGateGuardrail")}
                   </p>
                 </div>
               </div>
-              <button onClick={() => setShowParamModal(false)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-                <X className="w-4 h-4 text-slate-500" />
-              </button>
-            </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setShowParamModal(false)}
+                aria-label={t("common.close")}
+              >
+                <X />
+              </Button>
+            </header>
 
-            {/* Modal Body */}
-            <div className="p-4 space-y-4">
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+            <div className="space-y-4 p-4">
+              <p className="text-sm leading-relaxed text-muted-foreground">
                 {modalSpec.description}
               </p>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  {modalSpec.field_label}
-                </label>
-                <input
-                  type={modalSpec.input_type === "number" ? "number" : "text"}
+              <label className="block space-y-1.5 text-sm font-bold">
+                <span>{modalSpec.field_label}</span>
+                <Input
+                  type={
+                    modalSpec.input_type === "number" ? "number" : "text"
+                  }
                   value={modalInput}
-                  onChange={(e) => setModalInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleModalSubmit()}
-                  placeholder={`أدخل ${modalSpec.field_label}...`}
+                  onChange={(event) => setModalInput(event.target.value)}
+                  onKeyDown={(event) =>
+                    event.key === "Enter" && submitRequiredParameter()
+                  }
+                  placeholder={`${t("dashboard.ai.enterValue")} ${modalSpec.field_label}`}
                   autoFocus
-                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition font-medium"
                 />
-              </div>
+              </label>
 
-              {/* Missing params list */}
-              {response?.deliverables?.missing_parameters && (
-                <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                  <span className="font-bold">البارامترات المفقودة: </span>
-                  {response.deliverables!.missing_parameters!.map((p, i, arr) => (
-                    <span key={p} className={`font-mono px-1.5 py-0.5 rounded ${
-                      p === modalSpec.required_field
-                        ? "bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400"
-                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    }`}>
-                      {p}{i < arr.length - 1 ? " " : ""}
-                    </span>
-                  ))}
+              {response?.deliverables?.missing_parameters?.length ? (
+                <div className="space-y-2 text-xs text-muted-foreground">
+                  <span className="font-bold">
+                    {t("dashboard.ai.missingParameters")}
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {response.deliverables.missing_parameters.map(
+                      (parameter) => (
+                        <Tag
+                          key={parameter}
+                          tone={
+                            parameter === modalSpec.required_field
+                              ? "warning"
+                              : "neutral"
+                          }
+                          className="font-mono"
+                        >
+                          {parameter}
+                        </Tag>
+                      ),
+                    )}
+                  </div>
                 </div>
-              )}
+              ) : null}
             </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-2">
-              <button
+            <footer className="flex items-center justify-end gap-2 border-t border-border p-4">
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => setShowParamModal(false)}
-                className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
               >
-                {t("common.cancel", "إلغاء")}
-              </button>
-              <button
-                onClick={handleModalSubmit}
+                {t("common.cancel")}
+              </Button>
+              <Button
+                type="button"
                 disabled={!modalInput.trim()}
-                className="px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 disabled:opacity-40 rounded-xl transition flex items-center gap-1.5 shadow-md"
+                onClick={submitRequiredParameter}
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>{t("common.submit", "إرسال وتنفيذ")}</span>
-              </button>
-            </div>
-          </div>
+                <Send />
+                {t("dashboard.ai.submitAndRun")}
+              </Button>
+            </footer>
+          </section>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

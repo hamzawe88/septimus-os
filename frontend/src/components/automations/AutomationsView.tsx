@@ -303,7 +303,7 @@ export default function AutomationsView() {
 
   if (isEditing) {
     return (
-      <div className="w-full h-full bg-white relative">
+      <div data-testid="automations-view" className="w-full h-full bg-card relative">
         <WorkflowBuilder 
           initialWorkflow={editingWorkflow || undefined} 
           onBack={() => {
@@ -316,7 +316,7 @@ export default function AutomationsView() {
   }
 
   return (
-    <div className="w-full h-full p-8 overflow-y-auto bg-white font-sans">
+    <div data-testid="automations-view" className="w-full h-full p-8 overflow-y-auto bg-card font-sans">
       <div className={`mx-auto transition-all duration-300 ${isSidebarOpen ? 'max-w-7xl' : 'max-w-full'}`}>
         {/* Header */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -325,21 +325,21 @@ export default function AutomationsView() {
               <Webhook className="w-8 h-8 text-brand" />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <h1 className="text-2xl font-black text-foreground dark:text-white tracking-tight flex items-center gap-2">
                 {isRtl ? "مركز الأتمتة والتكامل" : "Automation & Integration Center"}
-                <span dir="ltr" className="text-slate-400 font-normal text-lg">(Integration Hub)</span>
+                <span dir="ltr" className="text-muted-foreground font-normal text-lg">(Integration Hub)</span>
               </h1>
-              <p className="text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-muted-foreground dark:text-muted-foreground mt-1">
                 Manage automation workflows and connect external applications via Webhooks/APIs.
               </p>
             </div>
           </div>
           
           <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-               <button onClick={() => setActiveTab('templates')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'templates' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>{isRtl ? "سير العمل" : "Workflows"}</button>
-               <button onClick={() => setActiveTab('logs')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'logs' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>{isRtl ? "سجل التنفيذ" : "Execution Log"}</button>
-               <button onClick={() => setActiveTab('webhooks')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'webhooks' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>{isRtl ? "تكامل API" : "API Integration"}</button>
+            <div className="flex bg-muted dark:bg-slate-800 p-1 rounded-xl">
+               <button onClick={() => setActiveTab('templates')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'templates' ? 'bg-card dark:bg-slate-700 shadow-sm text-brand' : 'text-muted-foreground hover:text-foreground dark:hover:text-slate-300'}`}>{isRtl ? "سير العمل" : "Workflows"}</button>
+               <button onClick={() => setActiveTab('logs')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'logs' ? 'bg-card dark:bg-slate-700 shadow-sm text-brand' : 'text-muted-foreground hover:text-foreground dark:hover:text-slate-300'}`}>{isRtl ? "سجل التنفيذ" : "Execution Log"}</button>
+               <button onClick={() => setActiveTab('webhooks')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'webhooks' ? 'bg-card dark:bg-slate-700 shadow-sm text-brand' : 'text-muted-foreground hover:text-foreground dark:hover:text-slate-300'}`}>{isRtl ? "تكامل API" : "API Integration"}</button>
             </div>
             <Button 
               onClick={() => { setEditingWorkflow(null); setIsEditing(true); }}
@@ -355,9 +355,9 @@ export default function AutomationsView() {
           <>
             {/* Stats Bar */}
             <div className="grid grid-cols-3 gap-6 mb-8">
-              <div className="bg-[#f8fafc] rounded-2xl p-6 border border-slate-200/60 shadow-sm">
-                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">{isRtl ? "إجمالي سير العمل" : "Total Workflows"}</p>
-                <p className="text-4xl font-extrabold text-slate-800">{workflows.length}</p>
+              <div className="bg-background rounded-2xl p-6 border border-border/60 shadow-sm">
+                <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">{isRtl ? "إجمالي سير العمل" : "Total Workflows"}</p>
+                <p className="text-4xl font-extrabold text-foreground">{workflows.length}</p>
               </div>
               <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100 shadow-sm">
                 <p className="text-sm font-bold text-emerald-600 uppercase tracking-wider mb-2">{isRtl ? "التدفّقات النشطة" : "Active Flows"}</p>
@@ -377,17 +377,17 @@ export default function AutomationsView() {
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-32 gap-4">
                 <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                <p className="text-slate-500 font-medium">Syncing with n8n Engine...</p>
+                <p className="text-muted-foreground font-medium">Syncing with n8n Engine...</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {workflows.length === 0 && (
                   <div className="col-span-full py-20 flex flex-col items-center justify-center text-center">
-                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                      <Webhook className="w-8 h-8 text-slate-400" />
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                      <Webhook className="w-8 h-8 text-muted-foreground" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-2">{isRtl ? "لا يوجد سير عمل بعد" : "No workflows yet"}</h3>
-                    <p className="text-slate-500 max-w-sm mx-auto mb-6">{isRtl ? "أنشئ أول سير عمل مؤتمت لتوفير الوقت وربط أنظمتك." : "Create your first automated workflow to save time and connect your systems."}</p>
+                    <h3 className="text-lg font-bold text-foreground mb-2">{isRtl ? "لا يوجد سير عمل بعد" : "No workflows yet"}</h3>
+                    <p className="text-muted-foreground max-w-sm mx-auto mb-6">{isRtl ? "أنشئ أول سير عمل مؤتمت لتوفير الوقت وربط أنظمتك." : "Create your first automated workflow to save time and connect your systems."}</p>
                     <Button onClick={() => { setEditingWorkflow(null); setIsEditing(true); }} className="bg-brand hover:bg-brand/90 text-white font-bold h-11 px-8 rounded-xl shadow-md">
                       Create First Workflow
                     </Button>
@@ -396,7 +396,7 @@ export default function AutomationsView() {
                 {workflows.map(wf => (
                   <div 
                     key={wf.ID} 
-                    className="group bg-white rounded-2xl border border-slate-200 p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                    className="group bg-card rounded-2xl border border-border p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
                   >
                     <div className="flex items-start justify-between mb-6">
                       <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center shadow-sm ${iconBgMap.webhook}`}>
@@ -405,16 +405,16 @@ export default function AutomationsView() {
                       <span className={`px-3 py-1.5 rounded-full text-xs font-bold tracking-wide uppercase ${
                         wf.IsActive 
                           ? "bg-emerald-100 text-emerald-700" 
-                          : "bg-slate-100 text-slate-500"
+                          : "bg-muted text-muted-foreground"
                       }`}>
                         {wf.IsActive ? "Active" : "Inactive"}
                       </span>
                     </div>
 
-                    <h3 className="font-extrabold text-lg text-slate-800 mb-2 group-hover:text-indigo-600 transition-colors">
+                    <h3 className="font-extrabold text-lg text-foreground mb-2 group-hover:text-indigo-600 transition-colors">
                       {wf.Name}
                     </h3>
-                    <p className="text-slate-500 text-sm mb-6 flex-grow leading-relaxed font-medium">
+                    <p className="text-muted-foreground text-sm mb-6 flex-grow leading-relaxed font-medium">
                       Automated workflow flow containing {wf.Nodes ? (typeof wf.Nodes === 'string' ? JSON.parse(wf.Nodes).length : wf.Nodes.length) : 0} nodes.
                     </p>
                     
@@ -422,7 +422,7 @@ export default function AutomationsView() {
                       <Button 
                         onClick={() => { setEditingWorkflow(wf); setIsEditing(true); }}
                         variant="outline"
-                        className="w-full flex items-center justify-center gap-2 rounded-xl h-11 text-sm font-bold border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+                        className="w-full flex items-center justify-center gap-2 rounded-xl h-11 text-sm font-bold border-border text-muted-foreground hover:bg-muted transition-all"
                       >
                         <Eye className="w-4 h-4" />
                         Edit Flow
@@ -452,14 +452,14 @@ export default function AutomationsView() {
         )}
 
         {activeTab === 'logs' && (
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mt-4">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><Activity className="w-5 h-5 text-indigo-500" /> Live Execution Logs</h2>
+          <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden mt-4">
+            <div className="p-6 border-b border-border flex items-center justify-between bg-muted/50">
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2"><Activity className="w-5 h-5 text-indigo-500" /> Live Execution Logs</h2>
               <span className="px-3 py-1 bg-emerald-100 text-emerald-700 font-bold text-xs rounded-full flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Engine Online</span>
             </div>
             <div className="p-0 overflow-x-auto">
-              <table className="w-full text-start text-sm text-slate-600">
-                <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase font-bold text-slate-400">
+              <table className="w-full text-start text-sm text-muted-foreground">
+                <thead className="bg-muted border-b border-border text-xs uppercase font-bold text-muted-foreground">
                   <tr>
                     <th className="px-6 py-4">{isRtl ? "الحالة" : "Status"}</th>
                     <th className="px-6 py-4">{isRtl ? "اسم سير العمل" : "Workflow Name"}</th>
@@ -468,16 +468,16 @@ export default function AutomationsView() {
                     <th className="px-6 py-4">{isRtl ? "المدة" : "Duration"}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border">
                   {executionLogs.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                      <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground font-medium">
                         No execution logs recorded yet. Trigger or activate a workflow to see live execution history here.
                       </td>
                     </tr>
                   ) : (
                     executionLogs.map(log => (
-                      <tr key={log.ID} className="hover:bg-slate-50 transition-colors cursor-pointer">
+                      <tr key={log.ID} className="hover:bg-muted transition-colors cursor-pointer">
                         <td className="px-6 py-4">
                           {log.Status === 'success' || log.Status === 'Success' ? (
                             <span className="text-emerald-500 font-bold flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Success</span>
@@ -485,7 +485,7 @@ export default function AutomationsView() {
                             <span className="text-rose-500 font-bold flex items-center gap-1"><X className="w-4 h-4" /> {log.Status || 'Failed'}</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 font-bold text-slate-800">{log.WorkflowName || (isRtl ? 'تنفيذ سير عمل' : 'Workflow Execution')}</td>
+                        <td className="px-6 py-4 font-bold text-foreground">{log.WorkflowName || (isRtl ? 'تنفيذ سير عمل' : 'Workflow Execution')}</td>
                         <td className="px-6 py-4">{log.TriggerName || 'Webhook / Event'}</td>
                         <td className="px-6 py-4">{new Date(log.CreatedAt).toLocaleString()}</td>
                         <td className="px-6 py-4">{log.DurationMs ? `${log.DurationMs}ms` : '120ms'}</td>
@@ -501,26 +501,26 @@ export default function AutomationsView() {
         {activeTab === 'webhooks' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
              {/* Incoming Webhooks Section */}
-             <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm relative overflow-hidden group flex flex-col justify-between">
+             <div className="bg-card border border-border rounded-2xl p-8 shadow-sm relative overflow-hidden group flex flex-col justify-between">
                 <div>
                   <div className="absolute top-0 end-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl -me-10 -mt-10 group-hover:bg-indigo-100 transition-colors"></div>
                   <div className="relative z-10">
                     <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-6 text-indigo-600 shadow-sm border border-indigo-200/50">
                       <LinkIcon className="w-6 h-6" />
                     </div>
-                    <h3 className="text-xl font-extrabold text-slate-800 mb-2">{isRtl ? "الويب هوكس الواردة" : "Incoming Webhooks"}</h3>
-                    <p className="text-slate-500 font-medium mb-6">{isRtl ? "أنشئ روابط فريدة لاستقبال البيانات من الأنظمة الخارجية مباشرة في سير عملك." : "Create unique URLs to receive data from external systems directly into your workflows."}</p>
+                    <h3 className="text-xl font-extrabold text-foreground mb-2">{isRtl ? "الويب هوكس الواردة" : "Incoming Webhooks"}</h3>
+                    <p className="text-muted-foreground font-medium mb-6">{isRtl ? "أنشئ روابط فريدة لاستقبال البيانات من الأنظمة الخارجية مباشرة في سير عملك." : "Create unique URLs to receive data from external systems directly into your workflows."}</p>
                     
                     {webhooks.length === 0 ? (
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6 text-center text-slate-500 text-sm font-medium">
+                      <div className="bg-muted border border-border rounded-xl p-6 mb-6 text-center text-muted-foreground text-sm font-medium">
                         No incoming webhooks configured yet.
                       </div>
                     ) : (
                       <div className="space-y-3 mb-6 max-h-64 overflow-y-auto pe-1">
                         {webhooks.map(hook => (
-                          <div key={hook.ID} className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-2">
+                          <div key={hook.ID} className="bg-muted border border-border rounded-xl p-3 flex items-center justify-between gap-2">
                             <div className="min-w-0 flex-1">
-                              <div className="truncate font-mono text-xs text-slate-700 font-medium">{hook.TargetURL}</div>
+                              <div className="truncate font-mono text-xs text-foreground font-medium">{hook.TargetURL}</div>
                               <div className="flex items-center gap-1 mt-1">
                                 {Array.isArray(hook.Events) ? hook.Events.map((ev: string) => (
                                   <span key={ev} className="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold">{ev}</span>
@@ -532,7 +532,7 @@ export default function AutomationsView() {
                                 variant="outline" 
                                 size="sm" 
                                 onClick={() => handleCopyUrl(hook.TargetURL, hook.ID)}
-                                className="h-8 px-2 text-xs font-bold border-slate-300 gap-1"
+                                className="h-8 px-2 text-xs font-bold border-border gap-1"
                               >
                                 {copiedUrlId === hook.ID ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                                 {copiedUrlId === hook.ID ? (isRtl ? 'تم النسخ' : 'Copied') : (isRtl ? 'نسخ' : 'Copy')}
@@ -541,7 +541,7 @@ export default function AutomationsView() {
                                 variant="outline" 
                                 size="sm" 
                                 onClick={() => handleDeleteWebhook(hook.ID)}
-                                className="h-8 px-2 text-xs text-rose-600 hover:bg-rose-50 border-slate-300"
+                                className="h-8 px-2 text-xs text-rose-600 hover:bg-rose-50 border-border"
                                 aria-label="Delete webhook"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -562,29 +562,29 @@ export default function AutomationsView() {
              </div>
              
              {/* API Credentials Section */}
-             <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm relative overflow-hidden group flex flex-col justify-between">
+             <div className="bg-card border border-border rounded-2xl p-8 shadow-sm relative overflow-hidden group flex flex-col justify-between">
                 <div>
                   <div className="absolute top-0 end-0 w-32 h-32 bg-rose-50 rounded-full blur-3xl -me-10 -mt-10 group-hover:bg-rose-100 transition-colors"></div>
                   <div className="relative z-10">
                     <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center mb-6 text-rose-600 shadow-sm border border-rose-200/50">
                       <Key className="w-6 h-6" />
                     </div>
-                    <h3 className="text-xl font-extrabold text-slate-800 mb-2">{isRtl ? "بيانات اعتماد API" : "API Credentials"}</h3>
-                    <p className="text-slate-500 font-medium mb-6">{isRtl ? "أدر مفاتيح API بأمان لمصادقة التكاملات مع المنصات الخارجية." : "Manage your API keys securely to authenticate integrations with external platforms."}</p>
+                    <h3 className="text-xl font-extrabold text-foreground mb-2">{isRtl ? "بيانات اعتماد API" : "API Credentials"}</h3>
+                    <p className="text-muted-foreground font-medium mb-6">{isRtl ? "أدر مفاتيح API بأمان لمصادقة التكاملات مع المنصات الخارجية." : "Manage your API keys securely to authenticate integrations with external platforms."}</p>
                     
                     {apiKeys.length === 0 ? (
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 mb-6 text-center text-slate-500 text-sm font-medium">
+                      <div className="bg-muted border border-border rounded-xl p-6 mb-6 text-center text-muted-foreground text-sm font-medium">
                         No API credentials generated yet.
                       </div>
                     ) : (
                       <div className="space-y-3 mb-6 max-h-64 overflow-y-auto pe-1">
                         {apiKeys.map(key => (
-                          <div key={key.ID} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl bg-white shadow-sm hover:border-brand/30 transition-colors">
+                          <div key={key.ID} className="flex items-center justify-between p-3 border border-border rounded-xl bg-card shadow-sm hover:border-brand/30 transition-colors">
                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Key className="w-4 h-4 text-slate-500" /></div>
+                                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0"><Key className="w-4 h-4 text-muted-foreground" /></div>
                                 <div className="min-w-0">
-                                   <p className="font-bold text-sm text-slate-800 truncate">{key.Name}</p>
-                                   <p className="text-xs text-slate-400 font-mono">Created: {new Date(key.CreatedAt).toLocaleDateString()}</p>
+                                   <p className="font-bold text-sm text-foreground truncate">{key.Name}</p>
+                                   <p className="text-xs text-muted-foreground font-mono">Created: {new Date(key.CreatedAt).toLocaleDateString()}</p>
                                 </div>
                              </div>
                              <div className="flex items-center gap-2 shrink-0">
@@ -595,7 +595,7 @@ export default function AutomationsView() {
                                  variant="outline" 
                                  size="sm" 
                                  onClick={() => handleRevokeApiKey(key.ID)}
-                                 className="h-8 px-2 text-xs text-rose-600 hover:bg-rose-50 border-slate-200"
+                                 className="h-8 px-2 text-xs text-rose-600 hover:bg-rose-50 border-border"
                                  aria-label="Revoke API key"
                                >
                                  <Trash2 className="w-3.5 h-3.5" />
@@ -611,7 +611,7 @@ export default function AutomationsView() {
                 <Button 
                   onClick={() => { setShowAddApiKey(true); setGeneratedKey(""); setNewKeyName(""); }} 
                   variant="outline" 
-                  className="w-full h-11 rounded-xl font-bold border-slate-200 hover:bg-slate-50 text-slate-600 shadow-sm relative z-10"
+                  className="w-full h-11 rounded-xl font-bold border-border hover:bg-muted text-muted-foreground shadow-sm relative z-10"
                 >
                   <Plus className="w-4 h-4 me-2" /> Add New Credential
                 </Button>
@@ -623,34 +623,34 @@ export default function AutomationsView() {
       {/* Explore Template Modal */}
       {selectedTemplate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-white">
+          <div className="bg-card rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-8 py-5 border-b border-border flex justify-between items-center bg-card">
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shadow-sm ${iconBgMap[selectedTemplate.icon] || iconBgMap.webhook}`}>
                   {iconMap[selectedTemplate.icon] || iconMap.webhook}
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-xl text-slate-800">{selectedTemplate.name}</h3>
-                  <p className="text-sm text-slate-500 font-medium">{isRtl ? "نظرة عامة مرئية على سير العمل" : "Visual Workflow Overview"}</p>
+                  <h3 className="font-extrabold text-xl text-foreground">{selectedTemplate.name}</h3>
+                  <p className="text-sm text-muted-foreground font-medium">{isRtl ? "نظرة عامة مرئية على سير العمل" : "Visual Workflow Overview"}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedTemplate(null)}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500"
+                className="p-2 hover:bg-muted rounded-full transition-colors text-muted-foreground"
                aria-label="Close">
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            <div className="p-0 bg-slate-50 h-[500px]">
+            <div className="p-0 bg-muted h-[500px]">
               <WorkflowCanvas template={selectedTemplate} />
             </div>
 
-            <div className="px-8 py-5 border-t border-slate-100 bg-white flex justify-end gap-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)] relative z-10">
+            <div className="px-8 py-5 border-t border-border bg-card flex justify-end gap-4 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)] relative z-10">
               <Button 
                 onClick={() => setSelectedTemplate(null)}
                 variant="ghost" 
-                className="text-slate-600 hover:bg-slate-100 font-bold px-6"
+                className="text-muted-foreground hover:bg-muted font-bold px-6"
               >
                 Cancel
               </Button>
@@ -676,42 +676,42 @@ export default function AutomationsView() {
       {/* Create Webhook Modal */}
       {showAddWebhook && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden p-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-card rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden p-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-extrabold text-xl text-slate-800 flex items-center gap-2">
+              <h3 className="font-extrabold text-xl text-foreground flex items-center gap-2">
                 <LinkIcon className="w-5 h-5 text-indigo-600" /> {isRtl ? "إنشاء ويب هوك جديد" : "Create New Webhook"}
               </h3>
-              <button onClick={() => setShowAddWebhook(false)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full" aria-label="Close">
+              <button onClick={() => setShowAddWebhook(false)} className="p-1.5 text-muted-foreground hover:bg-muted rounded-full" aria-label="Close">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">{isRtl ? "الرابط الهدف" : "Target URL"}</label>
+                <label className="block text-sm font-bold text-foreground mb-1">{isRtl ? "الرابط الهدف" : "Target URL"}</label>
                 <input 
                   type="text" 
-                  className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
+                  className="w-full p-3 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
                   placeholder={isRtl ? "https://your-domain.com/webhook-callback" : "https://your-domain.com/webhook-callback"} 
                   value={newHookUrl} 
                   onChange={e => setNewHookUrl(e.target.value)} 
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">{isRtl ? "الأحداث المشترَك بها" : "Subscribed Events"}</label>
+                <label className="block text-sm font-bold text-foreground mb-1">{isRtl ? "الأحداث المشترَك بها" : "Subscribed Events"}</label>
                 <input 
                   type="text" 
-                  className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
+                  className="w-full p-3 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
                   placeholder={isRtl ? "all، ticket.created، entity.updated" : "all, ticket.created, entity.updated"} 
                   value={newHookEvents} 
                   onChange={e => setNewHookEvents(e.target.value)} 
                 />
-                <p className="text-xs text-slate-400 mt-1">{isRtl ? "استخدم «all» أو أسماء أحداث مفصولة بفواصل." : "Use \"all\" or comma-separated event names."}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isRtl ? "استخدم «all» أو أسماء أحداث مفصولة بفواصل." : "Use \"all\" or comma-separated event names."}</p>
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">{isRtl ? "مفتاح HMAC السري (اختياري)" : "HMAC Secret (Optional)"}</label>
+                <label className="block text-sm font-bold text-foreground mb-1">{isRtl ? "مفتاح HMAC السري (اختياري)" : "HMAC Secret (Optional)"}</label>
                 <input 
                   type="password" 
-                  className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
+                  className="w-full p-3 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
                   placeholder={isRtl ? "مفتاح سري لتوقيع الحمولة" : "Secret key to sign payload"} 
                   value={newHookSecret} 
                   onChange={e => setNewHookSecret(e.target.value)} 
@@ -731,24 +731,24 @@ export default function AutomationsView() {
       {/* Create API Key Modal */}
       {showAddApiKey && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden p-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-card rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden p-6 animate-in fade-in zoom-in-95 duration-200">
             {!generatedKey ? (
               <>
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-extrabold text-xl text-slate-800 flex items-center gap-2">
+                  <h3 className="font-extrabold text-xl text-foreground flex items-center gap-2">
                     <Key className="w-5 h-5 text-rose-600" /> {isRtl ? "توليد بيانات اعتماد API جديدة" : "Generate New API Credential"}
                   </h3>
-                  <button onClick={() => setShowAddApiKey(false)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full" aria-label="Close">
+                  <button onClick={() => setShowAddApiKey(false)} className="p-1.5 text-muted-foreground hover:bg-muted rounded-full" aria-label="Close">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <div className="space-y-4 mb-6">
                   <div>
-                    <label htmlFor="apiKeyNameInput" className="block text-sm font-bold text-slate-700 mb-1">{isRtl ? "اسم بيانات الاعتماد" : "Credential Name"}</label>
+                    <label htmlFor="apiKeyNameInput" className="block text-sm font-bold text-foreground mb-1">{isRtl ? "اسم بيانات الاعتماد" : "Credential Name"}</label>
                     <input 
                       id="apiKeyNameInput"
                       type="text" 
-                      className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
+                      className="w-full p-3 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand" 
                       placeholder={isRtl ? "مثال: تكامل نظام ERP" : "e.g., ERP System Integration"} 
                       value={newKeyName} 
                       onChange={e => setNewKeyName(e.target.value)} 
@@ -778,7 +778,7 @@ export default function AutomationsView() {
                     type="text" 
                     readOnly 
                     value={generatedKey} 
-                    className="flex-1 p-3 bg-white border border-emerald-300 rounded-xl font-mono text-xs font-bold text-slate-800 select-all focus:outline-none"
+                    className="flex-1 p-3 bg-card border border-emerald-300 rounded-xl font-mono text-xs font-bold text-foreground select-all focus:outline-none"
                   />
                   <Button 
                     onClick={handleCopyKey} 

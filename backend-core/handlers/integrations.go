@@ -2,17 +2,21 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"gorm.io/datatypes"
 	"github.com/septimus-os/backend-core/database"
 	"github.com/septimus-os/backend-core/models"
 	"github.com/septimus-os/backend-core/services"
+	"github.com/septimus-os/backend-core/services/crypto"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type IntegrationDef struct {
@@ -23,6 +27,8 @@ type IntegrationDef struct {
 	Icon        string `json:"icon"`
 	Status      string `json:"status"` // "connected" or "disconnected"
 }
+
+const integrationSecretPlaceholder = "__SEPTIMUS_SECRET_REDACTED__"
 
 var availableIntegrations = []IntegrationDef{
 	{
@@ -93,29 +99,21 @@ func normalizeProvider(provider string) string {
 	return provider
 }
 
+// getWorkspaceID resolves the tenant for the current request. Used by the
+// integrations handlers (which hold provider OAuth tokens) and by the agent
+// approval queue, so it is JWT-only by construction.
+//
+// Two fallbacks were removed on 2026-07-23:
+//   - `?workspace_id=` from the query string — the same client-supplied-tenant
+//     hole already closed in SaveSettings. Anyone could name another tenant and
+//     read or overwrite its integration credentials.
+//   - a bare First(&ws) — which, when no tenant was resolvable, picked an
+//     arbitrary workspace and pointed the write at it.
+//
+// Returning uuid.Nil is the correct answer for a request with no tenant; the
+// queries built on it then match nothing instead of matching a stranger's rows.
 func getWorkspaceID(c *fiber.Ctx) uuid.UUID {
-	var workspaceID uuid.UUID
-	if val := c.Locals("workspace_id"); val != nil {
-		if str, ok := val.(string); ok {
-			if id, err := uuid.Parse(str); err == nil {
-				workspaceID = id
-			}
-		}
-	}
-	if workspaceID == uuid.Nil {
-		if queryId := c.Query("workspace_id"); queryId != "" {
-			if id, err := uuid.Parse(queryId); err == nil {
-				workspaceID = id
-			}
-		}
-	}
-	if workspaceID == uuid.Nil {
-		var ws models.Workspace
-		if err := database.GetDB(c).First(&ws).Error; err == nil {
-			workspaceID = ws.ID
-		}
-	}
-	return workspaceID
+	return CurrentWorkspaceID(c)
 }
 
 func GetIntegrations(c *fiber.Ctx) error {
@@ -162,7 +160,9 @@ func ToggleIntegration(c *fiber.Ctx) error {
 			ID:          uuid.New(),
 			WorkspaceID: workspaceID,
 			Provider:    provider,
-			AccessToken: "active_token_" + provider,
+			// A toggled integration has no credential. Do not manufacture a
+			// predictable token that downstream code could mistake for one.
+			AccessToken: "",
 		}
 		if err := database.GetDB(c).Create(&newInt).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to connect integration"})
@@ -204,6 +204,19 @@ func GetActiveIntegration(workspaceID uuid.UUID, provider string) (*models.Works
 	if err := database.DB.Where("workspace_id = ? AND provider = ?", workspaceID, provider).First(&integration).Error; err != nil {
 		return nil, false
 	}
+	var err error
+	if integration.AccessToken, err = crypto.Decrypt(integration.AccessToken); err != nil {
+		return nil, false
+	}
+	if integration.RefreshToken, err = crypto.Decrypt(integration.RefreshToken); err != nil {
+		return nil, false
+	}
+	if integration.AccessToken == "" && integration.RefreshToken == "" {
+		return nil, false
+	}
+	if err := decryptIntegrationMetadata(&integration); err != nil {
+		return nil, false
+	}
 	return &integration, true
 }
 
@@ -231,11 +244,14 @@ func GetIntegrationConfig(c *fiber.Ctx) error {
 	if metaMap == nil {
 		metaMap = make(map[string]interface{})
 	}
+	if verifyToken, ok := metaMap["verify_token"].(string); ok && verifyToken != "" {
+		metaMap["verify_token"] = integrationSecretPlaceholder
+	}
 
 	return c.JSON(fiber.Map{
-		"status":       "connected",
-		"access_token": existing.AccessToken,
-		"config":       metaMap,
+		"status":          "connected",
+		"has_credentials": existing.AccessToken != "" || existing.RefreshToken != "",
+		"config":          metaMap,
 	})
 }
 
@@ -254,16 +270,32 @@ func SaveIntegrationConfig(c *fiber.Ctx) error {
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
-
-	metaJSON, err := json.Marshal(input.Config)
-	if err != nil {
-		metaJSON = []byte("{}")
+	accessToken := input.AccessToken
+	if accessToken != "" {
+		var err error
+		accessToken, err = crypto.Encrypt(accessToken)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not encrypt integration credentials"})
+		}
 	}
 
 	var existing models.WorkspaceIntegration
-	err = database.GetDB(c).Where("workspace_id = ? AND provider = ?", workspaceID, provider).First(&existing).Error
-	if err == nil {
-		existing.AccessToken = input.AccessToken
+	queryErr := database.GetDB(c).Where("workspace_id = ? AND provider = ?", workspaceID, provider).First(&existing).Error
+	if queryErr != nil && !errors.Is(queryErr, gorm.ErrRecordNotFound) {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to load integration configuration"})
+	}
+	protectedConfig, protectErr := protectIntegrationConfig(input.Config, existing.Metadata)
+	if protectErr != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "could not encrypt integration configuration"})
+	}
+	metaJSON, err := json.Marshal(protectedConfig)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid integration configuration"})
+	}
+	if queryErr == nil {
+		if accessToken != "" {
+			existing.AccessToken = accessToken
+		}
 		existing.Metadata = datatypes.JSON(metaJSON)
 		if err := database.GetDB(c).Save(&existing).Error; err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update configuration"})
@@ -273,7 +305,7 @@ func SaveIntegrationConfig(c *fiber.Ctx) error {
 			ID:          uuid.New(),
 			WorkspaceID: workspaceID,
 			Provider:    provider,
-			AccessToken: input.AccessToken,
+			AccessToken: accessToken,
 			Metadata:    datatypes.JSON(metaJSON),
 		}
 		if err := database.GetDB(c).Create(&newInt).Error; err != nil {
@@ -281,12 +313,110 @@ func SaveIntegrationConfig(c *fiber.Ctx) error {
 		}
 	}
 
-	logIntegrationEvent(c, "integration.config.update", provider, input.Config)
+	logIntegrationEvent(c, "integration.config.update", provider, fiber.Map{
+		"updated_fields": integrationConfigKeys(input.Config),
+		"credentials":    accessToken != "",
+	})
 
 	return c.JSON(fiber.Map{
 		"status":  "connected",
 		"message": "تم حفظ الإعدادات وربط النظام بنجاح!",
 	})
+}
+
+// EnsureIntegrationCredentialsEncrypted upgrades legacy plaintext OAuth/API
+// tokens and webhook verification secrets before the HTTP server starts. A
+// migration failure is fatal so startup can never continue with a mixed,
+// silently exposed credential store.
+func EnsureIntegrationCredentialsEncrypted(db *gorm.DB) error {
+	var integrations []models.WorkspaceIntegration
+	if err := db.Find(&integrations).Error; err != nil {
+		return err
+	}
+	for _, integration := range integrations {
+		accessToken, err := crypto.Encrypt(integration.AccessToken)
+		if err != nil {
+			return fmt.Errorf("encrypt %s access token: %w", integration.ID, err)
+		}
+		refreshToken, err := crypto.Encrypt(integration.RefreshToken)
+		if err != nil {
+			return fmt.Errorf("encrypt %s refresh token: %w", integration.ID, err)
+		}
+		var metadata map[string]interface{}
+		if len(integration.Metadata) > 0 {
+			if err := json.Unmarshal(integration.Metadata, &metadata); err != nil {
+				return fmt.Errorf("decode %s metadata: %w", integration.ID, err)
+			}
+		}
+		protected, err := protectIntegrationConfig(metadata, integration.Metadata)
+		if err != nil {
+			return fmt.Errorf("encrypt %s metadata: %w", integration.ID, err)
+		}
+		metaJSON, err := json.Marshal(protected)
+		if err != nil {
+			return fmt.Errorf("encode %s metadata: %w", integration.ID, err)
+		}
+		if err := db.Model(&integration).Updates(map[string]interface{}{
+			"access_token":  accessToken,
+			"refresh_token": refreshToken,
+			"metadata":      datatypes.JSON(metaJSON),
+		}).Error; err != nil {
+			return fmt.Errorf("save %s encrypted credentials: %w", integration.ID, err)
+		}
+	}
+	return nil
+}
+
+func protectIntegrationConfig(config map[string]interface{}, existing datatypes.JSON) (map[string]interface{}, error) {
+	protected := make(map[string]interface{}, len(config))
+	for key, value := range config {
+		protected[key] = value
+	}
+	verifyToken, _ := protected["verify_token"].(string)
+	if verifyToken == integrationSecretPlaceholder {
+		var previous map[string]interface{}
+		_ = json.Unmarshal(existing, &previous)
+		protected["verify_token"] = previous["verify_token"]
+	} else if verifyToken != "" {
+		encrypted, err := crypto.Encrypt(verifyToken)
+		if err != nil {
+			return nil, err
+		}
+		protected["verify_token"] = encrypted
+	}
+	return protected, nil
+}
+
+func decryptIntegrationMetadata(integration *models.WorkspaceIntegration) error {
+	if len(integration.Metadata) == 0 {
+		return nil
+	}
+	var metadata map[string]interface{}
+	if err := json.Unmarshal(integration.Metadata, &metadata); err != nil {
+		return err
+	}
+	if value, ok := metadata["verify_token"].(string); ok {
+		plain, err := crypto.Decrypt(value)
+		if err != nil {
+			return err
+		}
+		metadata["verify_token"] = plain
+	}
+	raw, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+	integration.Metadata = datatypes.JSON(raw)
+	return nil
+}
+
+func integrationConfigKeys(config map[string]interface{}) []string {
+	keys := make([]string, 0, len(config))
+	for key := range config {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // TestIntegrationConnection tests the live connection to external systems
@@ -298,7 +428,7 @@ func TestIntegrationConnection(c *fiber.Ctx) error {
 	}
 	_ = c.BodyParser(&input)
 
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := services.NewSafeHTTPClient(5 * time.Second)
 
 	switch provider {
 	case "odoo":
@@ -307,6 +437,9 @@ func TestIntegrationConnection(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "رابط خادم Odoo مطلوب للفحص"})
 		}
 		serverURL = strings.TrimSuffix(serverURL, "/")
+		if err := services.ValidateOutboundURL(serverURL); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "رابط خادم Odoo غير مسموح"})
+		}
 		testURL := fmt.Sprintf("%s/web/webclient/version_info", serverURL)
 		req, _ := http.NewRequest("POST", testURL, strings.NewReader("{}"))
 		req.Header.Set("Content-Type", "application/json")

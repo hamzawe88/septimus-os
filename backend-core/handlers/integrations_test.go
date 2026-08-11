@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/septimus-os/backend-core/database"
+	"github.com/septimus-os/backend-core/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -143,5 +145,46 @@ func TestCreateZendeskTicketValidation(t *testing.T) {
 	resp, _ := app.Test(req)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("missing fields: status = %d, want 400", resp.StatusCode)
+	}
+}
+
+func TestIntegrationCredentialMigrationEncryptsAndDecrypts(t *testing.T) {
+	t.Setenv("SETTINGS_ENC_KEY", "integration-test-key")
+	wsID := setupIntegrationsTestDB(t)
+	id := uuid.New()
+	if err := database.DB.Exec(
+		`INSERT INTO workspace_integrations (id, workspace_id, provider, access_token, refresh_token, metadata) VALUES (?, ?, ?, ?, ?, ?)`,
+		id.String(), wsID.String(), "whatsapp", "plain-access", "plain-refresh", `{"verify_token":"plain-verify","phone_number_id":"123"}`,
+	).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := EnsureIntegrationCredentialsEncrypted(database.DB); err != nil {
+		t.Fatal(err)
+	}
+	var stored models.WorkspaceIntegration
+	if err := database.DB.First(&stored, "id = ?", id).Error; err != nil {
+		t.Fatal(err)
+	}
+	for label, value := range map[string]string{
+		"access":   stored.AccessToken,
+		"refresh":  stored.RefreshToken,
+		"metadata": string(stored.Metadata),
+	} {
+		if strings.Contains(value, "plain-") || !strings.Contains(value, "enc:v1:") {
+			t.Fatalf("%s was not encrypted: %s", label, value)
+		}
+	}
+
+	active, ok := GetActiveIntegration(wsID, "whatsapp")
+	if !ok || active.AccessToken != "plain-access" || active.RefreshToken != "plain-refresh" {
+		t.Fatalf("active integration did not decrypt tokens: %#v", active)
+	}
+	var metadata map[string]interface{}
+	if err := json.Unmarshal(active.Metadata, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	if metadata["verify_token"] != "plain-verify" || metadata["phone_number_id"] != "123" {
+		t.Fatalf("metadata was not safely decrypted: %#v", metadata)
 	}
 }

@@ -92,7 +92,7 @@ func GetMessageReplies(c *fiber.Ctx) error {
 	}
 
 	var replies []models.Message
-	
+
 	// Preload the User so we know who sent the reply
 	result := database.GetDB(c).Preload("User").
 		Where("parent_id = ?", messageID).

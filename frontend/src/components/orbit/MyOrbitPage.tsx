@@ -36,7 +36,6 @@ export default function MyOrbitPage() {
       console.error("Failed to load orbit data:", err);
     } finally {
       setIsLoading(false);
-      setIsRefreshing(false);
     }
   }, []);
 
@@ -53,9 +52,13 @@ export default function MyOrbitPage() {
     }
   }, [slotsFullAlert]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    fetchData();
+    await Promise.all([
+      fetchData(),
+      new Promise(resolve => setTimeout(resolve, 600))
+    ]);
+    setIsRefreshing(false);
   };
 
   const handleAddTask = async (title: string, sourceType: string) => {
@@ -180,7 +183,7 @@ export default function MyOrbitPage() {
 
   if (isLoading || !profile) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] text-slate-500 dark:text-slate-400 gap-3">
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] text-muted-foreground dark:text-muted-foreground gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-brand" />
         <p className="text-sm font-medium">{t("my_orbit.loading", "Loading your Orbit & focus metrics...")}</p>
       </div>
@@ -191,30 +194,30 @@ export default function MyOrbitPage() {
   const getThemeClass = (theme: string) => {
     switch (theme) {
       case "DEEP_SPACE":
-        return "bg-slate-100 dark:bg-[#0D1117]";
+        return "bg-muted dark:bg-[#0D1117]";
       case "SERENE_HORIZON":
         return "bg-gradient-to-br from-blue-50/60 via-slate-50 to-indigo-50/40 dark:from-slate-950 dark:via-blue-950/40 dark:to-slate-950";
       default: // CYBER_NEBULA / Default Clean Sovereign
-        return "bg-slate-50 dark:bg-[#1A1D21]";
+        return "bg-muted dark:bg-[#1A1D21]";
     }
   };
 
   return (
-    <div className={`flex flex-col h-[calc(100vh-64px)] overflow-hidden p-4 md:p-6 gap-4 ${getThemeClass(profile.theme_preference)}`}>
+    <div data-testid="orbit-page" className={`flex flex-col h-[calc(100vh-64px)] overflow-hidden p-4 md:p-6 gap-4 ${getThemeClass(profile.theme_preference)}`}>
       {/* Top Bar / Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0 bg-white dark:bg-slate-800/90 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 shadow-sm">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0 bg-card dark:bg-slate-800/90 backdrop-blur-md border border-border dark:border-slate-700/80 rounded-2xl p-4 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center text-white shadow-md shadow-brand/20">
             <Orbit className="w-6 h-6 animate-spin-slow" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <h1 className="text-lg font-bold text-foreground dark:text-slate-100 flex items-center gap-2">
               <span>{t("my_orbit.title", "My Orbit")}</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30 font-mono">
                 {formatLevelTitle(profile.level_title, profile.level, t)}
               </span>
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
               {t("my_orbit.subtitle", "Context-Aware Gamified Productivity Engine")}
             </p>
           </div>
@@ -222,13 +225,13 @@ export default function MyOrbitPage() {
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* View Mode Toggle Buttons */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl border border-slate-200 dark:border-slate-600">
+          <div className="flex items-center bg-muted dark:bg-slate-700/60 p-1 rounded-xl border border-border dark:border-slate-600">
             <button
               onClick={() => setViewMode("focus_first")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
                 viewMode === "focus_first"
-                  ? "bg-white dark:bg-slate-800 text-brand dark:text-blue-400 shadow-2xs font-bold"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                  ? "bg-card dark:bg-slate-800 text-brand dark:text-blue-400 shadow-2xs font-bold"
+                  : "text-muted-foreground dark:text-slate-300 hover:text-foreground dark:hover:text-white"
               }`}
             >
               <Columns className="w-3.5 h-3.5" />
@@ -238,8 +241,8 @@ export default function MyOrbitPage() {
               onClick={() => setViewMode("grid_all")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
                 viewMode === "grid_all"
-                  ? "bg-white dark:bg-slate-800 text-brand dark:text-blue-400 shadow-2xs font-bold"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                  ? "bg-card dark:bg-slate-800 text-brand dark:text-blue-400 shadow-2xs font-bold"
+                  : "text-muted-foreground dark:text-slate-300 hover:text-foreground dark:hover:text-white"
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -261,7 +264,7 @@ export default function MyOrbitPage() {
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors shadow-xs"
+            className="p-2 rounded-xl bg-muted hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-foreground dark:text-slate-200 transition-colors shadow-xs"
             title="Refresh Orbit"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
@@ -324,15 +327,15 @@ export default function MyOrbitPage() {
       {/* Slide-Over Gamification Modal when in Focus First mode */}
       {showStatsModal && viewMode === "focus_first" && (
         <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md h-full bg-white dark:bg-slate-800 p-4 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300 border-l border-slate-200 dark:border-slate-700">
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200 dark:border-slate-700">
-              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+          <div className="w-full max-w-md h-full bg-card dark:bg-slate-800 p-4 shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300 border-l border-border dark:border-slate-700">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-border dark:border-slate-700">
+              <h3 className="text-sm font-bold text-foreground dark:text-slate-100 flex items-center gap-2">
                 <Award className="w-4 h-4 text-amber-500" />
                 {t("my_orbit.gamification_title", "Productivity Pulse")}
               </h3>
               <button
                 onClick={() => setShowStatsModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                className="text-muted-foreground hover:text-muted-foreground dark:hover:text-slate-200 p-1"
               >
                 <X className="w-5 h-5" />
               </button>

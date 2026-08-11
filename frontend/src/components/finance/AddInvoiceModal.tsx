@@ -114,21 +114,21 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
-      <div className="bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden my-auto">
+      <div className="bg-card text-foreground rounded-2xl shadow-2xl border border-border w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden my-auto">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand font-bold">
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900">{t("finance.issueNewInvoice")}</h2>
-              <p className="text-xs text-slate-500">{t("finance.invoiceSystemDesc")}</p>
+              <h2 className="text-lg font-bold text-foreground">{t("finance.issueNewInvoice")}</h2>
+              <p className="text-xs text-muted-foreground">{t("finance.invoiceSystemDesc")}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+            className="p-2 text-muted-foreground hover:text-muted-foreground rounded-lg hover:bg-muted transition-colors"
             title={t("common.close")}
             aria-label={t("common.close")}
           >
@@ -139,27 +139,27 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
         {/* Modal Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-8 flex-1">
           {/* Section 1: Invoice Header & Dates */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-muted/70 p-4 rounded-xl border border-border">
             <div>
-              <label htmlFor="inv-number" className="block text-xs font-bold text-slate-700 mb-1">{t("finance.invoiceNumber")}</label>
+              <label htmlFor="inv-number" className="block text-xs font-bold text-foreground mb-1">{t("finance.invoiceNumber")}</label>
               <input
                 id="inv-number"
                 title={t("finance.invoiceNumber")}
                 aria-label={t("finance.invoiceNumber")}
                 type="text"
                 required
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono font-bold text-slate-800 focus:ring-2 focus:ring-brand outline-none"
+                className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm font-mono font-bold text-foreground focus:ring-2 focus:ring-brand outline-none"
                 value={formData.invoiceNumber}
                 onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
               />
             </div>
             <div>
-              <label htmlFor="inv-status" className="block text-xs font-bold text-slate-700 mb-1">{t("finance.invoiceStatus")}</label>
+              <label htmlFor="inv-status" className="block text-xs font-bold text-foreground mb-1">{t("finance.invoiceStatus")}</label>
               <select
                 id="inv-status"
                 title={t("finance.invoiceStatus")}
                 aria-label={t("finance.invoiceStatus")}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-brand outline-none"
+                className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm font-semibold text-foreground focus:ring-2 focus:ring-brand outline-none"
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               >
@@ -169,27 +169,27 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
               </select>
             </div>
             <div>
-              <label htmlFor="inv-issue-date" className="block text-xs font-bold text-slate-700 mb-1">{t("finance.issueDate")}</label>
+              <label htmlFor="inv-issue-date" className="block text-xs font-bold text-foreground mb-1">{t("finance.issueDate")}</label>
               <input
                 id="inv-issue-date"
                 title={t("finance.issueDate")}
                 aria-label={t("finance.issueDate")}
                 type="date"
                 required
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono text-slate-800 focus:ring-2 focus:ring-brand outline-none"
+                className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground focus:ring-2 focus:ring-brand outline-none"
                 value={formData.issueDate}
                 onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })}
               />
             </div>
             <div>
-              <label htmlFor="inv-due-date" className="block text-xs font-bold text-slate-700 mb-1">{t("finance.dueDate")}</label>
+              <label htmlFor="inv-due-date" className="block text-xs font-bold text-foreground mb-1">{t("finance.dueDate")}</label>
               <input
                 id="inv-due-date"
                 title={t("finance.dueDate")}
                 aria-label={t("finance.dueDate")}
                 type="date"
                 required
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono text-slate-800 focus:ring-2 focus:ring-brand outline-none"
+                className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm font-mono text-foreground focus:ring-2 focus:ring-brand outline-none"
                 value={formData.dueDate}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
               />
@@ -198,13 +198,13 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
 
           {/* Section 2: Client & Tax Details */}
           <div>
-            <h3 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+            <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
               <Building2 className="w-4 h-4 text-brand" />
               {t("finance.clientTaxDetails")}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label htmlFor="client-name" className="block text-xs font-semibold text-slate-600 mb-1">{t("finance.clientName")} <span className="text-rose-500">*</span></label>
+                <label htmlFor="client-name" className="block text-xs font-semibold text-muted-foreground mb-1">{t("finance.clientName")} <span className="text-destructive">*</span></label>
                 <input
                   id="client-name"
                   title={t("finance.clientName")}
@@ -212,13 +212,13 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                   type="text"
                   required
                   placeholder={t("finance.clientNamePlaceholder")}
-                  className="w-full border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand outline-none"
+                  className="w-full border border-border rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand outline-none"
                   value={formData.clientName}
                   onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
                 />
               </div>
               <div>
-                <label htmlFor="client-company" className="block text-xs font-semibold text-slate-600 mb-1">{t("finance.clientCompany")} <span className="text-rose-500">*</span></label>
+                <label htmlFor="client-company" className="block text-xs font-semibold text-muted-foreground mb-1">{t("finance.clientCompany")} <span className="text-destructive">*</span></label>
                 <input
                   id="client-company"
                   title={t("finance.clientCompany")}
@@ -226,46 +226,46 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                   type="text"
                   required
                   placeholder={t("finance.clientCompanyPlaceholder")}
-                  className="w-full border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand outline-none"
+                  className="w-full border border-border rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand outline-none"
                   value={formData.clientCompany}
                   onChange={(e) => setFormData({ ...formData, clientCompany: e.target.value })}
                 />
               </div>
               <div>
-                <label htmlFor="client-tax-id" className="block text-xs font-semibold text-slate-600 mb-1">{t("finance.clientTaxId")}</label>
+                <label htmlFor="client-tax-id" className="block text-xs font-semibold text-muted-foreground mb-1">{t("finance.clientTaxId")}</label>
                 <input
                   id="client-tax-id"
                   title={t("finance.clientTaxId")}
                   aria-label={t("finance.clientTaxId")}
                   type="text"
                   placeholder={t("finance.clientTaxIdPlaceholder")}
-                  className="w-full border border-slate-300 rounded-lg px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-brand outline-none"
+                  className="w-full border border-border rounded-lg px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-brand outline-none"
                   value={formData.clientTaxId}
                   onChange={(e) => setFormData({ ...formData, clientTaxId: e.target.value })}
                 />
               </div>
               <div className="md:col-span-2">
-                <label htmlFor="client-address" className="block text-xs font-semibold text-slate-600 mb-1">{t("finance.clientAddress")}</label>
+                <label htmlFor="client-address" className="block text-xs font-semibold text-muted-foreground mb-1">{t("finance.clientAddress")}</label>
                 <input
                   id="client-address"
                   title={t("finance.clientAddress")}
                   aria-label={t("finance.clientAddress")}
                   type="text"
                   placeholder={t("finance.clientAddressPlaceholder")}
-                  className="w-full border border-slate-300 rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand outline-none"
+                  className="w-full border border-border rounded-lg px-3.5 py-2 text-sm focus:ring-2 focus:ring-brand outline-none"
                   value={formData.clientAddress}
                   onChange={(e) => setFormData({ ...formData, clientAddress: e.target.value })}
                 />
               </div>
               <div>
-                <label htmlFor="client-email" className="block text-xs font-semibold text-slate-600 mb-1">{t("finance.clientEmail")}</label>
+                <label htmlFor="client-email" className="block text-xs font-semibold text-muted-foreground mb-1">{t("finance.clientEmail")}</label>
                 <input
                   id="client-email"
                   title={t("finance.clientEmail")}
                   aria-label={t("finance.clientEmail")}
                   type="email"
                   placeholder="billing@client.com"
-                  className="w-full border border-slate-300 rounded-lg px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-brand outline-none"
+                  className="w-full border border-border rounded-lg px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-brand outline-none"
                   value={formData.clientEmail}
                   onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
                 />
@@ -276,7 +276,7 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
           {/* Section 3: Dynamic Line Items Table */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Calculator className="w-4 h-4 text-brand" />
                 {t("finance.lineItemsTable")}
               </h3>
@@ -294,10 +294,10 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
               </Button>
             </div>
 
-            <div className="border border-slate-200 rounded-xl overflow-x-auto bg-slate-50/40">
+            <div className="border border-border rounded-xl overflow-x-auto bg-muted/40">
               <table className="w-full text-end border-collapse min-w-[650px]">
                 <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-700">
+                  <tr className="bg-muted border-b border-border text-xs font-bold text-foreground">
                     <th className="py-3 px-3 w-5/12">{t("finance.descriptionLabel")}</th>
                     <th className="py-3 px-2 w-2/12 text-center">{t("finance.quantityLabel")}</th>
                     <th className="py-3 px-2 w-2/12 text-start">{t("finance.unitPriceLabel")}</th>
@@ -307,7 +307,7 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                     <th className="py-3 px-2 w-10 text-center"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
+                <tbody className="divide-y divide-border bg-card">
                   {lineItems.map((item, idx) => {
                     const sub = item.quantity * item.unitPrice;
                     const disc = (sub * item.discountRate) / 100;
@@ -315,7 +315,7 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                     const tot = sub - disc + tax;
 
                     return (
-                      <tr key={item.id} className="hover:bg-slate-50/50">
+                      <tr key={item.id} className="hover:bg-muted/50">
                         <td className="p-2">
                           <input
                             title={t("finance.descriptionTitle")}
@@ -323,7 +323,7 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                             type="text"
                             required
                             placeholder={`${t("finance.itemNum")} ${idx + 1}: ${t("finance.itemDescPlaceholder")}`}
-                            className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:ring-1 focus:ring-brand outline-none font-medium"
+                            className="w-full border border-border rounded-lg px-3 py-1.5 text-sm focus:ring-1 focus:ring-brand outline-none font-medium"
                             value={item.description}
                             onChange={(e) => handleItemChange(item.id, "description", e.target.value)}
                           />
@@ -335,7 +335,7 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                             type="number"
                             min="1"
                             required
-                            className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center font-mono font-medium focus:ring-1 focus:ring-brand outline-none"
+                            className="w-full border border-border rounded-lg px-2 py-1.5 text-sm text-center font-mono font-medium focus:ring-1 focus:ring-brand outline-none"
                             value={item.quantity}
                             onChange={(e) => handleItemChange(item.id, "quantity", e.target.value)}
                           />
@@ -348,7 +348,7 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                             min="0"
                             step="0.01"
                             required
-                            className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-start font-mono font-medium focus:ring-1 focus:ring-brand outline-none"
+                            className="w-full border border-border rounded-lg px-2 py-1.5 text-sm text-start font-mono font-medium focus:ring-1 focus:ring-brand outline-none"
                             value={item.unitPrice}
                             onChange={(e) => handleItemChange(item.id, "unitPrice", e.target.value)}
                           />
@@ -360,7 +360,7 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                             type="number"
                             min="0"
                             max="100"
-                            className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center font-mono text-slate-600 focus:ring-1 focus:ring-brand outline-none"
+                            className="w-full border border-border rounded-lg px-2 py-1.5 text-sm text-center font-mono text-muted-foreground focus:ring-1 focus:ring-brand outline-none"
                             value={item.discountRate}
                             onChange={(e) => handleItemChange(item.id, "discountRate", e.target.value)}
                           />
@@ -369,7 +369,7 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                           <select
                             title={t("finance.taxTitle")}
                             aria-label={t("finance.taxTitle")}
-                            className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-center font-mono text-slate-600 focus:ring-1 focus:ring-brand outline-none bg-white"
+                            className="w-full border border-border rounded-lg px-2 py-1.5 text-sm text-center font-mono text-muted-foreground focus:ring-1 focus:ring-brand outline-none bg-card"
                             value={item.taxRate}
                             onChange={(e) => handleItemChange(item.id, "taxRate", e.target.value)}
                           >
@@ -378,7 +378,7 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                             <option value={5}>5%</option>
                           </select>
                         </td>
-                        <td className="p-2 text-start font-mono font-bold text-slate-800">
+                        <td className="p-2 text-start font-mono font-bold text-foreground">
                           ${tot.toFixed(2)}
                         </td>
                         <td className="p-2 text-center">
@@ -386,7 +386,7 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                             type="button"
                             onClick={() => handleRemoveItem(item.id)}
                             disabled={lineItems.length === 1}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors disabled:opacity-30"
+                            className="p-1.5 text-muted-foreground hover:text-destructive rounded hover:bg-destructive/10 transition-colors disabled:opacity-30"
                             title={t("finance.removeItem")}
                             aria-label={t("finance.removeItem")}
                           >
@@ -402,22 +402,22 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
 
             {/* Auto Calculation Summary Box */}
             <div className="mt-4 flex justify-end">
-              <div className="w-full md:w-80 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
-                <div className="flex justify-between text-xs text-slate-600">
+              <div className="w-full md:w-80 bg-muted p-4 rounded-xl border border-border space-y-2">
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{t("finance.subtotalLabel")}</span>
                   <span className="font-mono font-semibold">${computedSubtotal.toFixed(2)}</span>
                 </div>
                 {computedDiscount > 0 && (
-                  <div className="flex justify-between text-xs text-rose-600 font-medium">
+                  <div className="flex justify-between text-xs text-destructive font-medium">
                     <span>{t("finance.totalDiscountLabel")}</span>
                     <span className="font-mono">-${computedDiscount.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-xs text-slate-600">
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{t("finance.vatLabel")}</span>
                   <span className="font-mono font-semibold">${computedTax.toFixed(2)}</span>
                 </div>
-                <div className="border-t border-slate-300 pt-2 flex justify-between items-center text-sm font-black text-slate-900">
+                <div className="border-t border-border pt-2 flex justify-between items-center text-sm font-black text-foreground">
                   <span>{t("finance.grandTotalLabel")}</span>
                   <span className="font-mono text-lg text-brand">${computedGrandTotal.toFixed(2)}</span>
                 </div>
@@ -426,14 +426,14 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
           </div>
 
           {/* Section 4: Payment Terms & Notes */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border">
             <div>
-              <label htmlFor="pay-terms" className="block text-xs font-semibold text-slate-700 mb-1">{t("finance.paymentTermsLabel")}</label>
+              <label htmlFor="pay-terms" className="block text-xs font-semibold text-foreground mb-1">{t("finance.paymentTermsLabel")}</label>
               <select
                 id="pay-terms"
                 title={t("finance.paymentTermsLabel")}
                 aria-label={t("finance.paymentTermsLabel")}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-brand outline-none mb-3"
+                className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-brand outline-none mb-3"
                 value={formData.paymentTerms}
                 onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
               >
@@ -442,26 +442,26 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
                 <option value="net_30">{t("finance.net30")}</option>
               </select>
 
-              <label htmlFor="iban-field" className="block text-xs font-semibold text-slate-700 mb-1">{t("finance.ibanLabel")}</label>
+              <label htmlFor="iban-field" className="block text-xs font-semibold text-foreground mb-1">{t("finance.ibanLabel")}</label>
               <input
                 id="iban-field"
                 title={t("finance.ibanLabel")}
                 aria-label={t("finance.ibanLabel")}
                 type="text"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-brand outline-none"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-brand outline-none"
                 value={formData.bankIban}
                 onChange={(e) => setFormData({ ...formData, bankIban: e.target.value })}
               />
             </div>
 
             <div>
-              <label htmlFor="inv-notes" className="block text-xs font-semibold text-slate-700 mb-1">{t("finance.invoiceNotesLabel")}</label>
+              <label htmlFor="inv-notes" className="block text-xs font-semibold text-foreground mb-1">{t("finance.invoiceNotesLabel")}</label>
               <textarea
                 id="inv-notes"
                 title={t("finance.invoiceNotesLabel")}
                 aria-label={t("finance.invoiceNotesLabel")}
                 rows={4}
-                className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand outline-none resize-none"
+                className="w-full border border-border rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand outline-none resize-none"
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               />
@@ -469,9 +469,9 @@ export default function AddInvoiceModal({ isOpen, onClose, onSuccess }: AddInvoi
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between pt-6 border-t border-slate-200">
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <Sparkles className="w-4 h-4 text-amber-500" />
+          <div className="flex items-center justify-between pt-6 border-t border-border">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Sparkles className="w-4 h-4 text-warning" />
               <span>{t("finance.aiJSONBNote")}</span>
             </div>
             <div className="flex items-center gap-3">

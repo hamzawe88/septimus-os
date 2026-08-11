@@ -1,8 +1,9 @@
 package handlers
 
 import (
-	"encoding/json"
+	"fmt"
 	"log"
+	"regexp"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -24,10 +25,42 @@ type CreateChannelRequest struct {
 func CreateChannel(c *fiber.Ctx) error {
 	workspaceID, _ := c.Locals("workspace_id").(string)
 	userID, _ := c.Locals("user_id").(string)
+	workspaceUUID := database.ParseUUID(workspaceID)
+	creatorUUID := database.ParseUUID(userID)
+	if workspaceUUID == uuid.Nil || creatorUUID == uuid.Nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid workspace or user context"})
+	}
 
 	var req CreateChannelRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
+	}
+
+	tx := database.GetDB(c)
+	var creator models.User
+	if err := tx.Select("id").Where("id = ? AND workspace_id = ?", creatorUUID, workspaceUUID).First(&creator).Error; err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "User is not a workspace member"})
+	}
+
+	// Resolve and validate every invite before creating the channel. This keeps
+	// a caller from attaching another tenant's user to a private channel and
+	// avoids committing a half-created channel if one invite is invalid.
+	invitees := make([]uuid.UUID, 0, len(req.UserIDs))
+	seen := map[uuid.UUID]bool{creatorUUID: true}
+	for _, idStr := range req.UserIDs {
+		inviteeID, err := uuid.Parse(strings.TrimSpace(idStr))
+		if err != nil || inviteeID == uuid.Nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid invited user ID"})
+		}
+		if seen[inviteeID] {
+			continue
+		}
+		var invitee models.User
+		if err := tx.Select("id").Where("id = ? AND workspace_id = ?", inviteeID, workspaceUUID).First(&invitee).Error; err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invited user is not a workspace member"})
+		}
+		seen[inviteeID] = true
+		invitees = append(invitees, inviteeID)
 	}
 
 	chanType := "PUBLIC"
@@ -43,10 +76,8 @@ func CreateChannel(c *fiber.Ctx) error {
 	// and committing it detached the outer transaction and every write failed
 	// with "sql: transaction has already been committed or rolled back", so use
 	// the request-scoped handle directly and let the middleware commit.
-	tx := database.GetDB(c)
-
 	channel := models.Channel{
-		WorkspaceID: database.ParseUUID(workspaceID),
+		WorkspaceID: workspaceUUID,
 		Name:        req.Name,
 		Type:        chanType,
 	}
@@ -56,19 +87,22 @@ func CreateChannel(c *fiber.Ctx) error {
 	}
 
 	// Add creator
-	tx.Create(&models.ChannelMember{
+	if err := tx.Create(&models.ChannelMember{
 		ChannelID: channel.ID,
-		UserID:    database.ParseUUID(userID),
+		UserID:    creatorUUID,
 		Role:      "OWNER",
-	})
+	}).Error; err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Could not add channel owner")
+	}
 
 	// Add other users if provided (for DMs or private groups)
-	for _, idStr := range req.UserIDs {
-		if idStr != userID {
-			tx.Create(&models.ChannelMember{
-				ChannelID: channel.ID,
-				UserID:    database.ParseUUID(idStr),
-			})
+	for _, inviteeID := range invitees {
+		if err := tx.Create(&models.ChannelMember{
+			ChannelID: channel.ID,
+			UserID:    inviteeID,
+			Role:      "MEMBER",
+		}).Error; err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Could not add channel member")
 		}
 	}
 
@@ -87,10 +121,22 @@ func GetChannels(c *fiber.Ctx) error {
 		Joins("LEFT JOIN channel_members ON channel_members.channel_id = channels.id").
 		Where("channels.workspace_id = ?", workspaceID).
 		Where("channels.type = 'PUBLIC' OR channel_members.user_id = ?", userID).
+		Preload("Members.User").
 		Find(&channels).Error
 
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Could not fetch channels"})
+	}
+
+	for i := range channels {
+		if channels[i].Type == "DM" && channels[i].Name == "" {
+			for _, m := range channels[i].Members {
+				if m.UserID.String() != userID && m.User.Email != "" {
+					channels[i].Name = m.User.Email
+					break
+				}
+			}
+		}
 	}
 
 	return c.JSON(channels)
@@ -101,6 +147,12 @@ func GetChannels(c *fiber.Ctx) error {
 func GetMessages(c *fiber.Ctx) error {
 	channelID := c.Params("id")
 	userID, _ := c.Locals("user_id").(string)
+	workspaceID := CurrentWorkspaceID(c)
+
+	var channel models.Channel
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", channelID, workspaceID).First(&channel).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Channel not found"})
+	}
 
 	// Check membership
 	var memberCount int64
@@ -109,8 +161,6 @@ func GetMessages(c *fiber.Ctx) error {
 		Count(&memberCount)
 
 	if memberCount == 0 {
-		var channel models.Channel
-		database.GetDB(c).First(&channel, "id = ?", channelID)
 		if channel.Type != "PUBLIC" {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not a member of this private channel"})
 		}
@@ -124,14 +174,14 @@ func GetMessages(c *fiber.Ctx) error {
 	beforeMsgID := c.Query("before") // cursor: load messages before this ID
 
 	query := database.GetDB(c).Preload("User").
-		Where("channel_id = ? AND parent_id IS NULL", channelID).
+		Where("channel_id = ? AND workspace_id = ? AND parent_id IS NULL", channelID, workspaceID).
 		Order("created_at DESC").
 		Limit(limit)
 
 	if beforeMsgID != "" {
 		// Cursor pagination: get messages older than the cursor message's timestamp
 		var cursor models.Message
-		if err := database.GetDB(c).First(&cursor, "id = ?", beforeMsgID).Error; err == nil {
+		if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", beforeMsgID, workspaceID).First(&cursor).Error; err == nil {
 			query = query.Where("created_at < ?", cursor.CreatedAt)
 		}
 	}
@@ -162,16 +212,17 @@ func GetMessages(c *fiber.Ctx) error {
 }
 
 type SendMessageRequest struct {
-	Content        string     `json:"content"`
-	ParentID       *string    `json:"parent_id,omitempty"`
-	AttachmentURL  string     `json:"AttachmentURL,omitempty"`
-	AttachmentType string     `json:"AttachmentType,omitempty"`
+	Content        string  `json:"content"`
+	ParentID       *string `json:"parent_id,omitempty"`
+	AttachmentURL  string  `json:"AttachmentURL,omitempty"`
+	AttachmentType string  `json:"AttachmentType,omitempty"`
 }
 
 // SendMessage handles HTTP POST for sending a chat message, saves it, and pushes to Centrifugo
 func SendMessage(c *fiber.Ctx) error {
 	channelID := c.Params("id")
 	userID, _ := c.Locals("user_id").(string)
+	workspaceID := CurrentWorkspaceID(c)
 
 	var req SendMessageRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -179,6 +230,10 @@ func SendMessage(c *fiber.Ctx) error {
 	}
 	if req.Content == "" && req.AttachmentURL == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Empty message"})
+	}
+	var channel models.Channel
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", channelID, workspaceID).First(&channel).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Channel not found"})
 	}
 
 	var member models.ChannelMember
@@ -195,6 +250,10 @@ func SendMessage(c *fiber.Ctx) error {
 	var parentUUID *uuid.UUID
 	if req.ParentID != nil {
 		pu := database.ParseUUID(*req.ParentID)
+		var parent models.Message
+		if pu == uuid.Nil || database.GetDB(c).Where("id = ? AND channel_id = ? AND workspace_id = ?", pu, channelUUID, workspaceID).First(&parent).Error != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid parent message"})
+		}
 		parentUUID = &pu
 	}
 
@@ -217,24 +276,81 @@ func SendMessage(c *fiber.Ctx) error {
 
 	// Publish to Centrifugo
 	wsPayload := map[string]interface{}{
-		"type": "chat_message",
+		"type":    "chat_message",
 		"message": dbMsg,
 	}
-	PublishToCentrifugo(channelID, wsPayload)
+	PublishToCentrifugo(ChannelChannel(channelUUID), wsPayload)
+
+	// --- Mention Parsing & Notification ---
+	mentionRegex := regexp.MustCompile(`(?:^|\s)@([\p{L}\p{N}_.-]+)`)
+	matches := mentionRegex.FindAllStringSubmatch(req.Content, -1)
+	if len(matches) > 0 {
+		var uniqueDisplayNames []string
+		seen := make(map[string]bool)
+		for _, match := range matches {
+			if len(match) > 1 {
+				name := match[1]
+				if !seen[name] {
+					seen[name] = true
+					uniqueDisplayNames = append(uniqueDisplayNames, name)
+				}
+			}
+		}
+
+		if len(uniqueDisplayNames) > 0 {
+			var mentionedUsers []models.User
+			for _, name := range uniqueDisplayNames {
+				var users []models.User
+				// Attempt to match the mention to the beginning of the email (e.g. @ahmed matches ahmed@domain.com)
+				database.GetDB(c).Where("workspace_id = ? AND LOWER(email) LIKE ?", workspaceID, strings.ToLower(name)+"%").Find(&users)
+				mentionedUsers = append(mentionedUsers, users...)
+			}
+
+			for _, mu := range mentionedUsers {
+				if mu.ID == userUUID {
+					continue
+				}
+
+				// Safely format the sender name from their email prefix
+				senderName := "Unknown"
+				if dbMsg.User != nil {
+					senderName = strings.Split(dbMsg.User.Email, "@")[0]
+				}
+
+				notification := models.Notification{
+					UserID:  mu.ID.String(),
+					Type:    "mention",
+					Title:   "Mention in chat",
+					Message: fmt.Sprintf("%s mentioned you in a message.", senderName),
+					Link:    "/chat/" + channelID,
+				}
+				if err := database.GetDB(c).Create(&notification).Error; err == nil {
+					notifPayload := map[string]interface{}{
+						"type":         "notification",
+						"notification": notification,
+					}
+					PublishToCentrifugo(UserChannel(mu.ID), notifPayload)
+				}
+			}
+		}
+	}
+	// --------------------------------------
 
 	// Trigger AI workflow via NATS
 	if events.NatsConn != nil {
-		natsPayload, _ := json.Marshal(map[string]interface{}{
+		// Tenant from the persisted row — see the websocket publisher.
+		if err := events.PublishTenantEvent("events.messages.created", dbMsg.WorkspaceID, map[string]interface{}{
 			"event":      "events.messages.created",
 			"message_id": dbMsg.ID,
 			"channel_id": dbMsg.ChannelID,
 			"content":    dbMsg.Content,
 			"sender_id":  dbMsg.SenderID,
-		})
-		events.PublishEvent("events.messages.created", natsPayload)
+		}); err != nil {
+			log.Printf("events.messages.created not published for message %s: %v", dbMsg.ID, err)
+		}
 	}
 
-	go ExecuteWorkflowsByTrigger("message.created", map[string]interface{}{
+	go ExecuteWorkflowsByTrigger(dbMsg.WorkspaceID, "message.created", map[string]interface{}{
 		"message_id": dbMsg.ID.String(),
 		"channel_id": dbMsg.ChannelID.String(),
 		"content":    dbMsg.Content,
@@ -259,14 +375,14 @@ func UpdateMessage(c *fiber.Ctx) error {
 	}
 
 	var dbMsg models.Message
-	if err := database.GetDB(c).Preload("User").First(&dbMsg, "id = ?", messageID).Error; err != nil {
+	if err := database.GetDB(c).Preload("User").Where("id = ? AND workspace_id = ?", messageID, CurrentWorkspaceID(c)).First(&dbMsg).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Message not found"})
 	}
 
 	// Verify ownership or admin
 	if dbMsg.SenderID.String() != userID {
 		var user models.User
-		if err := database.GetDB(c).First(&user, "id = ?", userID).Error; err == nil {
+		if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", userID, CurrentWorkspaceID(c)).First(&user).Error; err == nil {
 			if user.Role != "ADMIN" && user.Role != "admin" {
 				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not authorized to edit this message"})
 			}
@@ -285,7 +401,7 @@ func UpdateMessage(c *fiber.Ctx) error {
 		"type":    "message_updated",
 		"message": dbMsg,
 	}
-	PublishToCentrifugo(dbMsg.ChannelID.String(), wsPayload)
+	PublishToCentrifugo(ChannelChannel(dbMsg.ChannelID), wsPayload)
 
 	return c.JSON(dbMsg)
 }
@@ -296,14 +412,14 @@ func DeleteMessage(c *fiber.Ctx) error {
 	userID, _ := c.Locals("user_id").(string)
 
 	var dbMsg models.Message
-	if err := database.GetDB(c).First(&dbMsg, "id = ?", messageID).Error; err != nil {
+	if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", messageID, CurrentWorkspaceID(c)).First(&dbMsg).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Message not found"})
 	}
 
 	// Verify ownership or admin
 	if dbMsg.SenderID.String() != userID {
 		var user models.User
-		if err := database.GetDB(c).First(&user, "id = ?", userID).Error; err == nil {
+		if err := database.GetDB(c).Where("id = ? AND workspace_id = ?", userID, CurrentWorkspaceID(c)).First(&user).Error; err == nil {
 			if user.Role != "ADMIN" && user.Role != "admin" {
 				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Not authorized to delete this message"})
 			}
@@ -325,8 +441,7 @@ func DeleteMessage(c *fiber.Ctx) error {
 		"message_id": msgUUID,
 		"channel_id": channelID,
 	}
-	PublishToCentrifugo(channelID, wsPayload)
+	PublishToCentrifugo(ChannelChannel(dbMsg.ChannelID), wsPayload)
 
 	return c.JSON(fiber.Map{"status": "deleted", "id": msgUUID})
 }
-

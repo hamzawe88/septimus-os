@@ -19,7 +19,7 @@ type CreateTemplateRequest struct {
 	HeaderHTML        string                 `json:"header_html"`
 	CompanyFooterData string                 `json:"company_footer_data"` // JSON string
 	FooterHTML        string                 `json:"footer_html"`
-	StylingConfig     string                 `json:"styling_config"`      // JSON string
+	StylingConfig     string                 `json:"styling_config"` // JSON string
 	LayoutConfig      map[string]interface{} `json:"layout_config"`
 	IsDefault         bool                   `json:"is_default"`
 }

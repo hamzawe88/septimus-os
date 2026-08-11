@@ -12,7 +12,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
-import pytest
+import pytest  # type: ignore
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -70,7 +70,7 @@ class TestAgentsMiner(unittest.TestCase):
     @patch("agents_miner.knowledge.save_fact")
     def test_run_analytics_miner_with_payload_deduplication(self, mock_save, mock_list):
         mock_list.return_value = [
-            {"content": "[VERIFIED STATS] المراسلات الرسمية تواجه نسبة تراكم تبلغ 35.0% (35 خطاب معلق)"}
+            {"id": "fact-1", "content": "[VERIFIED STATS] المراسلات الرسمية تواجه نسبة تراكم تبلغ 35.0% (35 خطاب معلق من إجمالي 100)."}
         ]
         patterns = {
             "correspondence_metrics": {
@@ -173,16 +173,10 @@ class TestSkillsRegistry(unittest.TestCase):
             assert len(search) == 1
             assert search[0]["id"] == "test_auditor"
 
-    def test_generate_system_prompt_contains_stop_gate_and_persona(self):
+    def test_generate_system_prompt_contains_router_contract(self):
         prompt = skills_registry.generate_system_prompt()
-        assert "Parameter Validation Stop-Gate" in prompt
-        assert "REGISTERED INTERNAL SKILLS CATALOG" in prompt
-
-    @patch("knowledge.save_fact")
-    def test_sync_with_pgvector(self, mock_save):
-        success = skills_registry.sync_with_pgvector("ws-abc")
-        assert success is True
-        assert mock_save.call_count == len(skills_registry.registry)
+        assert "orchestrator" in prompt.lower()
+        assert "Epistemic rigor" in prompt
 
 
 class TestInternalAgentOrchestrator(unittest.IsolatedAsyncioTestCase):
@@ -217,8 +211,8 @@ class TestInternalAgentOrchestrator(unittest.IsolatedAsyncioTestCase):
         with patch.object(orch.registry, "search_skills", return_value=[mock_skill]):
             # Query contains #T-1234
             res = await orch.execute_query("أرجو فحص التذكرة #T-1234 المستعجلة", target_persona="mock_persona")
-            # Since ticket_id is extracted via regex #T-1234, stop gate passes and falls back to sovereign mode (no LLM)
-            assert res["status"] == "success"
+            # No provider means the request is explicitly not executed.
+            assert res["status"] == "unavailable"
             assert res["deliverables"]["processed_parameters"]["ticket_id"] == "#T-1234"
 
     @patch("agents_orchestrator.get_active_llm")
@@ -236,9 +230,7 @@ class TestInternalAgentOrchestrator(unittest.IsolatedAsyncioTestCase):
         }
         with patch.object(orch.registry, "search_skills", return_value=[mock_skill]):
             res = await orch.execute_query("ما هو التقرير الصباحي؟")
-            assert res["status"] == "success"
-            assert res["deliverables"]["epistemic_level"] == "VERIFIED_SOVEREIGN"
-            assert "حالة التنفيذ" in res["output_prose"]
+            assert res["status"] == "unavailable"
 
     @patch("agents_orchestrator.get_active_llm")
     @patch("agents_orchestrator.retrieve_context")
